@@ -59,8 +59,14 @@ representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community moderators responsible for enforcement at
-the [MangaBaka Discord server](ttps://mangabaka.org/discord).
+reported through the project's GitHub Issues page:
+
+https://github.com/Brainer-00/MangaBaka-IOS/issues
+
+Reports should include enough context for the maintainers to understand the
+incident while avoiding the unnecessary disclosure of private or sensitive
+information.
+
 All complaints will be reviewed and investigated promptly and fairly.
 
 All community moderators are obligated to respect the privacy and security of the

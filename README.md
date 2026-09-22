@@ -8,7 +8,14 @@
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-iOS-lightgrey.svg)](#)
-[![Sideload](https://img.shields.io/badge/install-Sideloadly%20%7C%20AltStore%20%7C%20SideStore-blueviolet)](#)
+[![iOS Build](https://github.com/Brainer-00/MangaBaka-IOS/actions/workflows/ios-sideload.yml/badge.svg)](https://github.com/Brainer-00/MangaBaka-IOS/actions/workflows/ios-sideload.yml)
+[![Sideload](https://img.shields.io/badge/install-Sideloadly-blueviolet)](#)
+
+<br><br>
+
+<img src="./.github/readme-images/ios-app-showcase.png"
+     alt="MangaBaka iOS app showcase"
+     width="100%" />
 
 </div>
 

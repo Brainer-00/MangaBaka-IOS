@@ -1,20 +1,40 @@
 ---
 name: Feature request
-about: Suggest an idea for this project
-title: ''
-labels: ''
+about: Suggest an improvement or new feature for MangaBaka iOS
+title: "[Feature] "
+labels: enhancement
 assignees: ''
-
 ---
 
-**Is your feature request related to a problem? Please describe.**
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+## Feature summary
 
-**Describe the solution you'd like**
-A clear and concise description of what you want to happen.
+Describe the feature or improvement you would like to see.
 
-**Describe alternatives you've considered**
-A clear and concise description of any alternative solutions or features you've considered.
+## Problem or use case
 
-**Additional context**
-Add any other context or screenshots about the feature request here.
+What problem would this solve, or what would this make easier for MangaBaka iOS users?
+
+## Proposed solution
+
+Describe how you think the feature should work.
+
+## Alternatives considered
+
+Describe any alternative approaches or workarounds you have considered.
+
+## iOS-specific details
+
+If this request relates to a particular iOS behavior, include details such as:
+
+- iPhone/iPad model
+- iOS version
+- installation method
+- whether the feature depends on sideloading, deep links, notifications, background behavior, or other iOS-specific functionality
+
+## Screenshots or mockups
+
+Add screenshots, sketches, or mockups if they help explain the idea.
+
+## Additional context
+
+Add any other information that may help evaluate or implement the request.
