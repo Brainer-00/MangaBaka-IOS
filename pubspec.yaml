@@ -66,6 +66,7 @@ flutter:
   assets:
     - .env
     - assets/lang/
+    - assets/fonts/licenses/
     - assets/mangabaka512.png
     - assets/series_222_cover.jpg
   uses-material-design: true
