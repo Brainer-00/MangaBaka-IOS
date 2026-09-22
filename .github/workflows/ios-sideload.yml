@@ -52,16 +52,6 @@ jobs:
       - name: Build unsigned iOS application
         run: flutter build ios --release --no-codesign
 
-      - name: Upload dependency lockfiles
-        uses: actions/upload-artifact@v7
-        with:
-          name: MangaBaka-iOS-lockfiles
-          path: |
-            pubspec.lock
-            ios/Podfile.lock
-          if-no-files-found: error
-          retention-days: 1
-
       - name: Package IPA
         run: |
           VERSION_FULL=$(grep '^version:' pubspec.yaml | awk '{print $2}')
