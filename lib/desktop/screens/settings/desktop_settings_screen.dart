@@ -214,11 +214,15 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
             children: [
               Image.asset('assets/mangabaka512.png', width: 22, height: 22),
               const SizedBox(width: 10),
-              Text(
-                '${AppConstants.appName} v${AppConstants.appVersion}',
-                style: AppTypography.sans(
-                  color: AppConstants.textMutedColor,
-                  fontSize: 12.5,
+              Expanded(
+                child: Text(
+                  '${AppConstants.appName} v${AppConstants.appVersion}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.sans(
+                    color: AppConstants.textMutedColor,
+                    fontSize: 12.5,
+                  ),
                 ),
               ),
             ],
