@@ -1,0 +1,241 @@
+import 'package:mangabaka_app/core/database/database.dart';
+import 'package:mangabaka_app/features/profile/services/snapshot_service.dart';
+import 'package:mangabaka_app/shared/widgets/app_shortcuts.dart';
+import 'package:mangabaka_app/features/profile/services/statistics_service.dart';
+import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/features/profile/screens/settings_screen.dart';
+import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
+import 'package:mangabaka_app/features/library/services/library_service.dart';
+import 'package:mangabaka_app/core/di/service_locator.dart';
+import 'package:mangabaka_app/core/localization/localization_service.dart';
+import 'package:mangabaka_app/features/profile/widgets/login/mb_login_prompt.dart';
+import 'package:mangabaka_app/features/profile/widgets/statistics/profile_statistics_section.dart';
+import 'package:mangabaka_app/features/profile/widgets/snapshot/profile_snapshot_section.dart';
+import 'package:mangabaka_app/features/profile/mixins/profile_data_mixin.dart';
+import 'package:mangabaka_app/core/utils/widget_utils.dart';
+import 'package:mangabaka_app/core/logging/logging_service.dart';
+
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> with ProfileDataMixin {
+  static final _logger = LoggingService.logger;
+  late final ProfileAuthService _auth;
+  late final LibraryService _libraryService;
+  late final StatisticsService _statisticsService;
+  late final SnapshotService _snapshotService;
+
+  bool _wasSyncing = false;
+
+  @override
+  ProfileAuthService get auth => _auth;
+
+  @override
+  LibraryService get libraryService => _libraryService;
+
+  @override
+  StatisticsService get statisticsService => _statisticsService;
+
+  @override
+  SnapshotService get snapshotService => _snapshotService;
+
+  @override
+  void initState() {
+    super.initState();
+    _logger.info('Profile screen initialized');
+    _auth = getIt<ProfileAuthService>();
+    _auth.addListener(_onAuthStateChanged);
+    _libraryService = getIt<LibraryService>();
+    _libraryService.syncStatus.addListener(_onSyncStatusChanged);
+    _statisticsService = StatisticsService(getIt<AppDatabase>());
+    _snapshotService = getIt<SnapshotService>();
+
+    profile = _auth.cachedProfile;
+    if (profile != null) {
+      _logger.info(
+        'Using cached profile for username: ${profile!.preferredUsername ?? profile!.id}',
+      );
+      loading = false;
+      // Fire all data fetches in parallel while showing cached data immediately.
+      fetchStatistics();
+      fetchRecentlyChanged(initial: true);
+      fetchRecentlyAdded(initial: true);
+      _logger.fine('Silently refreshing profile data in background');
+      _auth
+          .fetchProfile(forceRefresh: true)
+          .then((p) {
+            if (mounted) {
+              _logger.fine('Background profile refresh complete');
+              setState(() => profile = p);
+            }
+          })
+          .catchError((e) {
+            _logger.warning('Silently refreshing profile data failed: $e');
+          });
+    } else if (_auth.isLoggedIn) {
+      _logger.info(
+        'User logged in but no cached profile found. Triggering full bootstrap.',
+      );
+      bootstrap();
+    } else {
+      _logger.info('User not logged in. Displaying login prompt.');
+      loading = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _logger.info('Disposing profile screen');
+    _auth.removeListener(_onAuthStateChanged);
+    _libraryService.syncStatus.removeListener(_onSyncStatusChanged);
+    super.dispose();
+  }
+
+  void _onSyncStatusChanged() {
+    if (!mounted) return;
+    final isSyncing = _libraryService.syncStatus.value.isSyncing;
+
+    // Only trigger refresh when sync transitions from active → idle.
+    if (_wasSyncing && !isSyncing && _auth.isLoggedIn) {
+      _logger.info('Library sync completed. Refreshing profile statistics.');
+      fetchStatistics();
+      fetchRecentlyChanged(initial: true);
+      fetchRecentlyAdded(initial: true);
+    }
+
+    _wasSyncing = isSyncing;
+  }
+
+  void _onAuthStateChanged() {
+    if (!mounted) return;
+    _logger.info(
+      'Auth state changed in ProfileScreen. LoggedIn: ${_auth.isLoggedIn}',
+    );
+    setState(() {
+      profile = _auth.cachedProfile;
+      if (!_auth.isLoggedIn) {
+        _logger.fine('User logged out. Clearing profile UI state.');
+        totalSeries = 0;
+        chaptersRead = 0;
+        volumesRead = 0;
+        meanScore = 0.0;
+        recentlyChanged.clear();
+        recentlyAdded.clear();
+        error = null;
+        loading = false;
+        profile = null;
+      } else if (profile == null && _auth.isLoggedIn) {
+        _logger.info('User logged in. Triggering bootstrap for profile data.');
+        bootstrap();
+      }
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Build helpers
+  // -------------------------------------------------------------------------
+
+  /// Builds the localised AppBar title, handling anonymous / named / language-
+  /// specific possessive forms.
+  String _buildProfileTitle(String? username, LocalizationService l10n) {
+    if (profile == null) return l10n.translate('profile');
+    if (username == null) return l10n.translate('your_profile');
+
+    final suffix = l10n.translate('profile_title_suffix');
+    return switch (l10n.currentLanguage) {
+      'es' || 'fr' => '$suffix de $username',
+      'ja' => '$usernameの$suffix',
+      _ => '${l10n.formatPossessive(username)} $suffix',
+    };
+  }
+
+  Widget _buildBody(LocalizationService l10n) {
+    if (loading) return const Center(child: CircularProgressIndicator());
+    if (error != null) return Center(child: Text(error!));
+    if (profile == null) {
+      return MBLoginPrompt(
+        onLogin: login,
+        message: l10n.translate('login_prompt_profile'),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: bootstrap,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            ProfileStatisticsSection(
+              totalSeries: totalSeries,
+              chaptersRead: chaptersRead,
+              volumesRead: volumesRead,
+              meanScore: meanScore,
+            ),
+            const SizedBox(height: 24),
+            ProfileSnapshotSection(
+              recentlyChanged: recentlyChanged,
+              hasMoreChanged: hasMoreChanged,
+              onFetchMoreChanged: () => fetchRecentlyChanged(),
+              recentlyAdded: recentlyAdded,
+              hasMoreAdded: hasMoreAdded,
+              onFetchMoreAdded: () => fetchRecentlyAdded(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: LocalizationService(),
+      builder: (context, _) {
+        final l10n = LocalizationService();
+        final username = profile?.nickname?.isNotEmpty == true
+            ? profile!.nickname
+            : profile?.preferredUsername;
+
+        return Scaffold(
+          backgroundColor: AppConstants.primaryBackground,
+          appBar: AppBar(
+            centerTitle: true,
+            title: Text(
+              _buildProfileTitle(username, l10n).toUpperCase(),
+              style: AppTypography.display(
+                color: AppConstants.textColor,
+                fontSize: 20,
+              ),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.settings_outlined),
+                onPressed: () => SettingsScreen.show(context),
+              ),
+              const SizedBox(width: 4),
+            ],
+          ),
+          body: Actions(
+            actions: <Type, Action<Intent>>{
+              RefreshIntent: CallbackAction<RefreshIntent>(
+                onInvoke: (_) {
+                  bootstrap();
+                  return null;
+                },
+              ),
+            },
+            child: WidgetUtils.responsiveConstraint(_buildBody(l10n)),
+          ),
+        );
+      },
+    );
+  }
+}

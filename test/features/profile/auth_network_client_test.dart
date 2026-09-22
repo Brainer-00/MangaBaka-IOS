@@ -1,0 +1,140 @@
+import 'dart:convert';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:mangabaka_app/core/di/service_locator.dart';
+import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
+import 'package:mangabaka_app/core/logging/logging_service.dart';
+import 'package:mangabaka_app/features/profile/services/auth/auth_network_client.dart';
+
+void main() {
+  setUp(() async {
+    await resetServiceLocator();
+    getIt.registerSingleton<LoggingService>(LoggingService());
+  });
+
+  group('AuthNetworkClient.fetchProfile', () {
+    test('parses /userinfo response on 200', () async {
+      final calls = <String>[];
+      Map<String, String>? capturedHeaders;
+      final mockClient = MockClient((req) async {
+        calls.add(req.url.path);
+        capturedHeaders = req.headers;
+        return http.Response(
+          jsonEncode({
+            'sub': 'user-1',
+            'preferred_username': 'oazzie',
+            'nickname': 'Oazzie',
+            'scope': 'openid profile',
+          }),
+          200,
+        );
+      });
+
+      final profile = await http.runWithClient(
+        () => AuthNetworkClient().fetchProfile('access-tok'),
+        () => mockClient,
+      );
+
+      expect(profile.id, 'user-1');
+      expect(profile.preferredUsername, 'oazzie');
+      expect(profile.nickname, 'Oazzie');
+      expect(profile.scopes, ['openid', 'profile']);
+
+      expect(calls.any((p) => p.endsWith('/userinfo')), isTrue);
+      expect(capturedHeaders!['Authorization'], 'Bearer access-tok');
+    });
+
+    test('falls back to /my/profile when /userinfo fails', () async {
+      final calls = <String>[];
+      final mockClient = MockClient((req) async {
+        calls.add(req.url.path);
+        if (req.url.path.endsWith('/userinfo')) {
+          return http.Response('not found', 404);
+        }
+        return http.Response(
+          jsonEncode({
+            'data': {
+              'id': 'user-2',
+              'role': 'admin',
+              'scopes': ['admin', 'user'],
+              'preferred_username': 'meuser',
+            },
+          }),
+          200,
+        );
+      });
+
+      final profile = await http.runWithClient(
+        () => AuthNetworkClient().fetchProfile('tok'),
+        () => mockClient,
+      );
+
+      expect(profile.id, 'user-2');
+      expect(profile.role, 'admin');
+      expect(profile.scopes, ['admin', 'user']);
+      expect(calls.any((p) => p.endsWith('/userinfo')), isTrue);
+      expect(calls.any((p) => p.endsWith('/my/profile')), isTrue);
+    });
+
+    test('throws AuthException when both endpoints fail', () async {
+      final mockClient = MockClient((_) async => http.Response('nope', 500));
+      await expectLater(
+        http.runWithClient(
+          () => AuthNetworkClient().fetchProfile('tok'),
+          () => mockClient,
+        ),
+        throwsA(isA<AuthException>()),
+      );
+    });
+
+    test('merges /userinfo and /my/profile with avatar', () async {
+      final mockClient = MockClient((req) async {
+        if (req.url.path.endsWith('/userinfo')) {
+          return http.Response(
+            jsonEncode({
+              'sub': 'oidc-user',
+              'preferred_username': 'oidc_user',
+              'scope': 'openid profile',
+            }),
+            200,
+          );
+        }
+        return http.Response(
+          jsonEncode({
+            'data': {
+              'id': 'oidc-user',
+              'username': 'oidc_user',
+              'avatar': 'https://mangabaka.org/avatars/user.png',
+            },
+          }),
+          200,
+        );
+      });
+
+      final profile = await http.runWithClient(
+        () => AuthNetworkClient().fetchProfile('tok'),
+        () => mockClient,
+      );
+
+      expect(profile.id, 'oidc-user');
+      expect(profile.preferredUsername, 'oidc_user');
+      expect(profile.avatarUrl, 'https://mangabaka.org/avatars/user.png');
+      expect(profile.scopes, ['openid', 'profile']);
+    });
+
+    test('throws AuthException when network fails', () async {
+      final mockClient = MockClient((_) async {
+        throw Exception('boom');
+      });
+      await expectLater(
+        http.runWithClient(
+          () => AuthNetworkClient().fetchProfile('tok'),
+          () => mockClient,
+        ),
+        throwsA(isA<AuthException>()),
+      );
+    });
+  });
+}

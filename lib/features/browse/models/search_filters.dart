@@ -1,0 +1,254 @@
+class SearchFilters {
+  final List<String> type;
+  final List<String> typeNot;
+  final List<String> status;
+  final List<String> statusNot;
+  final List<String> genre;
+  final List<String> genreNot;
+  final List<String> tag;
+  final List<String> tagNot;
+  final List<String> staff;
+  final List<String> publisher;
+  final String? sortBy;
+  final double ratingLower;
+  final double ratingUpper;
+  final int? publishedYearLower;
+  final int? publishedYearUpper;
+  final bool? isLicensed;
+
+  /// Restrict to series with (true) or without (false) an anime adaptation.
+  final bool? hasAnime;
+  final String tagMode;
+
+  bool get isEmpty =>
+      type.isEmpty &&
+      typeNot.isEmpty &&
+      status.isEmpty &&
+      statusNot.isEmpty &&
+      genre.isEmpty &&
+      genreNot.isEmpty &&
+      tag.isEmpty &&
+      tagNot.isEmpty &&
+      staff.isEmpty &&
+      publisher.isEmpty &&
+      sortBy == null &&
+      ratingLower == 0 &&
+      ratingUpper == 100 &&
+      publishedYearLower == null &&
+      publishedYearUpper == null &&
+      isLicensed == null &&
+      hasAnime == null &&
+      tagMode == 'and';
+
+  int get activeFiltersCount {
+    int count = 0;
+    count += type.length;
+    count += typeNot.length;
+    count += status.length;
+    count += statusNot.length;
+    count += genre.length;
+    count += genreNot.length;
+    count += tag.length;
+    count += tagNot.length;
+    count += staff.length;
+    count += publisher.length;
+    if (sortBy != null && sortBy!.isNotEmpty) count++;
+    if (ratingLower > 0 || ratingUpper < 100) count++;
+    if (publishedYearLower != null || publishedYearUpper != null) count++;
+    if (isLicensed != null) count++;
+    if (hasAnime != null) count++;
+    return count;
+  }
+
+  SearchFilters({
+    this.type = const [],
+    this.typeNot = const [],
+    this.status = const [],
+    this.statusNot = const [],
+    this.genre = const [],
+    this.genreNot = const [],
+    this.tag = const [],
+    this.tagNot = const [],
+    this.staff = const [],
+    this.publisher = const [],
+    this.sortBy,
+    this.ratingLower = 0,
+    this.ratingUpper = 100,
+    this.publishedYearLower,
+    this.publishedYearUpper,
+    this.isLicensed,
+    this.hasAnime,
+    this.tagMode = 'and',
+  });
+
+  SearchFilters copyWith({
+    List<String>? type,
+    List<String>? typeNot,
+    List<String>? status,
+    List<String>? statusNot,
+    List<String>? genre,
+    List<String>? genreNot,
+    List<String>? tag,
+    List<String>? tagNot,
+    List<String>? staff,
+    List<String>? publisher,
+    String? sortBy,
+    double? ratingLower,
+    double? ratingUpper,
+    int? publishedYearLower,
+    int? publishedYearUpper,
+    bool? isLicensed,
+    bool? hasAnime,
+    String? tagMode,
+  }) {
+    return SearchFilters(
+      type: type ?? this.type,
+      typeNot: typeNot ?? this.typeNot,
+      status: status ?? this.status,
+      statusNot: statusNot ?? this.statusNot,
+      genre: genre ?? this.genre,
+      genreNot: genreNot ?? this.genreNot,
+      tag: tag ?? this.tag,
+      tagNot: tagNot ?? this.tagNot,
+      staff: staff ?? this.staff,
+      publisher: publisher ?? this.publisher,
+      sortBy: sortBy ?? this.sortBy,
+      ratingLower: ratingLower ?? this.ratingLower,
+      ratingUpper: ratingUpper ?? this.ratingUpper,
+      publishedYearLower: publishedYearLower ?? this.publishedYearLower,
+      publishedYearUpper: publishedYearUpper ?? this.publishedYearUpper,
+      isLicensed: isLicensed != null
+          ? (isLicensed ? true : (this.isLicensed == false ? false : null))
+          : this.isLicensed,
+      hasAnime: hasAnime ?? this.hasAnime,
+      tagMode: tagMode ?? this.tagMode,
+    );
+  }
+
+  /// Convenience wrapper — clears or sets [sortBy] without touching other fields.
+  SearchFilters copyWithSortBy(String? sortBy) => SearchFilters(
+        type: type,
+        typeNot: typeNot,
+        status: status,
+        statusNot: statusNot,
+        genre: genre,
+        genreNot: genreNot,
+        tag: tag,
+        tagNot: tagNot,
+        staff: staff,
+        publisher: publisher,
+        sortBy: sortBy,
+        ratingLower: ratingLower,
+        ratingUpper: ratingUpper,
+        publishedYearLower: publishedYearLower,
+        publishedYearUpper: publishedYearUpper,
+        isLicensed: isLicensed,
+        hasAnime: hasAnime,
+        tagMode: tagMode,
+      );
+
+  /// Convenience wrapper — replaces publication-year bounds without touching other fields.
+  SearchFilters copyWithYear({int? publishedYearLower, int? publishedYearUpper}) =>
+      SearchFilters(
+        type: type,
+        typeNot: typeNot,
+        status: status,
+        statusNot: statusNot,
+        genre: genre,
+        genreNot: genreNot,
+        tag: tag,
+        tagNot: tagNot,
+        staff: staff,
+        publisher: publisher,
+        sortBy: sortBy,
+        ratingLower: ratingLower,
+        ratingUpper: ratingUpper,
+        publishedYearLower: publishedYearLower,
+        publishedYearUpper: publishedYearUpper,
+        isLicensed: isLicensed,
+        hasAnime: hasAnime,
+        tagMode: tagMode,
+      );
+
+  /// Convenience wrapper — sets or clears [isLicensed] without touching other fields.
+  SearchFilters copyWithIsLicensed(bool? isLicensed) => SearchFilters(
+        type: type,
+        typeNot: typeNot,
+        status: status,
+        statusNot: statusNot,
+        genre: genre,
+        genreNot: genreNot,
+        tag: tag,
+        tagNot: tagNot,
+        staff: staff,
+        publisher: publisher,
+        sortBy: sortBy,
+        ratingLower: ratingLower,
+        ratingUpper: ratingUpper,
+        publishedYearLower: publishedYearLower,
+        publishedYearUpper: publishedYearUpper,
+        isLicensed: isLicensed,
+        hasAnime: hasAnime,
+        tagMode: tagMode,
+      );
+
+  /// Convenience wrapper - sets or clears [hasAnime] without touching other fields.
+  SearchFilters copyWithHasAnime(bool? hasAnime) => SearchFilters(
+        type: type,
+        typeNot: typeNot,
+        status: status,
+        statusNot: statusNot,
+        genre: genre,
+        genreNot: genreNot,
+        tag: tag,
+        tagNot: tagNot,
+        staff: staff,
+        publisher: publisher,
+        sortBy: sortBy,
+        ratingLower: ratingLower,
+        ratingUpper: ratingUpper,
+        publishedYearLower: publishedYearLower,
+        publishedYearUpper: publishedYearUpper,
+        isLicensed: isLicensed,
+        hasAnime: hasAnime,
+        tagMode: tagMode,
+      );
+
+  Map<String, dynamic> toMap() {
+    final map = <String, dynamic>{};
+
+    if (type.isNotEmpty) map['type'] = type;
+    if (typeNot.isNotEmpty) map['type_not'] = typeNot;
+    if (status.isNotEmpty) map['status'] = status;
+    if (statusNot.isNotEmpty) map['status_not'] = statusNot;
+    if (genre.isNotEmpty) map['genre'] = genre;
+    if (genreNot.isNotEmpty) map['genre_not'] = genreNot;
+    if (tag.isNotEmpty) map['tag'] = tag;
+    if (tagNot.isNotEmpty) map['tag_not'] = tagNot;
+    if (staff.isNotEmpty) map['staff'] = staff;
+    if (publisher.isNotEmpty) map['publisher'] = publisher;
+
+    if (sortBy != null && sortBy!.isNotEmpty) {
+      map['sort_by'] = sortBy;
+      // Automatically exclude unrated series when sorting by community rating
+      if (sortBy!.startsWith('score_') && ratingLower == 0) {
+        map['rating_lower'] = 1;
+      }
+    }
+    if (ratingLower > 0) map['rating_lower'] = ratingLower.toInt();
+    if (ratingUpper < 100) map['rating_upper'] = ratingUpper.toInt();
+
+    if (publishedYearLower != null) {
+      map['published_start_date_lower'] = publishedYearLower.toString();
+    }
+    if (publishedYearUpper != null) {
+      map['published_start_date_upper'] = publishedYearUpper.toString();
+    }
+
+    if (isLicensed != null) map['is_licensed'] = isLicensed;
+    if (hasAnime != null) map['has_anime'] = hasAnime;
+    if (tagMode != 'and') map['tag_mode'] = tagMode;
+
+    return map;
+  }
+}

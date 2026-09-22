@@ -1,0 +1,82 @@
+name: Build iOS Sideload IPA
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios:
+    name: Build unsigned iOS IPA
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Show tool versions
+        run: |
+          flutter --version
+          xcodebuild -version
+
+      - name: Create environment file
+        env:
+          MANGABAKA_CLIENT_ID: ${{ secrets.MANGABAKA_APP_CLIENT_ID }}
+          MANGABAKA_REDIRECT_URI: ${{ secrets.MANGABAKA_APP_REDIRECT_URI }}
+        run: |
+          printf 'MANGABAKA_APP_CLIENT_ID=%s\n' "$MANGABAKA_CLIENT_ID" > .env
+          printf 'MANGABAKA_APP_REDIRECT_URI=%s\n' "$MANGABAKA_REDIRECT_URI" >> .env
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Generate app icons
+        run: dart run flutter_launcher_icons
+
+      - name: Build unsigned iOS application
+        run: flutter build ios --release --no-codesign
+
+      - name: Package IPA
+        run: |
+          VERSION_FULL=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          VERSION="${VERSION_FULL%%+*}"
+
+          APP_PATH="build/ios/iphoneos/Runner.app"
+
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Runner.app was not produced."
+            exit 1
+          fi
+
+          rm -rf Payload
+          mkdir Payload
+          cp -R "$APP_PATH" Payload/Runner.app
+
+          IPA_NAME="MangaBaka-iOS-v${VERSION}-unsigned.ipa"
+          zip -qry "$IPA_NAME" Payload
+
+          echo "IPA_NAME=$IPA_NAME" >> "$GITHUB_ENV"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MangaBaka-iOS-unsigned
+          path: MangaBaka-iOS-v*-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30

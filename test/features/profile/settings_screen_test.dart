@@ -1,0 +1,97 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mangabaka_app/features/profile/screens/settings_screen.dart';
+import 'package:mangabaka_app/features/profile/widgets/settings/settings_components.dart';
+import 'package:mangabaka_app/core/settings/settings_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mangabaka_app/core/di/service_locator.dart';
+import 'package:mangabaka_app/core/logging/logging_service.dart';
+
+import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
+import 'package:mangabaka_app/features/profile/models/mb_profile.dart';
+
+class MockProfileAuthService extends Fake implements ProfileAuthService {
+  @override
+  bool get isLoggedIn => false;
+  @override
+  MbProfile? get cachedProfile => null;
+  @override
+  void addListener(VoidCallback listener) {}
+  @override
+  void removeListener(VoidCallback listener) {}
+}
+
+void main() {
+  setUp(() async {
+    await resetServiceLocator();
+    getIt.registerSingleton<LoggingService>(LoggingService());
+    getIt.registerSingleton<ProfileAuthService>(MockProfileAuthService());
+    
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/path_provider'),
+      (MethodCall methodCall) async {
+        return '.';
+      },
+    );
+    SharedPreferences.setMockInitialValues({});
+    await SettingsManager().init();
+  });
+
+  testWidgets('SettingsScreen renders all sections', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    
+    await tester.pumpWidget(MaterialApp(
+      home: SettingsScreen(),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SettingsGroup, skipOffstage: false), findsAtLeast(5));
+    
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('Landscape Settings Dialog navigates internally with push/pop', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () => SettingsScreen.show(context),
+            child: const Text('Open Settings'),
+          ),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('Open Settings'));
+    await tester.pumpAndSettle();
+
+    // Verify dialog is open and shows main settings
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.text('SETTINGS'), findsWidgets);
+
+    // Tap general settings item
+    await tester.tap(find.text('GENERAL'));
+    await tester.pumpAndSettle();
+
+    // Verify dialog is still open and shows general settings title
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.text('GENERAL'), findsOneWidget);
+
+    // Tap back button
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+
+    // Verify we are back to main settings list
+    expect(find.text('SETTINGS'), findsWidgets);
+
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+}
