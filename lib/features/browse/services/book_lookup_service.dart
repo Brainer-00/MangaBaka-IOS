@@ -20,7 +20,7 @@ class BookLookupService {
       : _api = api ?? ApiClient(healthContext: 'book-lookup', client: client);
 
   Future<String?> lookupTitleByIsbn(String isbn) async {
-    _logger.info('Looking up title for ISBN: $isbn');
+    _logger.info('Looking up title for scanned barcode');
 
     final title = await _api.getJson<String?>(
       ApiClient.uri(
@@ -37,9 +37,9 @@ class BookLookupService {
     );
 
     if (title == null) {
-      _logger.info('No results found for ISBN: $isbn');
+      _logger.info('No title found for scanned barcode');
     } else {
-      _logger.info('Found title: $title for ISBN: $isbn');
+      _logger.info('Found title for scanned barcode');
     }
     return title;
   }

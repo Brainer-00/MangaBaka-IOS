@@ -101,7 +101,7 @@ class LibrarySession extends ChangeNotifier {
     } catch (e) {
       // The local copy is still usable; the banner and a manual retry cover
       // it, so a failed sync must not take the screen down.
-      _logger.severe('Initial sync task failed: $e');
+      _logger.severe('Initial sync task failed (${e.runtimeType})');
     }
   }
 
@@ -118,7 +118,7 @@ class LibrarySession extends ChangeNotifier {
       _logger.info('Login cancelled by user in library screen');
       return null;
     } catch (e) {
-      _logger.severe('Login failed in library screen: $e');
+      _logger.severe('Login failed in library screen (${e.runtimeType})');
       return 'login_failed_retry';
     }
 
@@ -138,7 +138,7 @@ class LibrarySession extends ChangeNotifier {
     try {
       await _library.syncLibrary();
     } catch (e) {
-      _logger.severe('Manual refresh failed: $e');
+      _logger.severe('Manual refresh failed (${e.runtimeType})');
     }
   }
 

@@ -85,14 +85,14 @@ class AppBootstrap {
     FlutterError.onError = (details) {
       FlutterError.presentError(details);
       LoggingService.logger.severe(
-        'Flutter Error: ${details.exceptionAsString()}',
-        details.exception,
-        details.stack,
+        'Flutter error (${details.exception.runtimeType})',
       );
     };
 
     PlatformDispatcher.instance.onError = (error, stack) {
-      LoggingService.logger.severe('Unhandled Platform Error', error, stack);
+    LoggingService.logger.severe(
+      'Unhandled platform error (${error.runtimeType})',
+    );
       // Handled: reported to the log rather than crashing the app.
       return true;
     };

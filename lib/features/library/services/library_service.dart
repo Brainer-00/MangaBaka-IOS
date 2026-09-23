@@ -92,7 +92,9 @@ class LibraryService extends LibraryServiceBase with LibraryCrudMixin, LibrarySy
               : null,
         )
         .handleError((error, stackTrace) {
-          _logger.severe('Error watching entry from db: $error\n$stackTrace');
+          _logger.severe(
+            'Error watching entry from db (${error.runtimeType})',
+          );
           return null;
         }, test: (error) => true);
   }
@@ -105,7 +107,9 @@ class LibraryService extends LibraryServiceBase with LibraryCrudMixin, LibrarySy
               dbEntries.map(DbToApiMapper.libraryEntryFromDb).toList(),
         )
         .handleError((error, stackTrace) {
-          _logger.severe('Error watching entries from db: $error\n$stackTrace');
+          _logger.severe(
+            'Error watching entries from db (${error.runtimeType})',
+          );
           return <api.LibraryEntry>[];
         }, test: (error) => true);
   }
@@ -132,7 +136,7 @@ class LibraryService extends LibraryServiceBase with LibraryCrudMixin, LibrarySy
     if (sortBy != null) queryParams['sort_by'] = sortBy;
 
     final uri = Uri.parse(LibraryConstants.baseUrl).replace(queryParameters: queryParams);
-    _logger.info('Fetching library page $page. URL: $uri');
+      _logger.info('Fetching library page $page');
 
     try {
       final response = await http.get(uri, headers: {
@@ -161,19 +165,25 @@ class LibraryService extends LibraryServiceBase with LibraryCrudMixin, LibrarySy
         throw AuthException(message: 'Auth failed', code: 'AUTH_FAILED');
       }
       if (response.statusCode == 400) {
-        _logger.warning('Bad request for library page $page: ${response.body}');
+        _logger.warning('Bad request for library page $page (HTTP 400)');
         return FetchPageResult(entries: [], isError: true);
       }
       if (response.statusCode != 200) {
-        _logger.severe('Failed to fetch library page $page. Status: ${response.statusCode}, Body: ${response.body}');
+        _logger.severe(
+          'Failed to fetch library page $page '
+          '(HTTP ${response.statusCode})',
+        );
         throw ApiException(message: 'Fetch failed', statusCode: response.statusCode);
       }
 
       final result = await compute(_parseLibraryPage, response.body);
       _logger.info('Successfully parsed ${result.entries.length} entries for library page $page');
       return result;
-    } catch (e, st) {
-      _logger.severe('Exception occurred while fetching library page $page: $e\n$st');
+    } catch (e) {
+      _logger.severe(
+        'Exception occurred while fetching library page $page '
+        '(${e.runtimeType})',
+      );
       rethrow;
     }
   }

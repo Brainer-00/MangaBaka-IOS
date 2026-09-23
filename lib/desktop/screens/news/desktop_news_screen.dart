@@ -100,7 +100,7 @@ class DesktopNewsScreenState extends State<DesktopNewsScreen>
       // A first page that does not fill the window leaves nothing to scroll.
       WidgetsBinding.instance.addPostFrameCallback((_) => _onScroll());
     } catch (e) {
-      _logger.severe('Desktop news fetch failed: $e');
+      _logger.severe('Desktop news fetch failed (${e.runtimeType})');
       if (!mounted) return;
       setState(() {
         _loading = false;

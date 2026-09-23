@@ -196,7 +196,7 @@ class BrowseSearchGateway {
     // The endpoint takes the id unhyphenated.
     final userId = auth.cachedProfile?.id.replaceAll('-', '') ?? '';
     if (userId.isEmpty) return null;
-    _logger.fine('Hiding library series for user: $userId');
+    _logger.fine('Hiding library series for authenticated user');
     return userId;
   }
 }

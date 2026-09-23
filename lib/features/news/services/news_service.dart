@@ -40,7 +40,7 @@ class NewsService {
       if (cached == null) return const [];
       return await _parse(jsonDecode(cached));
     } catch (e) {
-      _logger.warning('Failed to load cached news: $e');
+      _logger.warning('Failed to load cached news (${e.runtimeType})');
       return const [];
     }
   }
@@ -84,7 +84,7 @@ class NewsService {
       await prefs.setString(_cacheKey, body);
       _logger.fine('Cached first page of news');
     } catch (e) {
-      _logger.warning('Failed to cache news page: $e');
+      _logger.warning('Failed to cache news page (${e.runtimeType})');
     }
   }
 

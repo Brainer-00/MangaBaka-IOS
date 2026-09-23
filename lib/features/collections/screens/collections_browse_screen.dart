@@ -114,7 +114,7 @@ class _CollectionsBrowseScreenState extends State<CollectionsBrowseScreen>
       final editions = await _collections.fetchEditions();
       if (mounted) setState(() => _editions = editions);
     } catch (e) {
-      _logger.warning('Editions failed: $e');
+      _logger.warning('Editions failed (${e.runtimeType})');
       if (mounted) setState(() => _editionsFailed = true);
     }
   }
@@ -139,7 +139,7 @@ class _CollectionsBrowseScreenState extends State<CollectionsBrowseScreen>
         setState(() => _matches = found);
       }
     } catch (e) {
-      _logger.warning('Publisher search failed: $e');
+      _logger.warning('Publisher search failed (${e.runtimeType})');
     } finally {
       if (mounted) setState(() => _searching = false);
     }
@@ -184,7 +184,7 @@ class _CollectionsBrowseScreenState extends State<CollectionsBrowseScreen>
         _page++;
       });
     } catch (e) {
-      _logger.warning('Publisher collections failed: $e');
+      _logger.warning('Publisher collections failed (${e.runtimeType})');
       if (mounted) setState(() => _listFailed = true);
     } finally {
       if (mounted) {

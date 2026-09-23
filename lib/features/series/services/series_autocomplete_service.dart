@@ -79,7 +79,7 @@ class SeriesAutocompleteService {
       onResults(prefixHit.results);
       if (!prefixHit.couldHaveMore) {
         _logger.fine(
-          'Autocomplete: skipping network (prefix cache covers "$trimmed")',
+          'Autocomplete: skipping network because prefix cache has coverage',
         );
         return;
       }
@@ -126,17 +126,17 @@ class SeriesAutocompleteService {
     } on http.ClientException {
       // Expected when [_cancelActiveRequest] closes the client mid-flight.
       if (_activeClient != client) return;
-      _logger.warning('Autocomplete client error for query: $query');
+      _logger.warning('Autocomplete client error');
     } on SocketException {
       if (_activeClient != client) return;
       _logger.warning('Network error during autocomplete search');
       onError?.call('no_internet');
     } on TimeoutException {
       if (_activeClient != client) return;
-      _logger.warning('Autocomplete timed out for query: $query');
-    } catch (e, st) {
+      _logger.warning('Autocomplete timed out');
+    } catch (e) {
       if (_activeClient != client) return;
-      _logger.warning('Unexpected autocomplete error: $e', e, st);
+      _logger.warning('Unexpected autocomplete error (${e.runtimeType})');
     }
   }
 
@@ -147,7 +147,7 @@ class SeriesAutocompleteService {
     void Function(String message)? onError,
   }) {
     if (response.statusCode == 429) {
-      _logger.warning('Autocomplete rate-limited (429) for query: $query');
+      _logger.warning('Autocomplete rate-limited (HTTP 429)');
       onError?.call('rate_limited');
       // Deliberately no onResults: keep the suggestions already on screen.
       return;
@@ -168,14 +168,16 @@ class SeriesAutocompleteService {
     } catch (e) {
       // A malformed suggestion payload is not worth an error state in a search
       // field; drop it and let the next keystroke try again.
-      _logger.warning('Failed to parse autocomplete response: $e');
+      _logger.warning(
+        'Failed to parse autocomplete response (${e.runtimeType})',
+      );
       onResults(const []);
       return;
     }
 
     _cache.put(query, results);
     _logger.fine(
-      'Autocomplete: ${results.length} results for "$query" '
+      'Autocomplete: ${results.length} results '
       '(cache: ${response.headers['cf-cache-status'] ?? 'unknown'})',
     );
     onResults(results);

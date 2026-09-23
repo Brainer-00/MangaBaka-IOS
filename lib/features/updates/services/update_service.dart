@@ -48,7 +48,7 @@ class UpdateService {
 
       if (response.statusCode != 200) {
         _logger.warning(
-          'Update check failed (HTTP ${response.statusCode}) for $url',
+          'Update check failed (HTTP ${response.statusCode})',
         );
         return null;
       }
@@ -61,8 +61,8 @@ class UpdateService {
         }
       }
       return null;
-    } catch (e, st) {
-      _logger.warning('Update check failed: $e', e, st);
+    } catch (e) {
+      _logger.warning('Update check failed (${e.runtimeType})');
       return null;
     }
   }
@@ -112,7 +112,7 @@ class UpdateService {
           if (match.isNotEmpty) return match.first;
         }
       } catch (e) {
-        _logger.warning('Could not resolve device ABI: $e');
+        _logger.warning('Could not resolve device ABI (${e.runtimeType})');
       }
       // Prefer a universal apk (no abi token) if present, else the first.
       const abiTokens = ['arm64-v8a', 'armeabi-v7a', 'x86_64', 'x86'];
@@ -173,7 +173,7 @@ class UpdateService {
       await sink.close();
     }
 
-    _logger.info('Downloaded update to ${file.path} ($received bytes)');
+    _logger.info('Downloaded update ($received bytes)');
     return file;
   }
 

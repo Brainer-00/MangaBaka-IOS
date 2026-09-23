@@ -156,7 +156,7 @@ class ApiClient {
     } on ApiException {
       rethrow;
     } on TimeoutException catch (e, st) {
-      _logger.severe('Request timeout during $operation', e, st);
+      _logger.severe('Request timeout during $operation (${e.runtimeType})');
       _report(ok: false, error: 'timeout');
       throw NetworkException(
         message: 'Request timed out. Please try again.',
@@ -165,7 +165,9 @@ class ApiClient {
         stackTrace: st,
       );
     } on http.ClientException catch (e, st) {
-      _logger.severe('HTTP client error during $operation', e, st);
+      _logger.severe(
+        'HTTP client error during $operation (${e.runtimeType})',
+      );
       _report(ok: false, error: e);
       throw NetworkException(
         message: 'Network error. Please check your connection.',
@@ -174,7 +176,9 @@ class ApiClient {
         stackTrace: st,
       );
     } on HandshakeException catch (e, st) {
-      _logger.severe('TLS handshake failed during $operation', e, st);
+      _logger.severe(
+        'TLS handshake failed during $operation (${e.runtimeType})',
+      );
       _report(ok: false, error: e);
       throw NetworkException(
         message: 'Could not establish a secure connection.',
@@ -183,7 +187,7 @@ class ApiClient {
         stackTrace: st,
       );
     } on SocketException catch (e, st) {
-      _logger.severe('Network error during $operation', e, st);
+      _logger.severe('Network error during $operation (${e.runtimeType})');
       _report(ok: false, error: e);
       throw NetworkException(
         message: 'Network error. Please check your connection.',
@@ -192,7 +196,7 @@ class ApiClient {
         stackTrace: st,
       );
     } catch (e, st) {
-      _logger.severe('Unexpected error during $operation', e, st);
+      _logger.severe('Unexpected error during $operation (${e.runtimeType})');
       _report(ok: false, error: e);
       throw AppError(
         message: 'An unexpected error occurred while trying to $operation',
@@ -213,7 +217,9 @@ class ApiClient {
     try {
       return parse(jsonDecode(body));
     } catch (e, st) {
-      _logger.severe('Failed to parse $operation response', e, st);
+      _logger.severe(
+        'Failed to parse $operation response (${e.runtimeType})',
+      );
       throw ParseException(
         message: 'Failed to parse $operation response',
         originalError: e,

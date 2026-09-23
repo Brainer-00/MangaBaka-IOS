@@ -34,7 +34,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
     if (barcodes.isNotEmpty) {
       final String? barcodeValue = barcodes.first.rawValue;
       if (barcodeValue != null && barcodeValue.isNotEmpty) {
-        _logger.info('Barcode detected: $barcodeValue');
+        _logger.info('Barcode detected');
         setState(() {
           _isScanned = true;
         });

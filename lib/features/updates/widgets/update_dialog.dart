@@ -82,8 +82,8 @@ class _UpdateDialogState extends State<UpdateDialog> {
       await _service.installDownloaded(file);
 
       if (mounted) Navigator.of(context).pop();
-    } catch (e, st) {
-      _logger.severe('Update failed: $e', e, st);
+    } catch (e) {
+      _logger.severe('Update failed (${e.runtimeType})');
       if (!mounted) return;
       setState(() {
         _phase = _Phase.error;
@@ -98,7 +98,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
     try {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     } catch (e) {
-      _logger.warning('Failed to open release page: $e');
+      _logger.warning('Failed to open release page (${e.runtimeType})');
     }
   }
 

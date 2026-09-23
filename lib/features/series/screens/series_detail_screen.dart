@@ -104,10 +104,7 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen>
   @override
   void initState() {
     super.initState();
-    _logger.info(
-      'Series detail screen initialized for series: '
-      '${widget.series.title} (${widget.series.id})',
-    );
+    _logger.info('Series detail screen initialized');
 
     _libraryService = getIt<LibraryService>();
     _seriesService = getIt<SeriesService>();
@@ -127,13 +124,11 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen>
     // the transition mean no skeleton is shown at all.
     fetchFullData()
         .then((_) {
-          _logger.info(
-            'Full data fetch complete for series: ${widget.series.id}',
-          );
+          _logger.info('Full series data fetch complete');
         })
         .catchError((Object e) {
           _logger.severe(
-            'Full data fetch failed for series: ${widget.series.id}. Error: $e',
+            'Full series data fetch failed (${e.runtimeType})',
           );
         });
   }
@@ -217,7 +212,7 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen>
       BrowseNavigation.searchWithFilters(context, filters);
 
   void _navigateToAuthorSeries(String authorName) {
-    _logger.info('Navigating to series by author: $authorName');
+    _logger.info('Navigating to series by author');
     Navigator.push(
       context,
       AppTransitions.slideRight(
@@ -231,7 +226,7 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen>
   }
 
   void _navigateToPublisherSeries(String publisherName) {
-    _logger.info('Navigating to series by publisher: $publisherName');
+    _logger.info('Navigating to series by publisher');
     Navigator.push(
       context,
       AppTransitions.slideRight(

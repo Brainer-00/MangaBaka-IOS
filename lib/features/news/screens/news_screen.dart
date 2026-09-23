@@ -101,7 +101,9 @@ class _NewsScreenState extends State<NewsScreen> {
         _currentPage++;
       });
     } catch (e) {
-      _logger.severe('Error in NewsScreen while fetching news: $e');
+      _logger.severe(
+        'Error in NewsScreen while fetching news (${e.runtimeType})',
+      );
       if (!mounted) return;
       setState(() {
         _isLoading = false;

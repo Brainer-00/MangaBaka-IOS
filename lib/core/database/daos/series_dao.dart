@@ -17,7 +17,7 @@ class SeriesDao extends DatabaseAccessor<AppDatabase> with _$SeriesDaoMixin {
             ..limit(1))
           .getSingleOrNull();
     } catch (e) {
-      _logger.severe('Failed to get latest updated series: $e');
+      _logger.severe('Failed to get latest updated series (${e.runtimeType})');
       throw exc.DatabaseException(message: 'Failed to get latest updated series', originalError: e);
     }
   }
@@ -122,7 +122,7 @@ class SeriesDao extends DatabaseAccessor<AppDatabase> with _$SeriesDaoMixin {
         );
       });
     } catch (e) {
-      _logger.severe('Failed to upsert series: $e');
+      _logger.severe('Failed to upsert series (${e.runtimeType})');
       throw exc.DatabaseException(message: 'Failed to upsert series', originalError: e);
     }
   }
@@ -141,7 +141,7 @@ class SeriesDao extends DatabaseAccessor<AppDatabase> with _$SeriesDaoMixin {
         ),
       );
     } catch (e) {
-      _logger.severe('Failed to insert library entry: $e');
+      _logger.severe('Failed to insert library entry (${e.runtimeType})');
       throw exc.DatabaseException(message: 'Failed to insert library entry', originalError: e);
     }
   }
@@ -163,7 +163,7 @@ class SeriesDao extends DatabaseAccessor<AppDatabase> with _$SeriesDaoMixin {
         series: result.readTable(db.seriesTable),
       );
     } catch (e) {
-      _logger.severe('Failed to get entry with series: $e');
+      _logger.severe('Failed to get entry with series (${e.runtimeType})');
       throw exc.DatabaseException(message: 'Failed to get entry with series', originalError: e);
     }
   }
@@ -182,7 +182,7 @@ class SeriesDao extends DatabaseAccessor<AppDatabase> with _$SeriesDaoMixin {
       final deletedCount = await query.go();
       _logger.info('Database Maintenance: Cleaned up $deletedCount stale series entries.');
     } catch (e) {
-      _logger.warning('Failed to clean up stale series: $e');
+      _logger.warning('Failed to clean up stale series (${e.runtimeType})');
     }
   }
 }

@@ -83,7 +83,9 @@ class WidgetUtils {
               // Surface the failing host + error so image outages (dead CDN,
               // TLS handshake, cleartext block, rate limit) are diagnosable from
               // the in-app log rather than a silent broken-image icon.
-              LoggingService.logger.warning('Image load failed: $url — $error');
+              LoggingService.logger.warning(
+                'Image load failed (${error.runtimeType})',
+              );
               final iconSize = (width != null && width.isFinite) ? width : 24.0;
               return errorWidget ??
                   Icon(

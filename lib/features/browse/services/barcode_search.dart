@@ -55,7 +55,7 @@ class BarcodeSearch {
     String isbn, {
     required Future<bool> Function(String title) search,
   }) async {
-    _logger.info('Handling barcode scan for ISBN: $isbn');
+    _logger.info('Handling barcode scan');
 
     final String? title;
     try {
@@ -63,27 +63,25 @@ class BarcodeSearch {
     } catch (e) {
       // Only the lookup is wrapped: a failure inside `search` is a search bug
       // and should surface as one rather than as a lookup failure.
-      _logger.severe('Error handling barcode scan for ISBN $isbn: $e');
+      _logger.severe('Barcode lookup failed (${e.runtimeType})');
       return BarcodeSearchFailure.lookupFailed;
     }
 
     if (title == null || title.isEmpty) {
-      _logger.warning('No title found for ISBN: $isbn');
+      _logger.warning('No title found for scanned barcode');
       return BarcodeSearchFailure.notFound;
     }
 
-    _logger.info('Found title from ISBN: $title');
+    _logger.info('Found title for scanned barcode');
     if (await search(title)) return null;
 
     final cleaned = BrowseHelpers.cleanTitle(title);
     if (cleaned != title && cleaned.isNotEmpty) {
-      _logger.info('No results for raw title, trying cleaned title: $cleaned');
+    _logger.info('No results for resolved title; retrying normalized title');
       if (await search(cleaned)) return null;
     }
 
-    _logger.warning(
-      'No series found for title associated with ISBN: $isbn (Title: $title)',
-    );
+    _logger.warning('No series found for title resolved from scanned barcode');
     return BarcodeSearchFailure.noSeriesFound;
   }
 }

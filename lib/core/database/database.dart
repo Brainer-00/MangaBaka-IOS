@@ -279,9 +279,9 @@ class AppDatabase extends _$AppDatabase {
             libraryEntriesTable,
             libraryColumnNames,
           );
-        } catch (e, st) {
+        } catch (e) {
           LoggingService.logger.severe(
-            'Critical failure during database migration: $e\n$st',
+            'Critical failure during database migration (${e.runtimeType})',
           );
           rethrow;
         }
@@ -306,7 +306,7 @@ class AppDatabase extends _$AppDatabase {
         final file = File(p.join(dbFolder.path, 'manga_db.sqlite'));
         return NativeDatabase.createInBackground(file);
       } catch (e) {
-        logger.severe('Failed to open database connection: $e');
+        logger.severe('Failed to open database connection (${e.runtimeType})');
         throw exc.DatabaseException(
           message: 'Failed to open database connection',
           originalError: e,

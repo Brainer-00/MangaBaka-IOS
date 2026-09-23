@@ -92,7 +92,9 @@ class SeriesFilterDrawerController extends ChangeNotifier {
       _genres = results[0];
       _tags = results[1];
     } catch (e) {
-      _logger.warning('Failed to load filter metadata in details screen: $e');
+      _logger.warning(
+        'Failed to load filter metadata in details screen (${e.runtimeType})',
+      );
     } finally {
       _isLoadingMetadata = false;
       _safeNotify();

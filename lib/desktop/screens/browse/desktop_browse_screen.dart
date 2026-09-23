@@ -71,7 +71,7 @@ class DesktopBrowseScreenState extends State<DesktopBrowseScreen>
   // ─── Navigation ──────────────────────────────────────────────────────────
 
   void _openDetail(Series series) {
-    _logger.info('Opening series ${series.id} from desktop browse');
+    _logger.info('Opening series from desktop browse');
     Navigator.of(
       context,
     ).push(AppTransitions.slideUp(SeriesDetailScreen(series: series)));

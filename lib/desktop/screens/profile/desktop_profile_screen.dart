@@ -88,7 +88,9 @@ class DesktopProfileScreenState extends State<DesktopProfileScreen>
             if (mounted) setState(() => profile = p);
           })
           .catchError((Object e) {
-            _logger.warning('Background profile refresh failed: $e');
+            _logger.warning(
+              'Background profile refresh failed (${e.runtimeType})',
+            );
           });
     } else if (_auth.isLoggedIn) {
       bootstrap().then((_) => _fetchExtendedStats());

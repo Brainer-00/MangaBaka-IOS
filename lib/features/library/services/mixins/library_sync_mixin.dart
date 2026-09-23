@@ -45,11 +45,11 @@ mixin LibrarySyncMixin on LibraryServiceBase {
         _hasPerformedInitialSync = true;
       }
     } on NetworkException catch (e) {
-      logger.warning('Initial import failed: $e');
+      logger.warning('Initial import failed (${e.runtimeType})');
       _initialSyncTask = null;
       rethrow;
-    } catch (e, st) {
-      logger.severe('Failed to perform initial import: $e\n$st');
+    } catch (e) {
+      logger.severe('Failed to perform initial import (${e.runtimeType})');
       _initialSyncTask = null;
       rethrow;
     }
@@ -135,7 +135,9 @@ mixin LibrarySyncMixin on LibraryServiceBase {
       return;
     }
 
-    logger.info('Starting incremental library sync${state != null ? ' for state $state' : ''}');
+    logger.info(
+      'Starting incremental library sync (state filter: ${state != null})',
+    );
     setIsSyncCancelled(false);
     syncStatus.value = LibrarySyncStatus(isSyncing: true);
 
@@ -145,7 +147,7 @@ mixin LibrarySyncMixin on LibraryServiceBase {
       final lastSyncStr = prefs.getString(_lastSyncKey);
       final lastSync = lastSyncStr != null ? parseAsUtc(lastSyncStr) : null;
       
-      logger.fine('Last sync watermark: $lastSyncStr');
+      logger.fine('Loaded last sync watermark: ${lastSyncStr != null}');
       String? newestEntryTimestamp;
 
       var page = 1;
@@ -209,12 +211,14 @@ mixin LibrarySyncMixin on LibraryServiceBase {
 
       if (!isSyncCancelled) {
         final newWatermark = newestEntryTimestamp ?? DateTime.now().toUtc().toIso8601String();
-        logger.info('Incremental sync completed. Total fetched: $totalFetched. New watermark: $newWatermark');
+        logger.info(
+          'Incremental sync completed. Total fetched: $totalFetched',
+        );
         await prefs.setString(_lastSyncKey, newWatermark);
       }
       syncStatus.value = syncStatus.value.copyWith(isSyncing: false);
-    } catch (e, st) {
-      logger.severe('Incremental sync failed: $e\n$st');
+    } catch (e) {
+      logger.severe('Incremental sync failed (${e.runtimeType})');
       syncStatus.value = syncStatus.value.copyWith(isSyncing: false, error: e.toString());
       rethrow;
     }

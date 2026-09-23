@@ -22,7 +22,7 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
         series: row.readTable(seriesTable),
       );
     } catch (e) {
-      _logger.severe('Failed to get entry by series ID: $e');
+      _logger.severe('Failed to get entry by series ID (${e.runtimeType})');
       throw exc.DatabaseException(message: 'Failed to get entry by series ID', originalError: e);
     }
   }
@@ -44,7 +44,7 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
         );
       });
     } catch (e) {
-      _logger.severe('Failed to watch entry with series: $e');
+      _logger.severe('Failed to watch entry with series (${e.runtimeType})');
       throw exc.DatabaseException(message: 'Failed to watch entry with series', originalError: e);
     }
   }
@@ -69,7 +69,7 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
             .toList();
       });
     } catch (e) {
-      _logger.severe('Failed to watch all entries with series: $e');
+      _logger.severe('Failed to watch all entries with series (${e.runtimeType})');
       throw exc.DatabaseException(message: 'Failed to watch all entries with series', originalError: e);
     }
   }
@@ -106,7 +106,7 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
         });
       });
     } catch (e) {
-      _logger.severe('Failed to upsert library entries: $e');
+      _logger.severe('Failed to upsert library entries (${e.runtimeType})');
       throw exc.DatabaseException(message: 'Failed to upsert library entries', originalError: e);
     }
   }
@@ -117,7 +117,7 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
             ..where((t) => t.seriesId.equals(seriesId)))
           .write(LibraryEntriesTableCompanion(state: Value(newState)));
     } catch (e) {
-      _logger.severe('Failed to update entry state: $e');
+      _logger.severe('Failed to update entry state (${e.runtimeType})');
       throw exc.DatabaseException(message: 'Failed to update entry state', originalError: e);
     }
   }
@@ -128,7 +128,7 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
             ..where((t) => t.seriesId.equals(seriesId)))
           .write(LibraryEntriesTableCompanion(rating: Value(newRating)));
     } catch (e) {
-      _logger.severe('Failed to update entry rating: $e');
+      _logger.severe('Failed to update entry rating (${e.runtimeType})');
       throw exc.DatabaseException(message: 'Failed to update entry rating', originalError: e);
     }
   }
@@ -142,7 +142,7 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
             progressVolume: progressVolume != null ? Value(progressVolume) : const Value.absent(),
           ));
     } catch (e) {
-      _logger.severe('Failed to update entry progress: $e');
+      _logger.severe('Failed to update entry progress (${e.runtimeType})');
       throw exc.DatabaseException(message: 'Failed to update entry progress', originalError: e);
     }
   }
@@ -153,7 +153,7 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
         libraryEntriesTable,
       )..where((tbl) => tbl.seriesId.equals(seriesId))).go();
     } catch (e) {
-      _logger.severe('Failed to delete entry: $e');
+      _logger.severe('Failed to delete entry (${e.runtimeType})');
       throw exc.DatabaseException(message: 'Failed to delete entry', originalError: e);
     }
   }
@@ -180,7 +180,7 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
         }
       });
     } catch (e) {
-      _logger.severe('Failed to delete stale entries: $e');
+      _logger.severe('Failed to delete stale entries (${e.runtimeType})');
       throw exc.DatabaseException(
           message: 'Failed to delete stale entries', originalError: e);
     }
@@ -190,7 +190,7 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
     try {
       await delete(libraryEntriesTable).go();
     } catch (e) {
-      _logger.severe('Failed to delete all entries: $e');
+      _logger.severe('Failed to delete all entries (${e.runtimeType})');
       throw exc.DatabaseException(message: 'Failed to delete all entries', originalError: e);
     }
   }

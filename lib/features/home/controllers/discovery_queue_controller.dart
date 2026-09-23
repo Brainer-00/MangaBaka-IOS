@@ -95,8 +95,10 @@ class DiscoveryQueueController extends ChangeNotifier {
       _isCompleted = false;
       _isLoading = false;
       _logger.info('DiscoveryQueue loaded ${items.length} series');
-    } catch (e, st) {
-      _logger.severe('Failed to load discovery queue: $e', e, st);
+    } catch (e) {
+      _logger.severe(
+        'Failed to load discovery queue (${e.runtimeType})',
+      );
       _errorMessage = e.toString();
       _isLoading = false;
     }
@@ -121,8 +123,10 @@ class DiscoveryQueueController extends ChangeNotifier {
         _isCompleted = true;
       }
       return true;
-    } catch (e, st) {
-      _logger.severe('Failed to add series ${series.id} to library: $e', e, st);
+    } catch (e) {
+      _logger.severe(
+        'Failed to add series to library (${e.runtimeType})',
+      );
       rethrow;
     } finally {
       _isActionInProgress = false;

@@ -39,7 +39,7 @@ class CameraScanLauncher {
       _logger.fine('Barcode scan cancelled or empty');
       return null;
     }
-    _logger.info('Scanned ISBN: $code');
+    _logger.info('Barcode scan completed');
     return code;
   }
 

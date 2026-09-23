@@ -88,7 +88,7 @@ class LibraryScreenState extends State<LibraryScreen>
   }
 
   void handleResultSelected(AutocompleteSeriesResult result) {
-    _logger.info('Library autocomplete result selected: ${result.title}');
+    _logger.info('Library autocomplete result selected');
     _navigateToSeriesDetail(BrowseHelpers.convertAutocompleteToSeries(result));
   }
 

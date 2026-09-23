@@ -58,9 +58,7 @@ class _ProfileScreenState extends State<ProfileScreen> with ProfileDataMixin {
 
     profile = _auth.cachedProfile;
     if (profile != null) {
-      _logger.info(
-        'Using cached profile for username: ${profile!.preferredUsername ?? profile!.id}',
-      );
+      _logger.info('Using cached profile');
       loading = false;
       // Fire all data fetches in parallel while showing cached data immediately.
       fetchStatistics();
@@ -76,7 +74,9 @@ class _ProfileScreenState extends State<ProfileScreen> with ProfileDataMixin {
             }
           })
           .catchError((e) {
-            _logger.warning('Silently refreshing profile data failed: $e');
+            _logger.warning(
+              'Silently refreshing profile data failed (${e.runtimeType})',
+            );
           });
     } else if (_auth.isLoggedIn) {
       _logger.info(

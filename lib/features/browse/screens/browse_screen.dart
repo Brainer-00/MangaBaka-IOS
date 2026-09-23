@@ -59,7 +59,7 @@ class BrowseScreenState extends State<BrowseScreen> {
   }
 
   void handleResultSelected(AutocompleteSeriesResult result) {
-    _logger.info('Autocomplete result selected: ${result.title}');
+    _logger.info('Autocomplete result selected');
     _navigateToDetail(BrowseHelpers.convertAutocompleteToSeries(result));
   }
 
@@ -136,10 +136,7 @@ class BrowseScreenState extends State<BrowseScreen> {
     String? staff,
     String? publisher,
   }) {
-    _logger.info(
-      'Navigating to BrowseResults: header=$header, sortBy=$sortBy, '
-      'type=$type, staff=$staff, publisher=$publisher',
-    );
+    _logger.info('Navigating to browse results');
     Navigator.push(
       context,
       AppTransitions.slideRight(
@@ -160,9 +157,7 @@ class BrowseScreenState extends State<BrowseScreen> {
   }
 
   void _navigateToDetail(Series series) {
-    _logger.info(
-      'Navigating to SeriesDetail: ${series.title} (ID: ${series.id})',
-    );
+    _logger.info('Navigating to series detail');
     Navigator.push(
       context,
       AppTransitions.slideUp(SeriesDetailScreen(series: series)),

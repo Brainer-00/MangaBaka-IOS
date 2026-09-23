@@ -77,7 +77,9 @@ class MixService {
         ),
       );
     } catch (e) {
-      _logger.warning('MixService.fetchSeedSuggestions failed: $e');
+      _logger.warning(
+        'MixService.fetchSeedSuggestions failed (${e.runtimeType})',
+      );
       return const [];
     }
   }
@@ -116,7 +118,9 @@ class MixService {
     try {
       return fromJson(normalizeMixSeriesJson(seriesMap.cast<String, dynamic>()));
     } catch (e) {
-      _logger.warning('MixService: failed to parse series item: $e');
+      _logger.warning(
+        'MixService: failed to parse series item (${e.runtimeType})',
+      );
       return null;
     }
   }

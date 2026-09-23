@@ -95,7 +95,7 @@ class BackendHealthService {
 
     final detail = statusCode != null
         ? '$context HTTP $statusCode'
-        : '$context ${error ?? 'transport error'}';
+        : '$context ${error == null ? 'unknown failure' : 'transport error'}';
     _consecutiveFailures++;
 
     if (status.value != BackendHealthStatus.down &&
@@ -159,7 +159,8 @@ class BackendHealthService {
       }
     } catch (e) {
       _logger.info(
-        'Backend health: recovery probe #$_probeAttempt — still down ($e)',
+        'Backend health: recovery probe #$_probeAttempt — still down '
+        '(${e.runtimeType})',
       );
     } finally {
       _probing = false;

@@ -26,7 +26,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
   /// Throws [AuthException] when the server returns 401.
   void _assertAuthorized(http.Response response, String seriesId) {
     if (response.statusCode == 401) {
-      logger.severe('Unauthorized request for $seriesId');
+      logger.severe('Unauthorized library request');
       throw AuthException(message: 'Authentication failed.', code: 'AUTH_FAILED');
     }
   }
@@ -39,7 +39,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     String seriesId,
     String operation,
   ) {
-    logger.severe('$operation failed for $seriesId', e, st);
+    logger.severe('$operation failed (${e.runtimeType})');
     if (e is AppException) throw e;
     if (e is http.ClientException || e is SocketException) {
       throw NetworkException(
@@ -63,7 +63,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
   // ── CRUD operations ───────────────────────────────────────────────────────
 
   Future<void> updateLibraryEntryState(String seriesId, String state) async {
-    logger.info('Updating library entry state for $seriesId to: $state');
+    logger.info('Updating library entry state');
     final token = await auth.getValidAccessToken();
     final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
     try {
@@ -76,7 +76,9 @@ mixin LibraryCrudMixin on LibraryServiceBase {
 
       _assertAuthorized(response, seriesId);
       if (response.statusCode != 200) {
-        logger.severe('Failed to update entry state for $seriesId. Status: ${response.statusCode}');
+        logger.severe(
+          'Failed to update entry state (HTTP ${response.statusCode})',
+        );
         throw ApiException(
           message: 'Failed to update entry state',
           statusCode: response.statusCode,
@@ -86,14 +88,14 @@ mixin LibraryCrudMixin on LibraryServiceBase {
       }
 
       await database.libraryEntriesDao.updateEntryState(seriesId, state);
-      logger.info('Successfully updated state for $seriesId to $state in DB');
+      logger.info('Successfully updated library entry state in DB');
     } catch (e, st) {
       _rethrowAsAppException(e, st, seriesId, 'update entry state');
     }
   }
 
   Future<void> updateLibraryEntryRating(String seriesId, int rating) async {
-    logger.info('Updating library entry rating for $seriesId to: $rating');
+    logger.info('Updating library entry rating');
     final token = await auth.getValidAccessToken();
     final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
     try {
@@ -106,7 +108,9 @@ mixin LibraryCrudMixin on LibraryServiceBase {
 
       _assertAuthorized(response, seriesId);
       if (response.statusCode != 200) {
-        logger.severe('Failed to update entry rating for $seriesId. Status: ${response.statusCode}');
+        logger.severe(
+          'Failed to update entry rating (HTTP ${response.statusCode})',
+        );
         throw ApiException(
           message: 'Failed to update entry rating',
           statusCode: response.statusCode,
@@ -116,7 +120,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
       }
 
       await database.libraryEntriesDao.updateEntryRating(seriesId, rating);
-      logger.info('Successfully updated rating for $seriesId to $rating in DB');
+      logger.info('Successfully updated library entry rating in DB');
     } catch (e, st) {
       _rethrowAsAppException(e, st, seriesId, 'update entry rating');
     }
@@ -137,9 +141,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     int? progressChapter,
     int? progressVolume,
   }) async {
-    logger.info(
-      'Updating library entry progress for $seriesId — Ch: $progressChapter, Vol: $progressVolume (optimistic)',
-    );
+    logger.info('Updating library entry progress (optimistic)');
 
     // Capture state for rollback, then apply optimistic local update.
     final snapshot = await database.libraryEntriesDao.getEntryBySeriesId(seriesId);
@@ -168,7 +170,9 @@ mixin LibraryCrudMixin on LibraryServiceBase {
       _assertAuthorized(response, seriesId);
 
       if (response.statusCode != 200) {
-        logger.severe('Failed to update entry progress for $seriesId. Status: ${response.statusCode}');
+        logger.severe(
+          'Failed to update entry progress (HTTP ${response.statusCode})',
+        );
         await _rollbackProgress(seriesId, snapshot);
         throw ApiException(
           message: 'Failed to update entry progress',
@@ -178,16 +182,16 @@ mixin LibraryCrudMixin on LibraryServiceBase {
         );
       }
 
-      logger.info('Successfully updated progress for $seriesId on server');
+      logger.info('Successfully updated library entry progress on server');
     } catch (e, st) {
-      logger.severe('Error updating entry progress for $seriesId: $e');
+      logger.severe('Error updating entry progress (${e.runtimeType})');
       await _rollbackProgress(seriesId, snapshot);
       _rethrowAsAppException(e, st, seriesId, 'update entry progress');
     }
   }
 
   Future<void> createLibraryEntry(String seriesId, String state) async {
-    logger.info('Creating library entry for $seriesId with state: $state');
+    logger.info('Creating library entry');
     final token = await auth.getValidAccessToken();
     final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
     try {
@@ -200,10 +204,12 @@ mixin LibraryCrudMixin on LibraryServiceBase {
 
       _assertAuthorized(response, seriesId);
       if (response.statusCode == 201) {
-        logger.info('Successfully created library entry for $seriesId. Syncing local DB...');
+        logger.info('Successfully created library entry; syncing local DB');
         await syncLibrary();
       } else {
-        logger.severe('Failed to create library entry for $seriesId. Status: ${response.statusCode}');
+        logger.severe(
+          'Failed to create library entry (HTTP ${response.statusCode})',
+        );
         throw ApiException(
           message: 'Failed to create library entry',
           statusCode: response.statusCode,
@@ -238,7 +244,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     ];
     if (ids.isEmpty) return 0;
 
-    logger.info('Batch-adding ${ids.length} series with state: $state');
+    logger.info('Batch-adding ${ids.length} series');
     final token = await auth.getValidAccessToken();
     final url = Uri.parse('${LibraryConstants.baseUrl}/batch');
     var created = 0;
@@ -284,7 +290,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
         try {
           await syncLibrary();
         } catch (e) {
-          logger.warning('Sync after batch add failed: $e');
+          logger.warning('Sync after batch add failed (${e.runtimeType})');
         }
       }
     }
@@ -292,7 +298,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
   }
 
   Future<void> deleteEntry(String seriesId) async {
-    logger.info('Deleting library entry for $seriesId');
+    logger.info('Deleting library entry');
     final token = await auth.getValidAccessToken();
     final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
     try {
@@ -307,10 +313,14 @@ mixin LibraryCrudMixin on LibraryServiceBase {
       _assertAuthorized(response, seriesId);
       if (response.statusCode == 200 || response.statusCode == 404) {
         // 404 means already deleted on the server — still clean up locally.
-        logger.info('Entry $seriesId deleted from server (or already gone). Updating DB...');
+        logger.info(
+          'Library entry deleted from server (or already gone); updating DB',
+        );
         await database.libraryEntriesDao.deleteEntry(seriesId);
       } else {
-        logger.severe('Failed to delete entry for $seriesId. Status: ${response.statusCode}');
+        logger.severe(
+          'Failed to delete library entry (HTTP ${response.statusCode})',
+        );
         throw ApiException(
           message: 'Failed to delete library entry',
           statusCode: response.statusCode,
@@ -335,8 +345,8 @@ mixin LibraryCrudMixin on LibraryServiceBase {
       await prefs.remove(AppConstants.lastSyncKey);
       await prefs.remove(_isIncompleteKey);
       logger.info('Library sync preferences reset');
-    } catch (e, st) {
-      logger.severe('Failed to clear library', e, st);
+    } catch (e) {
+      logger.severe('Failed to clear library (${e.runtimeType})');
     }
   }
 }

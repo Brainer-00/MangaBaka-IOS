@@ -74,12 +74,11 @@ class LibraryTabCoordinator {
     if (helper.getByTab(currentKey).isNotEmpty) return;
 
     _logger.info(
-      'Current tab ($currentKey) is empty while searching. '
-      'Looking for other tabs...',
+      'Current library tab is empty while searching; checking other tabs',
     );
     for (var i = 0; i < tabs.length; i++) {
       if (helper.getByTab(tabs[i].key).isEmpty) continue;
-      _logger.info('Auto-switching to tab: ${tabs[i].key} (index $i)');
+        _logger.info('Auto-switching library tab (index $i)');
       controller.animateTo(i);
       return;
     }

@@ -29,10 +29,10 @@ class StatisticsService {
 
       final result = await query.getSingle();
       final val = result.read(count) ?? 0;
-      _logger.fine('Total series count: $val');
+      _logger.fine('Calculated total series count');
       return val;
     } catch (e, st) {
-      _logger.severe('Failed to get total series from DB: $e\n$st');
+      _logger.severe('Failed to get total series from DB (${e.runtimeType})');
       throw DatabaseException(
         message: 'Failed to get total series',
         originalError: e,
@@ -61,10 +61,10 @@ class StatisticsService {
 
       final result = await query.getSingle();
       final val = result.read(sum) ?? 0;
-      _logger.fine('Total chapters read: $val');
+      _logger.fine('Calculated total chapters read');
       return val;
     } catch (e, st) {
-      _logger.severe('Failed to get chapters read from DB: $e\n$st');
+      _logger.severe('Failed to get chapters read from DB (${e.runtimeType})');
       throw DatabaseException(
         message: 'Failed to get chapters read',
         originalError: e,
@@ -93,10 +93,10 @@ class StatisticsService {
 
       final result = await query.getSingle();
       final val = result.read(sum) ?? 0;
-      _logger.fine('Total volumes read: $val');
+      _logger.fine('Calculated total volumes read');
       return val;
     } catch (e, st) {
-      _logger.severe('Failed to get volumes read from DB: $e\n$st');
+      _logger.severe('Failed to get volumes read from DB (${e.runtimeType})');
       throw DatabaseException(
         message: 'Failed to get volumes read',
         originalError: e,
@@ -133,10 +133,12 @@ class StatisticsService {
 
       final completed = result.read(completedCount) ?? 0;
       final rate = (completed / total) * 100;
-      _logger.fine('Completion rate: $rate% ($completed/$total)');
+      _logger.fine('Calculated completion rate');
       return rate;
     } catch (e, st) {
-      _logger.severe('Failed to calculate completion rate: $e\n$st');
+      _logger.severe(
+        'Failed to calculate completion rate (${e.runtimeType})',
+      );
       throw DatabaseException(
         message: 'Failed to get completion rate',
         originalError: e,
@@ -165,10 +167,10 @@ class StatisticsService {
 
       final result = await query.getSingle();
       final val = result.read(sum) ?? 0;
-      _logger.fine('Total rereads: $val');
+      _logger.fine('Calculated total rereads');
       return val;
     } catch (e, st) {
-      _logger.severe('Failed to get total rereads from DB: $e\n$st');
+      _logger.severe('Failed to get total rereads from DB (${e.runtimeType})');
       throw DatabaseException(
         message: 'Failed to get total rereads',
         originalError: e,
@@ -200,10 +202,10 @@ class StatisticsService {
 
       final result = await query.getSingle();
       final val = result.read(avg) ?? 0.0;
-      _logger.fine('Mean score: $val');
+      _logger.fine('Calculated mean score');
       return val;
     } catch (e, st) {
-      _logger.severe('Failed to calculate mean score: $e\n$st');
+      _logger.severe('Failed to calculate mean score (${e.runtimeType})');
       throw DatabaseException(
         message: 'Failed to get mean score',
         originalError: e,
@@ -243,12 +245,10 @@ class StatisticsService {
       if (total == 0) return 0.0;
 
       final rate = (completed / total) * 100;
-      _logger.fine(
-        'Finish rate: $rate% ($completed completed, $dropped dropped)',
-      );
+      _logger.fine('Calculated finish rate');
       return rate;
     } catch (e, st) {
-      _logger.severe('Failed to calculate finish rate: $e\n$st');
+      _logger.severe('Failed to calculate finish rate (${e.runtimeType})');
       throw DatabaseException(
         message: 'Failed to get finish rate',
         originalError: e,
@@ -299,10 +299,12 @@ class StatisticsService {
         libraryEntry: row.readTable(_db.libraryEntriesTable),
         series: row.readTable(_db.seriesTable),
       );
-      _logger.fine('Highest rated series found: ${entry.series.title}');
+      _logger.fine('Highest rated series found');
       return entry;
     } catch (e, st) {
-      _logger.severe('Failed to get highest rated series from DB: $e\n$st');
+      _logger.severe(
+        'Failed to get highest rated series from DB (${e.runtimeType})',
+      );
       throw DatabaseException(
         message: 'Failed to get highest rated series',
         originalError: e,
@@ -360,10 +362,12 @@ class StatisticsService {
         libraryEntry: row.readTable(_db.libraryEntriesTable),
         series: row.readTable(_db.seriesTable),
       );
-      _logger.fine('Most reread series found: ${entry.series.title}');
+      _logger.fine('Most reread series found');
       return entry;
     } catch (e, st) {
-      _logger.severe('Failed to get most reread series from DB: $e\n$st');
+      _logger.severe(
+        'Failed to get most reread series from DB (${e.runtimeType})',
+      );
       throw DatabaseException(
         message: 'Failed to get most reread series',
         originalError: e,

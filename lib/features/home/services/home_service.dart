@@ -142,7 +142,7 @@ class HomeService {
       _logger.info('HomeService for-you returned ${series.length} series');
       return series;
     } catch (e) {
-      _logger.warning('HomeService failed to fetch for-you: $e');
+      _logger.warning('HomeService failed to fetch for-you (${e.runtimeType})');
       return const [];
     }
   }
@@ -173,10 +173,12 @@ class HomeService {
             },
             headers: headers,
           );
-      _logger.info('HomeService top genres: ${genres.map((g) => g.name)}');
+      _logger.info('HomeService returned ${genres.length} top genres');
       return genres;
     } catch (e) {
-      _logger.warning('HomeService failed to fetch top genres: $e');
+      _logger.warning(
+        'HomeService failed to fetch top genres (${e.runtimeType})',
+      );
       return const [];
     }
   }
@@ -192,7 +194,7 @@ class HomeService {
         'rating_lower': 1,
         'limit': limit,
       }),
-      'top in genre $tagId',
+      'top in genre',
     );
   }
 
@@ -230,11 +232,11 @@ class HomeService {
       );
       _logger.info(
         'For-You readiness: coldStart=${readiness.coldStart} '
-        'stale=${readiness.profileStale} library=${readiness.libraryCount}',
+        'stale=${readiness.profileStale}',
       );
       return readiness;
     } catch (e) {
-      _logger.warning('For-You readiness probe failed: $e');
+      _logger.warning('For-You readiness probe failed (${e.runtimeType})');
       return null;
     }
   }
@@ -249,7 +251,9 @@ class HomeService {
       final token = await auth.getValidAccessToken();
       return {'Authorization': 'Bearer $token'};
     } catch (e) {
-      _logger.warning('Could not obtain access token for Home rail: $e');
+      _logger.warning(
+        'Could not obtain access token for Home rail (${e.runtimeType})',
+      );
       return null;
     }
   }
@@ -274,7 +278,9 @@ class HomeService {
       _logger.info('HomeService $label returned ${series.length} series');
       return series;
     } catch (e) {
-      _logger.warning('HomeService failed to fetch $label: $e');
+      _logger.warning(
+        'HomeService failed to fetch $label (${e.runtimeType})',
+      );
       return const [];
     }
   }
@@ -304,7 +310,9 @@ class HomeService {
       _logger.info('HomeService upcoming returned ${works.length} works');
       return works;
     } catch (e) {
-      _logger.warning('HomeService failed to fetch upcoming works: $e');
+      _logger.warning(
+        'HomeService failed to fetch upcoming works (${e.runtimeType})',
+      );
       return const [];
     }
   }

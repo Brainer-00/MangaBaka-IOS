@@ -76,7 +76,9 @@ mixin SeriesDetailDataMixin<T extends StatefulWidget> on State<T> {
               if (mounted) setState(() => readersAlsoLike = data);
             }).catchError((Object e) {
               seriesService.logger
-                  .warning('Error fetching readers-also-like: $e');
+                  .warning(
+                    'Error fetching readers-also-like (${e.runtimeType})',
+                  );
               if (mounted) setState(() => readersAlsoLike = const []);
             });
           }
@@ -87,7 +89,9 @@ mixin SeriesDetailDataMixin<T extends StatefulWidget> on State<T> {
           break;
       }
     } catch (e) {
-      seriesService.logger.warning('Error fetching tab "$tab" data: $e');
+      seriesService.logger.warning(
+        'Error fetching tab "$tab" data (${e.runtimeType})',
+      );
       if (mounted) setState(() => fetchError = true);
     }
   }
@@ -114,7 +118,9 @@ mixin SeriesDetailDataMixin<T extends StatefulWidget> on State<T> {
         });
       }
     } catch (e) {
-      seriesService.logger.warning('Error fetching full data: $e');
+      seriesService.logger.warning(
+        'Error fetching full data (${e.runtimeType})',
+      );
       await whenReadyToApplyData();
       if (mounted) {
         setState(() {

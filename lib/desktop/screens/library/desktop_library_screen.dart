@@ -125,7 +125,7 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
   }
 
   void _onResultSelected(AutocompleteSeriesResult result) {
-    _logger.info('Library autocomplete result selected: ${result.title}');
+    _logger.info('Library autocomplete result selected');
     _openDetail(BrowseHelpers.convertAutocompleteToSeries(result));
   }
 

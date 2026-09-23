@@ -38,7 +38,7 @@ mixin SeriesFetchMixin {
       // Preferences can change after a series was cached, so the gate is
       // re-applied on the way out rather than only at fetch time.
       _assertAllowedByContentRating(cached, evictOnBlock: id);
-      logger.fine('Returning cached series data for ID: $id');
+      logger.fine('Returning cached series data');
       return cached;
     }
 
@@ -52,7 +52,7 @@ mixin SeriesFetchMixin {
 
     switch (response.statusCode) {
       case 404:
-        logger.warning('Series not found: $id');
+        logger.warning('Series not found (HTTP 404)');
         throw ApiException(
           message: 'Series not found',
           statusCode: 404,
@@ -60,7 +60,7 @@ mixin SeriesFetchMixin {
           code: 'NOT_FOUND',
         );
       case 429:
-        logger.warning('Rate limited while fetching series $id');
+        logger.warning('Rate limited while fetching series (HTTP 429)');
         throw ApiException(
           message: 'Too many requests. Please slow down.',
           statusCode: 429,
@@ -83,7 +83,7 @@ mixin SeriesFetchMixin {
 
     _assertAllowedByContentRating(series);
 
-    logger.info('Successfully fetched series: ${series.title} ($id)');
+    logger.info('Successfully fetched series');
     _store(id, series);
     return series;
   }
@@ -106,10 +106,7 @@ mixin SeriesFetchMixin {
     if (prefs.contains(series.contentRating.toLowerCase())) return;
 
     if (evictOnBlock != null) _cache.remove(evictOnBlock);
-    logger.warning(
-      'Series ${series.title} (${series.id}) blocked due to content rating: '
-      '${series.contentRating}',
-    );
+    logger.warning('Series blocked due to content rating');
     throw ApiException(
       message: 'This content is filtered by your content rating settings.',
       statusCode: 403,

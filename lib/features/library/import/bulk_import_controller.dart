@@ -201,7 +201,7 @@ class BulkImportController extends ChangeNotifier {
         row.selected = true;
       }
     } catch (e) {
-      _logger.warning('Import match failed for "${row.query}": $e');
+      _logger.warning('Import match failed (${e.runtimeType})');
       row.status = ImportRowStatus.failed;
     }
   }

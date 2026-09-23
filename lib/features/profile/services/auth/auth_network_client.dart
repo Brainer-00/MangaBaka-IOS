@@ -38,7 +38,9 @@ class AuthNetworkClient {
         }
       } catch (e) {
         lastError = e;
-        _logger.warning('Failed to fetch from /userinfo: $e');
+        _logger.warning(
+          'Failed to fetch from /userinfo (${e.runtimeType})',
+        );
       }
 
       // 2. Fetch profile from MangaBaka API (/v1/my/profile)
@@ -62,7 +64,9 @@ class AuthNetworkClient {
         }
       } catch (e) {
         lastError = e;
-        _logger.warning('Failed to fetch from /my/profile: $e');
+        _logger.warning(
+          'Failed to fetch from /my/profile (${e.runtimeType})',
+        );
       }
 
       if (userInfoProfile != null && meProfile != null) {
@@ -98,7 +102,7 @@ class AuthNetworkClient {
         originalError: lastError,
       );
     } catch (e, st) {
-      _logger.severe('Network error during profile fetch: $e\n$st');
+      _logger.severe('Network error during profile fetch (${e.runtimeType})');
       if (e is AppException) rethrow;
       throw AuthException(
         message: 'Network fetch profile failed',

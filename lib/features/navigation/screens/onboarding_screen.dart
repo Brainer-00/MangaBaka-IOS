@@ -154,7 +154,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         _logger.info('Login cancelled by user');
         return;
       }
-      _logger.severe('Login failed during onboarding: $e');
+      _logger.severe('Login failed during onboarding (${e.runtimeType})');
       if (mounted) {
         final localization = LocalizationService();
         AppSnackBar.show(

@@ -79,7 +79,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
         _loading = false;
       });
     } catch (e) {
-      _logger.warning('Collection works failed: $e');
+      _logger.warning('Collection works failed (${e.runtimeType})');
       if (mounted) {
         setState(() {
           _loading = false;

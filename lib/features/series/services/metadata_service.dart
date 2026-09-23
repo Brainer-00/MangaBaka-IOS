@@ -136,7 +136,9 @@ class MetadataService {
       await _cache.write(cacheKey, encoded);
       _logger.info('Updated and cached ${items.length} entries from $endpoint');
     } catch (e) {
-      _logger.warning('Metadata refresh failed for $endpoint: $e');
+      _logger.warning(
+        'Metadata refresh failed for $endpoint (${e.runtimeType})',
+      );
     }
   }
 

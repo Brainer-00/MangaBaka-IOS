@@ -47,14 +47,14 @@ class AuthStorage {
     } on PlatformException catch (e) {
       if (!_allowInsecureFallback) {
         _logger.severe(
-          'Secure storage read failed for key $key',
-          e,
+          'Secure storage read failed (${e.runtimeType})',
         );
         rethrow;
       }
 
       _logger.warning(
-        'Secure storage read error for key $key: $e. Checking fallback.',
+        'Secure storage read error (${e.runtimeType}); '
+        'checking fallback',
       );
 
       final prefs = await SharedPreferences.getInstance();
@@ -68,15 +68,14 @@ class AuthStorage {
     } on PlatformException catch (e) {
       if (!_allowInsecureFallback) {
         _logger.severe(
-          'Secure storage write failed for key $key',
-          e,
+          'Secure storage write failed (${e.runtimeType})',
         );
         rethrow;
       }
 
       _logger.warning(
-        'Secure storage write error for key $key: $e. '
-        'Falling back to SharedPreferences.',
+        'Secure storage write error (${e.runtimeType}); '
+        'falling back to SharedPreferences',
       );
 
       final prefs = await SharedPreferences.getInstance();
@@ -95,15 +94,14 @@ class AuthStorage {
     } on PlatformException catch (e) {
       if (!_allowInsecureFallback) {
         _logger.severe(
-          'Secure storage delete failed for key $key',
-          e,
+          'Secure storage delete failed (${e.runtimeType})',
         );
         rethrow;
       }
 
       _logger.warning(
-        'Secure storage delete error for key $key: $e. '
-        'Removing fallback value.',
+        'Secure storage delete error (${e.runtimeType}); '
+        'removing fallback value',
       );
 
       final prefs = await SharedPreferences.getInstance();
@@ -116,15 +114,12 @@ class AuthStorage {
       await _storage.deleteAll();
     } on PlatformException catch (e) {
       if (!_allowInsecureFallback) {
-        _logger.severe(
-          'Secure storage clear failed',
-          e,
-        );
+        _logger.severe('Secure storage clear failed (${e.runtimeType})');
         rethrow;
       }
 
       _logger.warning(
-        'Secure storage clear error: $e. Removing fallback values.',
+        'Secure storage clear error (${e.runtimeType}); removing fallback values',
       );
     }
 
@@ -151,7 +146,7 @@ class AuthStorage {
         return MbProfile.fromJson(jsonDecode(cachedString));
       }
     } catch (e) {
-      _logger.warning('Failed to load cached profile: $e');
+      _logger.warning('Failed to load cached profile (${e.runtimeType})');
     }
 
     return null;

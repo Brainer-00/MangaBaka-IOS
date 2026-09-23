@@ -118,13 +118,15 @@ mixin SeriesMetadataMixin {
           try {
             return fromJson(item);
           } catch (e) {
-            _logger.fine('Skipping malformed $path item for $id: $e');
+            _logger.fine(
+              'Skipping malformed $path item (${e.runtimeType})',
+            );
             return null;
           }
         }),
       );
     } catch (e) {
-      _logger.warning('Error fetching $path for $id: $e');
+      _logger.warning('Error fetching $path (${e.runtimeType})');
       return const [];
     }
   }

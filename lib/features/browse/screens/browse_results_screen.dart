@@ -122,7 +122,7 @@ class _BrowseResultsScreenState extends State<BrowseResultsScreen> {
           final profile = auth.cachedProfile;
           if (profile != null) {
             userId = profile.id.replaceAll('-', '');
-            _logger.fine('Hiding library series for user: $userId');
+            _logger.fine('Hiding library series for authenticated user');
           }
         }
       }
@@ -159,7 +159,10 @@ class _BrowseResultsScreenState extends State<BrowseResultsScreen> {
         });
       }
     } catch (e) {
-      _logger.severe('Failed to fetch results for "${widget.sortType}" at page $_currentPage: $e');
+      _logger.severe(
+        'Failed to fetch results for "${widget.sortType}" at page '
+        '$_currentPage (${e.runtimeType})',
+      );
       if (!mounted) return;
       setState(() {
         _isLoading = false;

@@ -35,7 +35,9 @@ class MetadataCache {
           .map((e) => e.cast<String, dynamic>())
           .toList();
     } catch (e) {
-      _logger.warning('Discarding unreadable metadata cache "$key": $e');
+      _logger.warning(
+        'Discarding unreadable metadata cache (${e.runtimeType})',
+      );
       await _remove(key);
       return null;
     }
@@ -49,7 +51,7 @@ class MetadataCache {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(key, encoded);
     } catch (e) {
-      _logger.warning('Failed to cache metadata "$key": $e');
+      _logger.warning('Failed to cache metadata (${e.runtimeType})');
     }
   }
 
