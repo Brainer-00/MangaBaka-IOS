@@ -331,9 +331,7 @@ class _DesktopLegalActions extends StatelessWidget {
               title: l10n.translate(items[index].titleKey),
               subtitle: l10n.translate(items[index].subtitleKey),
               control: _KeyboardAccessibleDesktopAction(
-                label: l10n.translate(
-                  items[index].external ? 'open' : 'view',
-                ),
+                label: l10n.translate(items[index].external ? 'open' : 'view'),
                 icon: items[index].external
                     ? Icons.open_in_new_rounded
                     : Icons.arrow_forward_rounded,

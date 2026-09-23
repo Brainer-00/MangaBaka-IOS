@@ -43,19 +43,13 @@ class _LogsScreenState extends State<LogsScreen> {
   void _clearLogs() {
     LoggingService.clearLogs();
     setState(() => _logs = []);
-    AppSnackBar.show(
-      context,
-      LocalizationService().translate('logs_cleared'),
-    );
+    AppSnackBar.show(context, LocalizationService().translate('logs_cleared'));
   }
 
   void _copyLogs() {
     if (_logs.isEmpty) return;
     Clipboard.setData(ClipboardData(text: _logsText));
-    AppSnackBar.show(
-      context,
-      LocalizationService().translate('logs_copied'),
-    );
+    AppSnackBar.show(context, LocalizationService().translate('logs_copied'));
   }
 
   Future<void> _saveLogs() async {
@@ -225,11 +219,7 @@ class DiagnosticLogPrivacyNotice extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              Icons.info_outline,
-              size: 18,
-              color: AppConstants.infoColor,
-            ),
+            Icon(Icons.info_outline, size: 18, color: AppConstants.infoColor),
             const SizedBox(width: 10),
             Expanded(
               child: Text(

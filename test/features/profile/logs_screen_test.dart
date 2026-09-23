@@ -23,21 +23,20 @@ void main() {
     expect(find.byType(LogsScreen), findsOneWidget);
   });
 
-  testWidgets(
-    'LogsScreen builds without errors and contains an AppBar',
-    (tester) async {
-      await tester.pumpWidget(const MaterialApp(home: LogsScreen()));
-      await tester.pump();
-      expect(find.byType(LogsScreen), findsOneWidget);
-      expect(find.byType(AppBar), findsOneWidget);
-      expect(
-        find.text(
-          'Diagnostic logs are sanitized, but review them before sharing publicly.',
-        ),
-        findsOneWidget,
-      );
-    },
-  );
+  testWidgets('LogsScreen builds without errors and contains an AppBar', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: LogsScreen()));
+    await tester.pump();
+    expect(find.byType(LogsScreen), findsOneWidget);
+    expect(find.byType(AppBar), findsOneWidget);
+    expect(
+      find.text(
+        'Diagnostic logs are sanitized, but review them before sharing publicly.',
+      ),
+      findsOneWidget,
+    );
+  });
 
   test('LoggingService.clearLogs empties the static buffer', () async {
     await LoggingService.clearLogs();

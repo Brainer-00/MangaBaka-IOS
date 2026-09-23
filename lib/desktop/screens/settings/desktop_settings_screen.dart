@@ -732,7 +732,11 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
                   await _auth.logout();
                 } catch (e) {
                   if (mounted) {
-                    AppSnackBar.show(context, 'Logout failed: $e', isError: true);
+                    AppSnackBar.show(
+                      context,
+                      'Logout failed: $e',
+                      isError: true,
+                    );
                   }
                 }
               },

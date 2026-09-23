@@ -217,8 +217,9 @@ void main() {
       );
     }
 
-    testWidgets('a collapsed sidebar has its own expand button, mid-height',
-        (tester) async {
+    testWidgets('a collapsed sidebar has its own expand button, mid-height', (
+      tester,
+    ) async {
       var toggles = 0;
       await tester.pumpWidget(
         sidebar(collapsed: true, onToggle: () => toggles++),
@@ -306,7 +307,11 @@ void main() {
       // Mid-transition both pages are on screen, one leaving as one arrives.
       await tester.pump(const Duration(milliseconds: 200));
       expect(find.text('LANGUAGE'), findsOneWidget, reason: 'General leaving');
-      expect(find.text('RATING_STEP'), findsOneWidget, reason: 'Content arriving');
+      expect(
+        find.text('RATING_STEP'),
+        findsOneWidget,
+        reason: 'Content arriving',
+      );
       final leaving = tester.getTopLeft(find.text('LANGUAGE')).dy;
       final arriving = tester.getTopLeft(find.text('RATING_STEP')).dy;
       // Going down the page: the new one is below the old one.
@@ -317,8 +322,9 @@ void main() {
       expect(find.text('RATING_STEP'), findsOneWidget);
     });
 
-    testWidgets('a shown content rating can have its covers blurred',
-        (tester) async {
+    testWidgets('a shown content rating can have its covers blurred', (
+      tester,
+    ) async {
       await pumpSettings(tester);
       await tester.tap(find.text('content'));
       await tester.pumpAndSettle();

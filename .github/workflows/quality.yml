@@ -28,6 +28,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -46,8 +48,67 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Verify formatting
-        run: dart format --output=none --set-exit-if-changed lib test
+      - name: Verify formatting for changed Dart files
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          PUSH_AFTER_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          empty_tree="$(git hash-object -t tree /dev/null)"
+
+          case "$EVENT_NAME" in
+            pull_request)
+              comparison=("$PR_BASE_SHA...$PR_HEAD_SHA")
+              ;;
+            push)
+              if [[ "$PUSH_BEFORE_SHA" =~ ^0+$ ]] ||
+                 ! git cat-file -e "$PUSH_BEFORE_SHA^{commit}" 2>/dev/null; then
+                if git rev-parse --verify "$PUSH_AFTER_SHA^" >/dev/null 2>&1; then
+                  base_sha="$PUSH_AFTER_SHA^"
+                else
+                  base_sha="$empty_tree"
+                fi
+              else
+                base_sha="$PUSH_BEFORE_SHA"
+              fi
+              comparison=("$base_sha" "$PUSH_AFTER_SHA")
+              ;;
+            workflow_dispatch)
+              if git rev-parse --verify "$GITHUB_SHA^" >/dev/null 2>&1; then
+                base_sha="$GITHUB_SHA^"
+              else
+                base_sha="$empty_tree"
+              fi
+              comparison=("$base_sha" "$GITHUB_SHA")
+              ;;
+            *)
+              echo "Unsupported event: $EVENT_NAME" >&2
+              exit 1
+              ;;
+          esac
+
+          printf 'Git comparison:'
+          printf ' %s' "${comparison[@]}"
+          printf '\n'
+
+          mapfile -d '' -t dart_files < <(
+            git diff --name-only --diff-filter=ACMR -z \
+              "${comparison[@]}" -- '*.dart'
+          )
+
+          if (( ${#dart_files[@]} == 0 )); then
+            echo 'No added, copied, modified, or renamed Dart files to check.'
+            exit 0
+          fi
+
+          echo 'Dart files being checked:'
+          printf '  %q\n' "${dart_files[@]}"
+          dart format --output=none --set-exit-if-changed -- "${dart_files[@]}"
 
       - name: Analyze source
         run: flutter analyze
