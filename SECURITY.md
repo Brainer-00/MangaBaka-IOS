@@ -14,6 +14,8 @@ Maintainer:
 
 When reporting a vulnerability, include enough information to reproduce and understand the issue, but do not include real credentials, access tokens, refresh tokens, Apple ID credentials, signing certificates, or other sensitive data.
 
+Authentication design and privacy behavior are documented in [docs/OAUTH.md](docs/OAUTH.md) and [PRIVACY.md](PRIVACY.md). These documents may help reporters distinguish an intended boundary from a security defect, but they do not limit the scope of valid reports.
+
 ## Scope
 
 Security reports relevant to this repository include issues involving:
@@ -28,6 +30,8 @@ Security reports relevant to this repository include issues involving:
 - dependencies used by this project
 
 Issues affecting the upstream MangaBaka service, API, website, or infrastructure should be reported to the appropriate MangaBaka maintainers instead.
+
+Ordinary non-sensitive questions about this project's privacy documentation may use repository Issues. Vulnerability details and security-sensitive personal information must remain in GitHub's private vulnerability-reporting channel.
 
 ## Supported versions
 

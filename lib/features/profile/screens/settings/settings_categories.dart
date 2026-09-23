@@ -6,6 +6,7 @@ import 'package:mangabaka_app/core/widgets/app_snack_bar.dart';
 import 'package:mangabaka_app/desktop/desktop_layout.dart';
 import 'package:mangabaka_app/features/navigation/screens/onboarding_screen.dart';
 import 'package:mangabaka_app/features/profile/screens/logs_screen.dart';
+import 'package:mangabaka_app/features/profile/screens/privacy_legal_screen.dart';
 import 'package:mangabaka_app/features/profile/screens/settings/settings_navigation.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:mangabaka_app/features/profile/widgets/dialogs/content_preferences_dialog.dart';
@@ -303,6 +304,14 @@ class SettingsCategories {
           ],
         ),
       ],
+    );
+  }
+
+  static void privacyLegal(BuildContext context, LocalizationService l10n) {
+    showOrNavigate(
+      context,
+      title: l10n.translate('privacy_and_legal'),
+      buildChildren: (_) => [PrivacyLegalContent(l10n: l10n)],
     );
   }
 }

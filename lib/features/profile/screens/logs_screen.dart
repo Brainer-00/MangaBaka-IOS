@@ -43,19 +43,13 @@ class _LogsScreenState extends State<LogsScreen> {
   void _clearLogs() {
     LoggingService.clearLogs();
     setState(() => _logs = []);
-    AppSnackBar.show(
-      context,
-      LocalizationService().translate('logs_cleared'),
-    );
+    AppSnackBar.show(context, LocalizationService().translate('logs_cleared'));
   }
 
   void _copyLogs() {
     if (_logs.isEmpty) return;
     Clipboard.setData(ClipboardData(text: _logsText));
-    AppSnackBar.show(
-      context,
-      LocalizationService().translate('logs_copied'),
-    );
+    AppSnackBar.show(context, LocalizationService().translate('logs_copied'));
   }
 
   Future<void> _saveLogs() async {
@@ -65,11 +59,15 @@ class _LogsScreenState extends State<LogsScreen> {
       final file = File('${directory.path}/mangabaka_logs.txt');
       await file.writeAsString(_logsText);
       await SharePlus.instance.share(
-        ShareParams(files: [XFile(file.path)], subject: 'MangaBaka Logs'),
+        ShareParams(files: [XFile(file.path)], subject: 'MangaBaka iOS Logs'),
       );
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
-        AppSnackBar.show(context, 'Failed to save logs: $e', isError: true);
+        AppSnackBar.show(
+          context,
+          LocalizationService().translate('logs_save_failed'),
+          isError: true,
+        );
       }
     }
   }
@@ -128,6 +126,10 @@ class _LogsScreenState extends State<LogsScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
+              child: DiagnosticLogPrivacyNotice(l10n: l10n),
+            ),
             Expanded(
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -190,6 +192,43 @@ class _LogsScreenState extends State<LogsScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class DiagnosticLogPrivacyNotice extends StatelessWidget {
+  final LocalizationService l10n;
+
+  const DiagnosticLogPrivacyNotice({super.key, required this.l10n});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: false,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppConstants.infoColor.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(AppConstants.denseRadius),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.info_outline, size: 18, color: AppConstants.infoColor),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                l10n.translate('log_share_warning'),
+                style: AppTypography.sans(
+                  color: AppConstants.textColor,
+                  fontSize: 13,
+                  height: 1.35,
+                ),
               ),
             ),
           ],

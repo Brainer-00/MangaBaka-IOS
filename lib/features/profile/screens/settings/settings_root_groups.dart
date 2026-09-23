@@ -59,6 +59,13 @@ List<Widget> buildSettingsGroups(
       const SizedBox(height: 16),
     ],
     _category(
+      icon: Icons.privacy_tip_outlined,
+      title: l10n.translate('privacy_and_legal'),
+      subtitle: l10n.translate('privacy_and_legal_subtitle'),
+      onTap: () => SettingsCategories.privacyLegal(context, l10n),
+    ),
+    const SizedBox(height: 16),
+    _category(
       icon: Icons.code,
       title: l10n.translate('advanced_settings'),
       subtitle: l10n.translate('advanced_settings_subtitle'),
@@ -70,7 +77,7 @@ List<Widget> buildSettingsGroups(
         _externalLink(
           icon: Icons.code,
           title: l10n.translate('github'),
-          url: 'https://github.com/Brainer-00/MangaBaka-IOS',
+          url: AppConstants.githubRepoUrl,
           isFirst: true,
         ),
         const SettingsDivider(),

@@ -1,43 +1,55 @@
 ## Summary
 
-Describe what this pull request changes.
+Describe the focused change in this pull request.
+
+## Why / motivation
+
+Explain the problem or opportunity this addresses.
 
 ## Related issue
 
 Closes #
 
-If there is no related issue, briefly explain why the change is needed.
+Use “None” when there is no related issue.
 
 ## Type of change
 
 - [ ] Bug fix
-- [ ] New feature
-- [ ] iOS compatibility change
-- [ ] Sideloading/build improvement
-- [ ] Authentication/OAuth change
-- [ ] UI change
-- [ ] Documentation
+- [ ] Feature
+- [ ] UI / accessibility
+- [ ] iOS compatibility or sideloading
+- [ ] Authentication / OAuth / API
+- [ ] Privacy / security
+- [ ] Documentation / governance
 - [ ] Other
+
+## Privacy / security impact
+
+Describe any data, logging, storage, permissions, external-link, or security impact. Write “None” when not applicable.
+
+## API / OAuth impact
+
+Describe any API behavior, OAuth flow, redirect, token handling, or scope impact. Write “None” when unchanged.
 
 ## Testing
 
-Describe how you tested the change.
-
-Include, when relevant:
-
-- iPhone/iPad model
-- iOS version
-- installation method
-- whether the change was tested on a physical device
+List the checks run and any relevant device, iOS version, simulator, or installation method.
 
 ## Screenshots
 
-Add screenshots for visible UI changes.
+Add before/after screenshots for visible UI changes, or write “Not applicable.”
+
+## Upstream compatibility
+
+Note whether the change affects compatibility with `Oazzies/MangaBaka-App`.
 
 ## Checklist
 
-- [ ] My changes are focused on the purpose of this pull request
-- [ ] I have tested the affected functionality where possible
-- [ ] I have not committed credentials, tokens, certificates, or private `.env` values
-- [ ] I have updated documentation where necessary
-- [ ] I have preserved compatibility with the upstream MangaBaka codebase where practical
+- [ ] The change is focused and contains no unrelated generated or formatting churn.
+- [ ] No credentials, OAuth tokens, client secrets, Apple credentials, signing keys, certificates, or private `.env` values are committed.
+- [ ] Privacy and security implications were considered and documented where needed.
+- [ ] OAuth/API scopes and behavior are unchanged, or the impact is documented above.
+- [ ] Tests were added or updated where necessary, and relevant checks were run.
+- [ ] User-facing and developer documentation was updated where necessary.
+- [ ] Upstream compatibility was considered.
+- [ ] CI is expected to pass.

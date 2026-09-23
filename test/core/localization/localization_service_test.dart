@@ -10,44 +10,61 @@ void main() {
   setUp(() async {
     LocalizationService.resetForTesting();
     SharedPreferences.setMockInitialValues({});
-    
+
     // Mock assets
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMessageHandler(
-      'flutter/assets',
-      (ByteData? message) async {
-        final String key = utf8.decode(message!.buffer.asUint8List());
-        if (key == 'assets/lang/languages.json') {
-          return ByteData.view(utf8.encode(json.encode({
-            'en': {
-              'name': 'English',
-              'native_name': 'English',
-              'translators': ['Admin']
-            },
-            'ja': {
-              'name': 'Japanese',
-              'native_name': '日本語',
-              'translators': ['Baka']
-            }
-          })).buffer);
-        } else if (key == 'assets/lang/en.json') {
-          return ByteData.view(utf8.encode(json.encode({
-            'strings': {
-              'app_title': 'MangaBaka',
-              'open_link': 'Open {name}',
-              'only_in_english': 'Only in English'
-            }
-          })).buffer);
-        } else if (key == 'assets/lang/ja.json') {
-          return ByteData.view(utf8.encode(json.encode({
-            'strings': {
-              'app_title': 'まんがバカ',
-              'open_link': '{name}を開く'
-            }
-          })).buffer);
-        }
-        return null;
-      },
-    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMessageHandler('flutter/assets', (ByteData? message) async {
+          final String key = utf8.decode(message!.buffer.asUint8List());
+          if (key == 'assets/lang/languages.json') {
+            return ByteData.view(
+              utf8
+                  .encode(
+                    json.encode({
+                      'en': {
+                        'name': 'English',
+                        'native_name': 'English',
+                        'translators': ['Admin'],
+                      },
+                      'ja': {
+                        'name': 'Japanese',
+                        'native_name': '日本語',
+                        'translators': ['Baka'],
+                      },
+                    }),
+                  )
+                  .buffer,
+            );
+          } else if (key == 'assets/lang/en.json') {
+            return ByteData.view(
+              utf8
+                  .encode(
+                    json.encode({
+                      'strings': {
+                        'app_title': 'MangaBaka',
+                        'open_link': 'Open {name}',
+                        'only_in_english': 'Only in English',
+                        'privacy_and_legal': 'Privacy & Legal',
+                      },
+                    }),
+                  )
+                  .buffer,
+            );
+          } else if (key == 'assets/lang/ja.json') {
+            return ByteData.view(
+              utf8
+                  .encode(
+                    json.encode({
+                      'strings': {
+                        'app_title': 'まんがバカ',
+                        'open_link': '{name}を開く',
+                      },
+                    }),
+                  )
+                  .buffer,
+            );
+          }
+          return null;
+        });
   });
 
   group('LocalizationService', () {
@@ -84,17 +101,21 @@ void main() {
       expect(prefs.getString('mangabaka_app_language_pref'), 'ja');
     });
 
-    test('defaults to English when translation is missing in target language', () async {
-      SharedPreferences.setMockInitialValues({
-        'mangabaka_app_language_pref': 'ja',
-      });
+    test(
+      'defaults to English when translation is missing in target language',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'mangabaka_app_language_pref': 'ja',
+        });
 
-      final service = LocalizationService();
-      await service.init();
+        final service = LocalizationService();
+        await service.init();
 
-      // 'only_in_english' is not in Japanese, so it should fall back to English
-      expect(service.translate('only_in_english'), 'Only in English');
-    });
+        // 'only_in_english' is not in Japanese, so it should fall back to English
+        expect(service.translate('only_in_english'), 'Only in English');
+        expect(service.translate('privacy_and_legal'), 'Privacy & Legal');
+      },
+    );
 
     test('getLanguages returns correct list', () async {
       final service = LocalizationService();

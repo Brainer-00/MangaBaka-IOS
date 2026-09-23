@@ -1,5 +1,5 @@
 name: mangabaka_app
-description: "Unofficial community-maintained iOS build of MangaBaka"
+description: "An independently maintained open-source iOS client for MangaBaka"
 publish_to: 'none'
 version: 0.3.1+14
 

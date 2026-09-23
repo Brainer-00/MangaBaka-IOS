@@ -58,14 +58,22 @@ representative at an online or offline event.
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported through the project's GitHub Issues page:
+Ordinary, non-sensitive conduct concerns may be reported through the project's
+GitHub Issues page if the reporter is comfortable discussing the matter there:
 
 https://github.com/Brainer-00/MangaBaka-IOS/issues
 
-Reports should include enough context for the maintainers to understand the
-incident while avoiding the unnecessary disclosure of private or sensitive
-information.
+Do **not** post private or sensitive personal information in a public issue.
+When a concern cannot be reported safely in public, do not disclose it through
+Issues. A dedicated private conduct-reporting channel may be added later; until
+then, the project does not claim to offer a private general-conduct channel.
+
+GitHub private vulnerability reporting is for security vulnerabilities. It
+should not be used as a general conduct-reporting system unless the incident is
+also genuinely security-related.
+
+Reports should include enough non-sensitive context for the maintainers to
+understand the incident.
 
 All complaints will be reviewed and investigated promptly and fairly.
 
