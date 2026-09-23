@@ -36,8 +36,8 @@ class BrowseController extends ChangeNotifier {
   BrowseController({
     BrowseSearchGateway? gateway,
     BarcodeSearch? barcodeSearch,
-  })  : _gateway = gateway ?? BrowseSearchGateway(),
-        _barcode = barcodeSearch ?? BarcodeSearch() {
+  }) : _gateway = gateway ?? BrowseSearchGateway(),
+       _barcode = barcodeSearch ?? BarcodeSearch() {
     scrollController.addListener(_onScroll);
   }
 
@@ -107,20 +107,23 @@ class BrowseController extends ChangeNotifier {
       return;
     }
 
-    final isNearEnd = scrollController.position.pixels >=
+    final isNearEnd =
+        scrollController.position.pixels >=
         scrollController.position.maxScrollExtent -
             AppConstants.scrollThresholdPx;
 
     if (isNearEnd && _results.hasMore && !_isLoadingMore && _hasSearchContext) {
       _logger.fine(
-        'Near end of scroll, loading more results for query: '
-        '"$_currentSearchQuery"',
+        'Near end of scroll, loading more search results',
       );
       loadMoreResults();
     }
 
-    final showBackToTop = scrollController.offset > _backToTopOffset;
+    final showBackToTop =
+        scrollController.offset > _backToTopOffset;
+
     if (showBackToTop == _showBackToTop) return;
+
     _showBackToTop = showBackToTop;
     notifyListeners();
   }
@@ -139,19 +142,26 @@ class BrowseController extends ChangeNotifier {
 
   void resetSearchState() {
     _logger.fine('Resetting search state');
+
     _requestGeneration++;
     _results.clear();
     _error = null;
     _currentSearchQuery = '';
     _isLoading = false;
     _isLoadingMore = false;
+
     notifyListeners();
   }
 
   void setType(BrowseType type) {
     if (_currentType == type) return;
-    _logger.info('Switching browse type to: $type');
+
+    _logger.info(
+      'Switching browse type to: $type',
+    );
+
     _currentType = type;
+
     // Carry an active search across the tab switch rather than dropping it.
     if (_hasSearchContext) {
       searchSeries();
@@ -162,12 +172,18 @@ class BrowseController extends ChangeNotifier {
 
   void updateSearchQuery(String text) {
     _currentSearchQuery = text;
-    if (text.isEmpty && _currentFilters.toMap().isEmpty) resetSearchState();
+
+    if (text.isEmpty &&
+        _currentFilters.toMap().isEmpty) {
+      resetSearchState();
+    }
   }
 
   void updateFilters(SearchFilters filters) {
-    _logger.info('Filters updated: ${filters.toMap()}');
+    _logger.info('Search filters updated');
+
     _currentFilters = filters;
+
     // Filters only apply to series; the Publishers and Staff tabs are hidden
     // while any are set, so an active one has to fall back.
     if (!filters.isEmpty &&
@@ -175,32 +191,51 @@ class BrowseController extends ChangeNotifier {
             _currentType == BrowseType.staff)) {
       _currentType = BrowseType.series;
     }
+
     searchSeries();
   }
 
   void startTagSearch(List<String> tagIds) {
-    _logger.info('Starting tag search with tag IDs: $tagIds');
-    _startFilteredSearch(SearchFilters(tag: tagIds));
+    _logger.info(
+      'Starting tag-based search',
+    );
+
+    _startFilteredSearch(
+      SearchFilters(tag: tagIds),
+    );
   }
 
   void startGenreSearch(String genre) {
-    _logger.info('Starting genre search with genre: $genre');
-    _startFilteredSearch(SearchFilters(genre: [genre]));
+    _logger.info(
+      'Starting genre-based search',
+    );
+
+    _startFilteredSearch(
+      SearchFilters(genre: [genre]),
+    );
   }
 
-  void startSearchWithFilters(SearchFilters filters) {
-    _logger.info('Starting search with filters: ${filters.toMap()}');
+  void startSearchWithFilters(
+    SearchFilters filters,
+  ) {
+    _logger.info(
+      'Starting filtered search',
+    );
+
     _startFilteredSearch(filters);
   }
 
   /// Replaces the whole search context with [filters] and runs it. The text
   /// query is cleared: these entry points come from tapping a chip elsewhere
   /// in the app, where a leftover query would silently narrow the results.
-  void _startFilteredSearch(SearchFilters filters) {
+  void _startFilteredSearch(
+    SearchFilters filters,
+  ) {
     searchController.clear();
     _currentSearchQuery = '';
     _currentType = BrowseType.series;
     _currentFilters = filters;
+
     searchSeries();
   }
 
@@ -209,20 +244,24 @@ class BrowseController extends ChangeNotifier {
   Future<void> searchSeries() async {
     if (_currentSearchQuery.trim().isEmpty &&
         _currentFilters.toMap().isEmpty) {
-      _logger.fine('Search query and filters are empty, skipping search');
+      _logger.fine(
+        'Search query and filters are empty, skipping search',
+      );
+
       resetSearchState();
       return;
     }
 
     _logger.info(
-      'Starting new search for $_currentType with query: '
-      '"$_currentSearchQuery" with filters: ${_currentFilters.toMap()}',
+      'Starting new search for $_currentType',
     );
+
     _requestGeneration++;
     _isLoading = true;
     _isLoadingMore = false;
     _error = null;
     _results.clear();
+
     notifyListeners();
 
     await _fetchPage();
@@ -232,21 +271,27 @@ class BrowseController extends ChangeNotifier {
     // _isLoading guards against the initial page still being in flight: an
     // empty list has maxScrollExtent 0, which counts as "near end", so the
     // scroll listener could otherwise fire page 2 concurrently with page 1.
-    if (_isLoading || _isLoadingMore || !_results.hasMore) return;
+    if (_isLoading ||
+        _isLoadingMore ||
+        !_results.hasMore) {
+      return;
+    }
 
     _logger.info(
-      'Loading more results for query: "$_currentSearchQuery", '
-      'page: ${_results.page + 1}',
+      'Loading more search results, page: ${_results.page + 1}',
     );
+
     _isLoadingMore = true;
     notifyListeners();
 
     _results.advancePage();
+
     await _fetchPage();
   }
 
   Future<void> _fetchPage() async {
     final generation = _requestGeneration;
+
     try {
       switch (_currentType) {
         case BrowseType.series:
@@ -254,9 +299,12 @@ class BrowseController extends ChangeNotifier {
             query: _currentSearchQuery,
             page: _results.page,
             filters: _currentFilters,
-            alreadyLoaded: _results.loadedCount(BrowseType.series),
+            alreadyLoaded:
+                _results.loadedCount(BrowseType.series),
           );
+
           if (_isStale(generation, 'series')) return;
+
           _results.addSeries(page);
 
         case BrowseType.publishers:
@@ -264,9 +312,12 @@ class BrowseController extends ChangeNotifier {
             query: _currentSearchQuery,
             page: _results.page,
             filters: _currentFilters,
-            alreadyLoaded: _results.loadedCount(BrowseType.publishers),
+            alreadyLoaded:
+                _results.loadedCount(BrowseType.publishers),
           );
+
           if (_isStale(generation, 'publisher')) return;
+
           _results.addPublishers(page);
 
         case BrowseType.staff:
@@ -275,7 +326,9 @@ class BrowseController extends ChangeNotifier {
             page: _results.page,
             filters: _currentFilters,
           );
+
           if (_isStale(generation, 'staff')) return;
+
           _results.addStaff(page);
 
         default:
@@ -283,53 +336,86 @@ class BrowseController extends ChangeNotifier {
           // non-loading state rather than spinning forever.
           _results.markExhausted();
       }
+
       _finishPage();
     } catch (e) {
-      if (generation != _requestGeneration) return;
+      if (generation != _requestGeneration) {
+        return;
+      }
+
       _logger.severe(
-        'Failed to fetch search results for type $_currentType, query '
-        '"$_currentSearchQuery" at page ${_results.page}: $e',
+        'Failed to fetch search results for '
+        '$_currentType at page ${_results.page} '
+        '(${e.runtimeType})',
       );
+
       _isLoading = false;
       _isLoadingMore = false;
+
+      // This remains available to the UI but is not persisted to app logs.
       _error = e.toString();
+
       notifyListeners();
     }
   }
 
-  bool _isStale(int generation, String label) {
-    if (generation == _requestGeneration) return false;
-    _logger.fine('Discarding stale $label results for superseded search');
+  bool _isStale(
+    int generation,
+    String label,
+  ) {
+    if (generation == _requestGeneration) {
+      return false;
+    }
+
+    _logger.fine(
+      'Discarding stale $label results for superseded search',
+    );
+
     return true;
   }
 
   void _finishPage() {
     _isLoading = false;
     _isLoadingMore = false;
+
     notifyListeners();
+
     // A short page may not fill the viewport, leaving nothing to scroll and so
     // no way to ask for the next one; re-check once it has been laid out.
     if (!_results.hasMore) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) => checkScroll());
+
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => checkScroll(),
+    );
   }
 
   // ─── Barcode ─────────────────────────────────────────────────────────────
 
-  static double generateRandomSeed() => Random().nextDouble();
+  static double generateRandomSeed() =>
+      Random().nextDouble();
 
   /// Looks a scanned ISBN up and searches for the title it resolves to.
   ///
   /// Returns null on success, or a localisation key naming what went wrong —
   /// the caller shows it, since only the UI knows how.
-  Future<String?> handleBarcodeScan(String isbn) async {
+  Future<String?> handleBarcodeScan(
+    String isbn,
+  ) async {
     if (isbn.isEmpty) return null;
 
     _isLoading = true;
     _error = null;
+
     notifyListeners();
 
-    final failure = await _barcode.run(isbn, search: _searchFor);
-    if (failure == null) return null;
+    final failure = await _barcode.run(
+      isbn,
+      search: _searchFor,
+    );
+
+    if (failure == null) {
+      return null;
+    }
 
     // A search that ran and found nothing has already settled the flags; a
     // lookup that never got that far has not.
@@ -337,14 +423,19 @@ class BrowseController extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+
     return failure.messageKey;
   }
 
   /// Runs [title] as a search, returning whether it matched anything.
-  Future<bool> _searchFor(String title) async {
+  Future<bool> _searchFor(
+    String title,
+  ) async {
     searchController.text = title;
     _currentSearchQuery = title;
+
     await searchSeries();
+
     return _results.series.isNotEmpty;
   }
 }
