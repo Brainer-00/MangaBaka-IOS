@@ -1,68 +1,94 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'dart:io';
-import 'package:win32_registry/win32_registry.dart';
-import 'package:crypto/crypto.dart';
-import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
+import 'dart:math';
+
 import 'package:app_links/app_links.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_appauth/flutter_appauth.dart';
-import 'package:mangabaka_app/core/logging/logging_service.dart';
+import 'package:http/http.dart' as http;
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
+import 'package:mangabaka_app/core/logging/logging_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:win32_registry/win32_registry.dart';
 
 class WindowsAuthHandler {
   static final _logger = LoggingService.logger;
 
-  /// The sign-in currently waiting on the browser, if any. The browser is a
-  /// separate app: closing its tab tells this one nothing, so the wait needs a
-  /// way to be ended from our own UI.
+  /// The sign-in currently waiting on the browser, if any.
+  ///
+  /// The browser is a separate application on Windows, so closing its tab
+  /// does not automatically notify this application.
   static Completer<String?>? _pending;
+
+  /// Authorization URL retained only so the user can reopen the browser while
+  /// an authorization attempt is still pending.
+  ///
+  /// This value must never be logged because it contains OAuth state and PKCE
+  /// request metadata.
   static Uri? _pendingAuthUri;
 
-  /// Ends a pending sign-in as cancelled. No-op when none is waiting.
+  /// Ends a pending sign-in as cancelled.
+  ///
+  /// No-op when there is no authorization attempt waiting for completion.
   static void cancelPending() {
     final pending = _pending;
+
     if (pending != null && !pending.isCompleted) {
       pending.completeError(AuthCancelledException());
     }
   }
 
-  /// Opens the authorization page again, for a user who closed the tab.
+  /// Reopens the authorization page if a sign-in is still pending.
   static Future<void> reopenBrowser() async {
     final uri = _pendingAuthUri;
+
     if (uri != null) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
     }
   }
 
-  /// Registers the custom protocol in the Windows Registry.
+  /// Registers the custom OAuth callback protocol in the Windows Registry.
   static Future<void> registerProtocol(String scheme) async {
     try {
       final appPath = Platform.resolvedExecutable;
       final protocolRegKey = 'Software\\Classes\\$scheme';
 
-      _logger.info(
-        'Registering protocol $scheme in Windows Registry for $appPath',
-      );
+      // Do not log the executable path. Local filesystem paths may contain
+      // user-identifying information.
+      _logger.info('Registering Windows OAuth callback protocol');
 
       final key = CURRENT_USER.create(protocolRegKey);
-      key.setValue('URL Protocol', RegistryValue.string(''));
+      key.setValue(
+        'URL Protocol',
+        RegistryValue.string(''),
+      );
 
       final commandKey = key.create('shell\\open\\command');
-      commandKey.setValue('', RegistryValue.string('"$appPath" "%1"'));
+      commandKey.setValue(
+        '',
+        RegistryValue.string('"$appPath" "%1"'),
+      );
 
       commandKey.close();
       key.close();
 
-      _logger.info('Protocol registration successful');
+      _logger.info('Windows OAuth callback protocol registered');
     } catch (e) {
-      _logger.severe('Failed to register protocol $scheme: $e');
+      // Keep diagnostic usefulness without persisting exception text that
+      // could contain local paths or other environment information.
+      _logger.severe(
+        'Failed to register Windows OAuth callback protocol '
+        '(${e.runtimeType})',
+      );
     }
   }
 
-  /// Performs the OAuth2 authorization and code exchange flow on Windows.
+  /// Performs Authorization Code + PKCE authentication on Windows.
   static Future<TokenResponse?> authorizeAndExchangeCode({
     required String clientId,
     required String redirectUri,
@@ -71,20 +97,21 @@ class WindowsAuthHandler {
     required List<String> scopes,
     VoidCallback? onBrowserOpened,
   }) async {
-    // Extract scheme and register it
-    final scheme = Uri.parse(redirectUri).scheme;
+    final redirect = Uri.parse(redirectUri);
+    final scheme = redirect.scheme;
+
     if (scheme.isNotEmpty) {
       await registerProtocol(scheme);
     }
 
     final appLinks = AppLinks();
 
-    // 1. Generate PKCE
+    // Generate a fresh PKCE verifier/challenge and OAuth state for every
+    // authorization attempt.
     final codeVerifier = _generateCodeVerifier();
     final codeChallenge = _generateCodeChallenge(codeVerifier);
-    final state = _generateRandomString(16);
+    final state = _generateRandomString(32);
 
-    // 2. Prepare Auth URI
     final authUri = Uri.parse(authorizationEndpoint).replace(
       queryParameters: {
         'response_type': 'code',
@@ -98,60 +125,138 @@ class WindowsAuthHandler {
       },
     );
 
-    _logger.info('Opening browser for Windows OAuth: $authUri');
+    // Never log authUri. It contains OAuth state and PKCE metadata.
+    _logger.info('Opening browser for Windows OAuth');
 
-    // 3. Listen for redirect before launching
     final completer = Completer<String?>();
     _pending = completer;
     _pendingAuthUri = authUri;
-    StreamSubscription? sub;
 
-    sub = appLinks.uriLinkStream.listen(
+    final sub = appLinks.uriLinkStream.listen(
       (uri) {
-        _logger.fine('Received App Link: $uri');
-        if (uri.toString().startsWith(redirectUri)) {
-          final code = uri.queryParameters['code'];
-          final receivedState = uri.queryParameters['state'];
+        // Never log the callback URI. It may contain the temporary
+        // authorization code and OAuth state.
+        _logger.fine('Received OAuth callback');
 
-          if (receivedState != state) {
-            _logger.warning(
-              'State mismatch: expected $state, got $receivedState',
+        final isExpectedCallback =
+            uri.scheme == redirect.scheme &&
+            uri.authority == redirect.authority &&
+            uri.path == redirect.path;
+
+        if (!isExpectedCallback) {
+          return;
+        }
+
+        final receivedState = uri.queryParameters['state'];
+
+        // State must be checked before trusting either a code or an OAuth
+        // error returned through the callback.
+        if (receivedState != state) {
+          _logger.warning('OAuth state validation failed');
+
+          if (!completer.isCompleted) {
+            completer.completeError(
+              AuthException(
+                message: 'OAuth state validation failed',
+                code: 'INVALID_OAUTH_STATE',
+              ),
             );
-            return;
           }
 
-          if (code != null) {
-            completer.complete(code);
+          return;
+        }
+
+        final oauthError = uri.queryParameters['error'];
+
+        if (oauthError != null) {
+          if (!completer.isCompleted) {
+            if (oauthError == 'access_denied') {
+              completer.completeError(
+                AuthCancelledException(),
+              );
+            } else {
+              // Do not persist error_description or the callback URI.
+              completer.completeError(
+                AuthException(
+                  message: 'OAuth authorization failed',
+                  code: 'OAUTH_AUTHORIZATION_FAILED',
+                ),
+              );
+            }
           }
+
+          return;
+        }
+
+        final code = uri.queryParameters['code'];
+
+        if (code == null || code.isEmpty) {
+          if (!completer.isCompleted) {
+            completer.completeError(
+              AuthException(
+                message: 'OAuth callback did not contain an authorization code',
+                code: 'MISSING_AUTHORIZATION_CODE',
+              ),
+            );
+          }
+
+          return;
+        }
+
+        if (!completer.isCompleted) {
+          completer.complete(code);
         }
       },
-      onError: (err) {
-        _logger.severe('AppLinks error: $err');
-        if (!completer.isCompleted) completer.completeError(err);
+      onError: (Object error) {
+        // Avoid writing raw AppLinks errors because they may include URI data.
+        _logger.severe(
+          'OAuth callback listener failed (${error.runtimeType})',
+        );
+
+        if (!completer.isCompleted) {
+          completer.completeError(
+            AuthException(
+              message: 'OAuth callback failed',
+              code: 'OAUTH_CALLBACK_FAILED',
+            ),
+          );
+        }
       },
     );
 
-    // 4. Launch browser
-    if (!await launchUrl(authUri, mode: LaunchMode.externalApplication)) {
-      sub.cancel();
-      _pending = null;
-      throw Exception('Could not launch $authUri');
-    }
-    onBrowserOpened?.call();
-
     try {
-      // 5. Wait for code (with timeout)
-      final code = await completer.future.timeout(const Duration(minutes: 5));
-      await sub.cancel();
+      final launched = await launchUrl(
+        authUri,
+        mode: LaunchMode.externalApplication,
+      );
 
-      if (code == null) return null;
+      if (!launched) {
+        throw AuthException(
+          message: 'Could not launch OAuth authorization page',
+          code: 'OAUTH_BROWSER_LAUNCH_FAILED',
+        );
+      }
 
-      _logger.info('OAuth code received, exchanging for tokens...');
+      onBrowserOpened?.call();
 
-      // 6. Exchange code for tokens
+      final code = await completer.future.timeout(
+        const Duration(minutes: 5),
+      );
+
+      if (code == null || code.isEmpty) {
+        throw AuthException(
+          message: 'OAuth authorization did not return a code',
+          code: 'MISSING_AUTHORIZATION_CODE',
+        );
+      }
+
+      _logger.info('OAuth authorization received; exchanging code');
+
       final response = await http.post(
         Uri.parse(tokenEndpoint),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
         body: {
           'grant_type': 'authorization_code',
           'client_id': clientId,
@@ -163,37 +268,51 @@ class WindowsAuthHandler {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        _logger.info('Token exchange successful on Windows');
 
-        // Map to TokenResponse for compatibility with ProfileAuthService
+        _logger.info('OAuth token exchange successful');
+
         return TokenResponse(
           data['access_token'],
           data['refresh_token'],
-          DateTime.now().add(Duration(seconds: data['expires_in'] ?? 3600)),
+          DateTime.now().add(
+            Duration(
+              seconds: data['expires_in'] ?? 3600,
+            ),
+          ),
           data['id_token'],
           'Bearer',
-          scopes, // Correctly passing scopes here
-          data, // Passing data as additional parameters
+          scopes,
+          data,
         );
-      } else {
-        _logger.severe('Token exchange failed: ${response.body}');
-        throw Exception('Token exchange failed: ${response.statusCode}');
       }
+
+      // OAuth error response bodies must not be logged or included in an
+      // exception that could later be written into the shareable log file.
+      _logger.severe(
+        'OAuth token exchange failed with HTTP ${response.statusCode}',
+      );
+
+      throw ApiException(
+        message: 'OAuth token exchange failed',
+        statusCode: response.statusCode,
+        code: 'TOKEN_EXCHANGE_FAILED',
+      );
     } on TimeoutException {
-      await sub.cancel();
-      _pending = null;
       _logger.warning('OAuth login timed out');
-      throw Exception('Login timed out');
-    } catch (e) {
-      await sub.cancel();
-      rethrow;
+
+      throw AuthException(
+        message: 'OAuth login timed out',
+        code: 'OAUTH_TIMEOUT',
+      );
     } finally {
+      await sub.cancel();
+
       _pending = null;
       _pendingAuthUri = null;
     }
   }
 
-  /// Performs a token refresh on Windows.
+  /// Refreshes the OAuth session using the stored refresh token.
   static Future<TokenResponse?> refresh({
     required String clientId,
     required String redirectUri,
@@ -201,11 +320,13 @@ class WindowsAuthHandler {
     required String refreshToken,
     required List<String> scopes,
   }) async {
-    _logger.info('Refreshing token on Windows...');
+    _logger.info('Refreshing OAuth session on Windows');
 
     final response = await http.post(
       Uri.parse(tokenEndpoint),
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
       body: {
         'grant_type': 'refresh_token',
         'client_id': clientId,
@@ -216,34 +337,42 @@ class WindowsAuthHandler {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      _logger.info('Token refresh successful on Windows');
+
+      _logger.info('OAuth session refresh successful');
 
       return TokenResponse(
         data['access_token'],
-        data['refresh_token'] ??
-            refreshToken, // IdPs might not return a new refresh token
-        DateTime.now().add(Duration(seconds: data['expires_in'] ?? 3600)),
+        data['refresh_token'] ?? refreshToken,
+        DateTime.now().add(
+          Duration(
+            seconds: data['expires_in'] ?? 3600,
+          ),
+        ),
         data['id_token'],
         'Bearer',
         scopes,
         data,
       );
-    } else {
-      _logger.severe(
-        'Token refresh failed: ${response.statusCode} ${response.body}',
-      );
-      throw ApiException(
-        message: 'Token refresh failed',
-        statusCode: response.statusCode,
-        responseBody: response.body,
-      );
     }
+
+    // Never persist the token endpoint's response body.
+    _logger.severe(
+      'OAuth session refresh failed with HTTP ${response.statusCode}',
+    );
+
+    throw ApiException(
+      message: 'Token refresh failed',
+      statusCode: response.statusCode,
+      code: 'TOKEN_REFRESH_FAILED',
+    );
   }
 
   static String _generateRandomString(int length) {
     const charset =
         'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+
     final random = Random.secure();
+
     return List.generate(
       length,
       (_) => charset[random.nextInt(charset.length)],
@@ -257,6 +386,7 @@ class WindowsAuthHandler {
   static String _generateCodeChallenge(String verifier) {
     final bytes = utf8.encode(verifier);
     final digest = sha256.convert(bytes);
+
     return base64Url.encode(digest.bytes).replaceAll('=', '');
   }
 }
