@@ -25,6 +25,8 @@ coverage/
 
 # Local environment
 .env
+.env.*
+!.env.example
 
 # iOS / Xcode
 ios/Pods/
@@ -43,6 +45,8 @@ ios/**/DerivedData/
 # Local signing material
 *.p12
 *.pfx
+*.p8
+*.key
 *.cer
 *.mobileprovision
 *.pem

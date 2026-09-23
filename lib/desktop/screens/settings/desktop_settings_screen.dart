@@ -14,6 +14,8 @@ import 'package:mangabaka_app/desktop/desktop_layout.dart';
 import 'package:mangabaka_app/desktop/widgets/desktop_list_customization.dart';
 import 'package:mangabaka_app/desktop/widgets/desktop_surfaces.dart';
 import 'package:mangabaka_app/features/navigation/screens/onboarding_screen.dart';
+import 'package:mangabaka_app/features/profile/screens/logs_screen.dart';
+import 'package:mangabaka_app/features/profile/screens/privacy_legal_screen.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:mangabaka_app/features/profile/widgets/dialogs/general_settings_dialogs.dart';
 import 'package:mangabaka_app/features/profile/widgets/dialogs/logout_dialog.dart';
@@ -40,6 +42,7 @@ enum _Category {
   lists,
   content,
   account,
+  privacyLegal,
   advanced,
   logs,
   translationCredits,
@@ -117,6 +120,12 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
       'account',
       'account_settings_subtitle',
     ),
+    _Category.privacyLegal => (
+      Icons.privacy_tip_outlined,
+      AppConstants.infoColor,
+      'privacy_and_legal',
+      'privacy_and_legal_subtitle',
+    ),
     _Category.advanced => (
       Icons.code_rounded,
       AppConstants.errorColor,
@@ -160,6 +169,7 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
       _Category.lists,
       _Category.content,
       if (_auth.isLoggedIn) _Category.account,
+      _Category.privacyLegal,
       _Category.advanced,
     ];
 
@@ -193,7 +203,7 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
           label: l10n.translate('github'),
           external: true,
           onTap: () => launchUrl(
-            Uri.parse('https://github.com/Brainer-00/MangaBaka-IOS'),
+            Uri.parse(AppConstants.githubRepoUrl),
             mode: LaunchMode.externalApplication,
           ),
         ),
@@ -466,6 +476,7 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
       _Category.lists => DesktopListCustomization(l10n: l10n),
       _Category.content => _buildContent(l10n),
       _Category.account => _buildAccount(l10n),
+      _Category.privacyLegal => PrivacyLegalContent(l10n: l10n),
       _Category.advanced => _buildAdvanced(l10n),
       _Category.translationCredits => _buildTranslationCredits(l10n),
       _Category.logs => const SizedBox.shrink(), // handled full-pane in _page
@@ -1032,11 +1043,15 @@ class _DesktopLogsViewState extends State<_DesktopLogsView> {
       final file = File('${directory.path}/mangabaka_logs.txt');
       await file.writeAsString(_logsText);
       await SharePlus.instance.share(
-        ShareParams(files: [XFile(file.path)], subject: 'MangaBaka Logs'),
+        ShareParams(files: [XFile(file.path)], subject: 'MangaBaka iOS Logs'),
       );
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
-        AppSnackBar.show(context, 'Failed to save logs: $e', isError: true);
+        AppSnackBar.show(
+          context,
+          widget.l10n.translate('logs_save_failed'),
+          isError: true,
+        );
       }
     }
   }
@@ -1046,6 +1061,8 @@ class _DesktopLogsViewState extends State<_DesktopLogsView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        DiagnosticLogPrivacyNotice(l10n: widget.l10n),
+        const SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [

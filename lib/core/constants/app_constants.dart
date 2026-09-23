@@ -8,11 +8,21 @@ class AppConstants {
 
   static const String githubOwner = 'Brainer-00';
   static const String githubRepo = 'MangaBaka-IOS';
+  static const String githubRepoUrl =
+      'https://github.com/$githubOwner/$githubRepo';
   static const String githubReleasesApi =
       'https://api.github.com/repos/$githubOwner/$githubRepo/releases';
+  static const String privacyPolicyUrl = '$githubRepoUrl/blob/main/PRIVACY.md';
+  static const String termsUrl = '$githubRepoUrl/blob/main/TERMS.md';
+  static const String attributionUrl = '$githubRepoUrl/blob/main/ATTRIBUTION.md';
+  static const String securityPolicyUrl = '$githubRepoUrl/blob/main/SECURITY.md';
+  static const String mangaBakaPrivacyUrl =
+      'https://mangabaka.org/about/privacy';
+  static const String mangaBakaTermsUrl =
+      'https://mangabaka.org/about/terms';
   static const String authBaseUrl = 'https://mangabaka.org/auth/oauth2';
   static const String userAgent =
-    '$appName/$appVersion (https://github.com/$githubOwner/$githubRepo)';
+      '$appName/$appVersion (https://github.com/$githubOwner/$githubRepo)';
   static const int networkTimeoutSeconds = 30;
   static const int maxRetries = 3;
   static const int rateLimitRetryDelaySeconds = 5;

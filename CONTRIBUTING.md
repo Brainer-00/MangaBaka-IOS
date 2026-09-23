@@ -2,9 +2,20 @@
 
 Thanks for your interest in contributing to **MangaBaka iOS**!
 
-MangaBaka iOS is an unofficial, community-maintained iOS distribution of the open-source [MangaBaka App](https://github.com/Oazzies/MangaBaka-App).
+MangaBaka iOS is an independently maintained open-source iOS client for the MangaBaka tracking platform. It was developed from the open-source [MangaBaka App](https://github.com/Oazzies/MangaBaka-App) and continues to credit upstream work.
 
-This repository is maintained by [Brainer-00](https://github.com/Brainer-00) and focuses primarily on iOS builds, sideloading, iOS-specific fixes, release tooling, documentation, and compatibility with upstream MangaBaka changes.
+This repository is maintained by [Brainer-00](https://github.com/Brainer-00) and contributors. It focuses on a native-feeling iPhone/iPad experience, iOS compatibility, sideloading, release tooling, privacy-conscious account integration, documentation, and compatibility with upstream where practical.
+
+MangaBaka iOS is not an official MangaBaka release and is not affiliated with or endorsed by MangaBaka or the original maintainers.
+
+## Project documents
+
+Contributors should review the policies relevant to their change:
+
+- [Privacy](PRIVACY.md)
+- [Security](SECURITY.md)
+- [Attribution & Data Sources](ATTRIBUTION.md)
+- [Terms of Use](TERMS.md)
 
 ## Issues and feature requests
 
@@ -33,7 +44,7 @@ Please keep pull requests focused on one change or closely related group of chan
 
 ## Project scope
 
-The primary focus of this repository is the iOS version of MangaBaka.
+The primary focus of this repository is the independently maintained MangaBaka iOS client.
 
 Useful contributions include:
 
@@ -75,7 +86,7 @@ Install Flutter dependencies:
 flutter pub get
 ```
 
-The application expects a `.env` file, but the real `.env` file is intentionally excluded from Git.
+The application expects a `.env` file, but real `.env` files and private variants are intentionally excluded from Git.
 
 Create one from the provided example.
 
@@ -93,9 +104,18 @@ Copy-Item .env.example .env
 
 An empty client ID is sufficient for builds that do not require MangaBaka account login.
 
-OAuth login requires a valid MangaBaka OAuth client configuration.
+OAuth login requires a valid MangaBaka OAuth client configuration. MangaBaka iOS uses a native/public OAuth client model, and a client secret must not be embedded in the app, repository, IPA, or environment file. Client IDs are configuration values and are not passwords.
 
-Never commit personal credentials, access tokens, signing certificates, Apple IDs, passwords, or private environment files.
+Never commit:
+
+- OAuth access, refresh, or ID tokens
+- client secrets
+- Apple IDs, passwords, app-specific passwords, or session credentials
+- signing keys, private keys, or certificates
+- provisioning profiles containing private distribution information
+- private `.env` variants
+
+If a secret is committed, treat it as compromised and rotate or revoke it; removing it from the latest file is not sufficient.
 
 ## Building for iOS
 
@@ -116,6 +136,8 @@ For iOS-specific changes, testing on a physical iPhone or iPad is preferred when
 Also run:
 
 ```sh
+dart format --output=none --set-exit-if-changed lib test
+flutter analyze
 flutter test
 ```
 
@@ -162,8 +184,8 @@ By contributing code to this repository, you agree that your contribution may be
 
 ## Attribution
 
-MangaBaka iOS is an independent community-maintained project.
+MangaBaka iOS is an independently maintained open-source project.
 
 The original MangaBaka application and its upstream source code are maintained by Oazzies and the MangaBaka contributors.
 
-This project is not an official MangaBaka release and is not affiliated with or endorsed by the original project maintainers.
+This project is not an official MangaBaka release and is not affiliated with or endorsed by MangaBaka or the original project maintainers.

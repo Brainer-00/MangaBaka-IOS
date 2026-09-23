@@ -9,6 +9,7 @@ import 'package:mangabaka_app/desktop/shell/desktop_sidebar.dart';
 import 'package:mangabaka_app/desktop/widgets/desktop_series_row.dart';
 import 'package:mangabaka_app/desktop/widgets/desktop_surfaces.dart';
 import 'package:mangabaka_app/features/profile/models/mb_profile.dart';
+import 'package:mangabaka_app/features/profile/screens/privacy_legal_screen.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -285,6 +286,17 @@ void main() {
 
       expect(find.byTooltip('back'), findsNothing);
       expect(find.text('REDO_ONBOARDING'), findsWidgets);
+    });
+
+    testWidgets('Privacy & Legal is represented and opens', (tester) async {
+      await pumpSettings(tester);
+
+      expect(find.text('privacy_and_legal'), findsOneWidget);
+      await tester.tap(find.text('privacy_and_legal'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PrivacyLegalContent), findsOneWidget);
+      expect(find.text('OPEN_SOURCE_LICENSES'), findsOneWidget);
     });
 
     testWidgets('categories scroll past one another', (tester) async {

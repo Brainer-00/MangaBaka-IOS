@@ -34,7 +34,8 @@ void main() {
             'strings': {
               'app_title': 'MangaBaka',
               'open_link': 'Open {name}',
-              'only_in_english': 'Only in English'
+              'only_in_english': 'Only in English',
+              'privacy_and_legal': 'Privacy & Legal'
             }
           })).buffer);
         } else if (key == 'assets/lang/ja.json') {
@@ -94,6 +95,7 @@ void main() {
 
       // 'only_in_english' is not in Japanese, so it should fall back to English
       expect(service.translate('only_in_english'), 'Only in English');
+      expect(service.translate('privacy_and_legal'), 'Privacy & Legal');
     });
 
     test('getLanguages returns correct list', () async {
