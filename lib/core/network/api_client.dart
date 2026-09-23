@@ -126,7 +126,7 @@ class ApiClient {
     Set<int> acceptedStatuses = const {200},
     Duration? timeout,
   }) async {
-    _logger.info('$operation: GET $url');
+    _logger.info('$operation: request started');
     try {
       final response = await _client
           .get(url, headers: _headersFor(headers))
@@ -143,8 +143,7 @@ class ApiClient {
 
       if (!acceptedStatuses.contains(response.statusCode)) {
         _logger.severe(
-          '$operation failed. Status: ${response.statusCode}, '
-          'Body: ${response.body}',
+          '$operation failed with HTTP ${response.statusCode}',
         );
         throw ApiException(
           message: 'Failed to $operation',
