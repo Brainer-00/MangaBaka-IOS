@@ -150,7 +150,7 @@ class MbNavRail extends StatelessWidget {
       color: AppConstants.primaryBackground,
       child: Column(
         children: [
-          if (leading != null) leading!,
+          ?leading,
           for (var i = 0; i < destinations.length; i++)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),

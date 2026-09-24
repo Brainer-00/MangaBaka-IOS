@@ -156,8 +156,8 @@ mixin LibraryCrudMixin on LibraryServiceBase {
       final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
 
       final body = <String, dynamic>{
-        if (progressChapter != null) 'progress_chapter': progressChapter,
-        if (progressVolume != null) 'progress_volume': progressVolume,
+        'progress_chapter': ?progressChapter,
+        'progress_volume': ?progressVolume,
       };
 
       final response = await http

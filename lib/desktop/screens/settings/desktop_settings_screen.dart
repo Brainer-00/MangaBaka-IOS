@@ -357,7 +357,7 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
         // of exactly the pane.
         layoutBuilder: (current, previous) => Stack(
           fit: StackFit.expand,
-          children: [...previous, if (current != null) current],
+          children: [...previous, ?current],
         ),
         transitionBuilder: _scrollTransition,
         child: KeyedSubtree(

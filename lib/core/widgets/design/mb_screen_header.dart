@@ -86,7 +86,7 @@ class MbSectionHeader extends StatelessWidget {
               ),
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
           if (onAction != null)
             IconButton(
               onPressed: onAction,

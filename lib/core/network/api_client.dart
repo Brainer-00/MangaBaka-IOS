@@ -230,7 +230,7 @@ class ApiClient {
 
   Map<String, String> _headersFor(Map<String, String>? extra) => {
         'User-Agent': AppConstants.userAgent,
-        if (extra != null) ...extra,
+        ...?extra,
       };
 
   void _report({required bool ok, int? statusCode, Object? error}) {

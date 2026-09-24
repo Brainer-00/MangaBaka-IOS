@@ -78,7 +78,7 @@ class BrowseSearchGateway {
         'page': page,
         'limit': AppConstants.defaultPageLimit,
         ...filters.toMap(),
-        if (excludeUserId != null) 'exclude_user_library': excludeUserId,
+        'exclude_user_library': ?excludeUserId,
       },
     );
 

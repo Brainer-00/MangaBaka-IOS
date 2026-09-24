@@ -232,7 +232,7 @@ class DesktopBrowseScreenState extends State<DesktopBrowseScreen>
                       children: [
                         titleText,
                         const Spacer(),
-                        if (clearButton != null) clearButton,
+                        ?clearButton,
                       ],
                     ),
                     const SizedBox(height: 12),

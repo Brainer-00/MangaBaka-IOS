@@ -206,15 +206,15 @@ class DesktopShellState extends State<DesktopShell> {
       children: [
         Navigator(
           key: _contentNavigatorKey,
-          onGenerateInitialRoutes: (_, __) => [
+          onGenerateInitialRoutes: (_, _) => [
             PageRouteBuilder<void>(
               opaque: true,
-              pageBuilder: (_, __, ___) => ValueListenableBuilder<int>(
+              pageBuilder: (_, _, _) => ValueListenableBuilder<int>(
                 valueListenable: _index,
-                builder: (_, index, __) =>
+                builder: (_, index, _) =>
                     IndexedStack(index: index, children: _pages),
               ),
-              transitionsBuilder: (_, __, ___, child) => child,
+              transitionsBuilder: (_, _, _, child) => child,
             ),
           ],
         ),

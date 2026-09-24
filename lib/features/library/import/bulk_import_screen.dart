@@ -474,7 +474,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
             itemCount: c.rows.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, i) => _RowTile(
               row: c.rows[i],
               l10n: l10n,

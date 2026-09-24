@@ -39,7 +39,7 @@ class LibraryStatusBanner extends StatelessWidget {
               ),
             ),
           ),
-          if (action != null) action!,
+          ?action,
           if (onClose != null)
             IconButton(
               icon: Icon(Icons.close, color: color, size: 16),

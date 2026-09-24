@@ -383,7 +383,7 @@ class BrowseContent extends StatelessWidget {
                 alignment: Alignment.topCenter,
                 children: [
                   ...previousChildren,
-                  if (currentChild != null) currentChild,
+                  ?currentChild,
                 ],
               );
             },

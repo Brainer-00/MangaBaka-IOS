@@ -35,7 +35,7 @@ Widget _content(BrowseType type, List<dynamic> results) {
             scrollController: ScrollController(),
             onRetry: () {},
             onNavigateToDetail: (_) {},
-            onNavigateToResults: (_, __, {type, staff, publisher}) {},
+            onNavigateToResults: (_, _, {type, staff, publisher}) {},
             onNavigateToMix: () {},
             onNavigateToDiscoveryQueue: () {},
           ),

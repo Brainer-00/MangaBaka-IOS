@@ -54,7 +54,7 @@ class MixSeedSuggestions extends StatelessWidget {
           height: 76,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemCount: controller.seedSuggestions.length,
             itemBuilder: (context, i) {
               final suggestion = controller.seedSuggestions[i];
