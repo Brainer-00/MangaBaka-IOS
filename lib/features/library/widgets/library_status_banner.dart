@@ -22,9 +22,7 @@ class LibraryStatusBanner extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-      ),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.12)),
       child: Row(
         children: [
           Icon(icon, color: color, size: 18),

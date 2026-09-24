@@ -111,8 +111,10 @@ class MainScreenState extends State<MainScreen> {
     // The list-style preview in settings shows a bundled sample cover. Decoding
     // it on first paint is what made the preview pop in, so decode it now and
     // let the preview hit the image cache synchronously.
-    precacheImage(AssetImage(mockSeries222.coverUrl), context)
-        .catchError((_) {});
+    precacheImage(
+      AssetImage(mockSeries222.coverUrl),
+      context,
+    ).catchError((_) {});
   }
 
   @override
@@ -243,10 +245,10 @@ class MainScreenState extends State<MainScreen> {
   }
 
   Widget _bottomNav(LocalizationService l10n) => MbBottomNav(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _onItemTapped,
-        destinations: navDestinations(l10n),
-      );
+    selectedIndex: _selectedIndex,
+    onDestinationSelected: _onItemTapped,
+    destinations: navDestinations(l10n),
+  );
 
   // ─── Content ─────────────────────────────────────────────────────────────
 

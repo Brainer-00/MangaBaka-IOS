@@ -48,9 +48,7 @@ class _MbNavItem extends StatelessWidget {
       child: Icon(
         selected ? destination.selectedIcon : destination.icon,
         size: 23,
-        color: selected
-            ? AppConstants.onAccent
-            : AppConstants.textMutedColor,
+        color: selected ? AppConstants.onAccent : AppConstants.textMutedColor,
       ),
     );
 
@@ -63,7 +61,9 @@ class _MbNavItem extends StatelessWidget {
       selected: selected,
       label: destination.label,
       child: Padding(
-        padding: expand ? const EdgeInsets.symmetric(horizontal: 1.0) : EdgeInsets.zero,
+        padding: expand
+            ? const EdgeInsets.symmetric(horizontal: 1.0)
+            : EdgeInsets.zero,
         child: Tooltip(
           message: destination.label,
           child: InkResponse(

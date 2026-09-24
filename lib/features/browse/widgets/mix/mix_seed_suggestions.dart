@@ -35,8 +35,11 @@ class MixSeedSuggestions extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(Icons.auto_awesome_rounded,
-                color: AppConstants.accentColor, size: 16),
+            Icon(
+              Icons.auto_awesome_rounded,
+              color: AppConstants.accentColor,
+              size: 16,
+            ),
             const SizedBox(width: 6),
             Text(
               l10n.translate('mix_seed_suggestions'),
@@ -157,8 +160,11 @@ class _SuggestionCard extends StatelessWidget {
                   color: AppConstants.tertiaryBackground,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.add_rounded,
-                    color: AppConstants.accentColor, size: 14),
+                child: Icon(
+                  Icons.add_rounded,
+                  color: AppConstants.accentColor,
+                  size: 14,
+                ),
               ),
             ),
           ],

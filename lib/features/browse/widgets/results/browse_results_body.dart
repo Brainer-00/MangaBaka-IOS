@@ -28,10 +28,7 @@ class BrowseResultsBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (error != null) {
-      return BrowseResultsError(
-        error: error!,
-        onRetry: onRetry,
-      );
+      return BrowseResultsError(error: error!, onRetry: onRetry);
     }
 
     return AnimatedSwitcher(
@@ -41,30 +38,24 @@ class BrowseResultsBody extends StatelessWidget {
       layoutBuilder: (currentChild, previousChildren) {
         return Stack(
           alignment: Alignment.topCenter,
-          children: [
-            ...previousChildren,
-            ?currentChild,
-          ],
+          children: [...previousChildren, ?currentChild],
         );
       },
       transitionBuilder: (Widget child, Animation<double> animation) {
-        return FadeTransition(
-          opacity: animation,
-          child: child,
-        );
+        return FadeTransition(opacity: animation, child: child);
       },
       child: results.isEmpty && isLoading
           ? const BrowseResultsLoading()
           : results.isEmpty
-              ? const BrowseResultsEmpty()
-              : BrowseResultsList(
-                  results: results,
-                  scrollController: scrollController,
-                  isLoading: isLoading,
-                  shouldShowRanking: sortBy == 'popularity_asc',
-                  onSeriesTap: onSeriesTap,
-                  heroTagPrefix: heroTagPrefix,
-                ),
+          ? const BrowseResultsEmpty()
+          : BrowseResultsList(
+              results: results,
+              scrollController: scrollController,
+              isLoading: isLoading,
+              shouldShowRanking: sortBy == 'popularity_asc',
+              onSeriesTap: onSeriesTap,
+              heroTagPrefix: heroTagPrefix,
+            ),
     );
   }
 }

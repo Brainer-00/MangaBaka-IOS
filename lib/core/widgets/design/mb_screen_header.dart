@@ -29,8 +29,10 @@ PreferredSizeWidget mbScreenAppBar({
         ? null
         : Builder(
             builder: (context) => IconButton(
-              icon: Icon(Icons.arrow_back_rounded,
-                  color: AppConstants.textColor),
+              icon: Icon(
+                Icons.arrow_back_rounded,
+                color: AppConstants.textColor,
+              ),
               onPressed: onBack ?? () => Navigator.of(context).maybePop(),
             ),
           ),
@@ -91,8 +93,11 @@ class MbSectionHeader extends StatelessWidget {
             IconButton(
               onPressed: onAction,
               visualDensity: VisualDensity.compact,
-              icon: Icon(actionIcon,
-                  size: 20, color: AppConstants.textMutedColor),
+              icon: Icon(
+                actionIcon,
+                size: 20,
+                color: AppConstants.textMutedColor,
+              ),
             ),
         ],
       ),

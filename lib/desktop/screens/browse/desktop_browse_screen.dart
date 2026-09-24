@@ -103,8 +103,9 @@ class DesktopBrowseScreenState extends State<DesktopBrowseScreen>
   void _openMix() =>
       Navigator.of(context).push(AppTransitions.slideRight(const MixScreen()));
 
-  void _openDiscoveryQueue() => Navigator.of(context)
-      .push(AppTransitions.slideRight(const DiscoveryQueueScreen()));
+  void _openDiscoveryQueue() => Navigator.of(
+    context,
+  ).push(AppTransitions.slideRight(const DiscoveryQueueScreen()));
 
   void _onResultSelected(AutocompleteSeriesResult result) =>
       _openDetail(BrowseHelpers.convertAutocompleteToSeries(result));
@@ -228,13 +229,7 @@ class DesktopBrowseScreenState extends State<DesktopBrowseScreen>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      children: [
-                        titleText,
-                        const Spacer(),
-                        ?clearButton,
-                      ],
-                    ),
+                    Row(children: [titleText, const Spacer(), ?clearButton]),
                     const SizedBox(height: 12),
                     searchBar,
                   ],
@@ -277,7 +272,11 @@ class DesktopBrowseScreenState extends State<DesktopBrowseScreen>
                       value: c.currentType,
                       segments: [
                         (BrowseType.series, l10n.translate('series'), null),
-                        (BrowseType.publishers, l10n.translate('publishers'), null),
+                        (
+                          BrowseType.publishers,
+                          l10n.translate('publishers'),
+                          null,
+                        ),
                         (BrowseType.staff, l10n.translate('staff'), null),
                       ],
                       onChanged: c.setType,
@@ -306,7 +305,9 @@ class DesktopBrowseScreenState extends State<DesktopBrowseScreen>
                           onChanged: c.updateFilters,
                         ),
                         const SizedBox(width: 10),
-                        const DesktopListStyleToggle(scope: DesktopListScope.browse),
+                        const DesktopListStyleToggle(
+                          scope: DesktopListScope.browse,
+                        ),
                       ],
                     )
                   : null;

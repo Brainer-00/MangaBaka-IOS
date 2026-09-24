@@ -355,10 +355,8 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
         switchOutCurve: Curves.easeInOutCubic,
         // Both pages fill the pane, so a slide of one page-height is a slide
         // of exactly the pane.
-        layoutBuilder: (current, previous) => Stack(
-          fit: StackFit.expand,
-          children: [...previous, ?current],
-        ),
+        layoutBuilder: (current, previous) =>
+            Stack(fit: StackFit.expand, children: [...previous, ?current]),
         transitionBuilder: _scrollTransition,
         child: KeyedSubtree(
           key: ValueKey(_selected),

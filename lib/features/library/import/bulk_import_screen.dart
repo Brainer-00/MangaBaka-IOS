@@ -221,11 +221,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
       Navigator.of(context).pop();
     } catch (_) {
       if (!mounted) return;
-      AppSnackBar.show(
-        context,
-        l10n.translate('failed_to_add'),
-        isError: true,
-      );
+      AppSnackBar.show(context, l10n.translate('failed_to_add'), isError: true);
     }
   }
 
