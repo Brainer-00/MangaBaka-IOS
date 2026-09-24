@@ -22,6 +22,8 @@ class AppConstants {
       'https://mangabaka.org/about/privacy';
   static const String mangaBakaTermsUrl = 'https://mangabaka.org/about/terms';
   static const String authBaseUrl = 'https://mangabaka.org/auth/oauth2';
+  static const String oauthRedirectUri =
+      'io.github.brainer00.mangabaka-ios://oauthredirect';
   static const String userAgent =
       '$appName/$appVersion (https://github.com/$githubOwner/$githubRepo)';
   static const int networkTimeoutSeconds = 30;
