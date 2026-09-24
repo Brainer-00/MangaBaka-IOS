@@ -9,8 +9,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_appauth/flutter_appauth.dart';
 import 'package:http/http.dart' as http;
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
+import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:mangabaka_app/core/utils/external_url_launcher.dart';
 import 'package:win32_registry/win32_registry.dart';
 
 class WindowsAuthHandler {
@@ -44,10 +45,10 @@ class WindowsAuthHandler {
   static Future<void> reopenBrowser() async {
     final uri = _pendingAuthUri;
 
-    if (uri != null) {
-      await launchUrl(
+    if (uri != null && _isTrustedAuthorizationUri(uri)) {
+      await ExternalUrlLauncher.launchUri(
         uri,
-        mode: LaunchMode.externalApplication,
+        allowedHosts: const {'mangabaka.org'},
       );
     }
   }
@@ -63,16 +64,10 @@ class WindowsAuthHandler {
       _logger.info('Registering Windows OAuth callback protocol');
 
       final key = CURRENT_USER.create(protocolRegKey);
-      key.setValue(
-        'URL Protocol',
-        RegistryValue.string(''),
-      );
+      key.setValue('URL Protocol', RegistryValue.string(''));
 
       final commandKey = key.create('shell\\open\\command');
-      commandKey.setValue(
-        '',
-        RegistryValue.string('"$appPath" "%1"'),
-      );
+      commandKey.setValue('', RegistryValue.string('"$appPath" "%1"'));
 
       commandKey.close();
       key.close();
@@ -125,6 +120,13 @@ class WindowsAuthHandler {
       },
     );
 
+    if (!_isTrustedAuthorizationUri(authUri)) {
+      throw AuthException(
+        message: 'Invalid OAuth authorization endpoint',
+        code: 'INVALID_OAUTH_AUTHORIZATION_ENDPOINT',
+      );
+    }
+
     // Never log authUri. It contains OAuth state and PKCE metadata.
     _logger.info('Opening browser for Windows OAuth');
 
@@ -171,9 +173,7 @@ class WindowsAuthHandler {
         if (oauthError != null) {
           if (!completer.isCompleted) {
             if (oauthError == 'access_denied') {
-              completer.completeError(
-                AuthCancelledException(),
-              );
+              completer.completeError(AuthCancelledException());
             } else {
               // Do not persist error_description or the callback URI.
               completer.completeError(
@@ -209,9 +209,7 @@ class WindowsAuthHandler {
       },
       onError: (Object error) {
         // Avoid writing raw AppLinks errors because they may include URI data.
-        _logger.severe(
-          'OAuth callback listener failed (${error.runtimeType})',
-        );
+        _logger.severe('OAuth callback listener failed (${error.runtimeType})');
 
         if (!completer.isCompleted) {
           completer.completeError(
@@ -225,9 +223,9 @@ class WindowsAuthHandler {
     );
 
     try {
-      final launched = await launchUrl(
+      final launched = await ExternalUrlLauncher.launchUri(
         authUri,
-        mode: LaunchMode.externalApplication,
+        allowedHosts: const {'mangabaka.org'},
       );
 
       if (!launched) {
@@ -239,9 +237,7 @@ class WindowsAuthHandler {
 
       onBrowserOpened?.call();
 
-      final code = await completer.future.timeout(
-        const Duration(minutes: 5),
-      );
+      final code = await completer.future.timeout(const Duration(minutes: 5));
 
       if (code == null || code.isEmpty) {
         throw AuthException(
@@ -254,9 +250,7 @@ class WindowsAuthHandler {
 
       final response = await http.post(
         Uri.parse(tokenEndpoint),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: {
           'grant_type': 'authorization_code',
           'client_id': clientId,
@@ -274,11 +268,7 @@ class WindowsAuthHandler {
         return TokenResponse(
           data['access_token'],
           data['refresh_token'],
-          DateTime.now().add(
-            Duration(
-              seconds: data['expires_in'] ?? 3600,
-            ),
-          ),
+          DateTime.now().add(Duration(seconds: data['expires_in'] ?? 3600)),
           data['id_token'],
           'Bearer',
           scopes,
@@ -312,6 +302,18 @@ class WindowsAuthHandler {
     }
   }
 
+  static bool _isTrustedAuthorizationUri(Uri uri) {
+    final expected = Uri.parse('${AppConstants.authBaseUrl}/authorize');
+    return ExternalUrlLauncher.isAllowedHttpsUri(
+          uri,
+          allowedHosts: const {'mangabaka.org'},
+        ) &&
+        uri.scheme == expected.scheme &&
+        uri.host.toLowerCase() == expected.host.toLowerCase() &&
+        uri.port == expected.port &&
+        uri.path == expected.path;
+  }
+
   /// Refreshes the OAuth session using the stored refresh token.
   static Future<TokenResponse?> refresh({
     required String clientId,
@@ -324,9 +326,7 @@ class WindowsAuthHandler {
 
     final response = await http.post(
       Uri.parse(tokenEndpoint),
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: {
         'grant_type': 'refresh_token',
         'client_id': clientId,
@@ -343,11 +343,7 @@ class WindowsAuthHandler {
       return TokenResponse(
         data['access_token'],
         data['refresh_token'] ?? refreshToken,
-        DateTime.now().add(
-          Duration(
-            seconds: data['expires_in'] ?? 3600,
-          ),
-        ),
+        DateTime.now().add(Duration(seconds: data['expires_in'] ?? 3600)),
         data['id_token'],
         'Bearer',
         scopes,

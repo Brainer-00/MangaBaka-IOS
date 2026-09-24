@@ -2,11 +2,11 @@ import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
+import 'package:mangabaka_app/core/utils/external_url_launcher.dart';
 import 'package:mangabaka_app/features/updates/models/app_release.dart';
 import 'package:mangabaka_app/features/updates/services/update_service.dart';
 
@@ -95,10 +95,13 @@ class _UpdateDialogState extends State<UpdateDialog> {
   Future<void> _openReleasePage() async {
     final url = widget.release.htmlUrl;
     if (url.isEmpty) return;
-    try {
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } catch (e) {
-      _logger.warning('Failed to open release page (${e.runtimeType})');
+    final opened = await ExternalUrlLauncher.launch(
+      url,
+      allowedHosts: const {'github.com'},
+      allowSubdomains: true,
+    );
+    if (!opened) {
+      _logger.warning('Failed to open release page');
     }
   }
 
@@ -230,8 +233,9 @@ class _UpdateDialogState extends State<UpdateDialog> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: AppConstants.errorColor.withValues(alpha: 0.05),
-                    borderRadius:
-                        BorderRadius.circular(AppConstants.denseRadius),
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.denseRadius,
+                    ),
                     border: Border.all(
                       color: AppConstants.errorColor.withValues(alpha: 0.2),
                     ),
@@ -250,7 +254,9 @@ class _UpdateDialogState extends State<UpdateDialog> {
                           'Update failed. You can retry or download it '
                           'manually from the release page.',
                           style: AppTypography.sans(
-                            color: AppConstants.errorColor.withValues(alpha: 0.9),
+                            color: AppConstants.errorColor.withValues(
+                              alpha: 0.9,
+                            ),
                             fontSize: 13,
                             height: 1.4,
                           ),
@@ -283,8 +289,9 @@ class _UpdateDialogState extends State<UpdateDialog> {
             style: FilledButton.styleFrom(
               backgroundColor: AppConstants.accentColor,
               foregroundColor: AppConstants.onAccent,
-              disabledBackgroundColor:
-                  AppConstants.accentColor.withValues(alpha: 0.5),
+              disabledBackgroundColor: AppConstants.accentColor.withValues(
+                alpha: 0.5,
+              ),
               disabledForegroundColor: Colors.white70,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(

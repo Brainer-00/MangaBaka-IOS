@@ -3,12 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/utils/external_url_launcher.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 import 'package:mangabaka_app/core/widgets/app_snack_bar.dart';
 import 'package:mangabaka_app/desktop/desktop_layout.dart';
 import 'package:mangabaka_app/desktop/widgets/desktop_surfaces.dart';
 import 'package:mangabaka_app/features/profile/widgets/settings/settings_components.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 /// Privacy disclosures and legal resources for this independent client.
 ///
@@ -63,25 +63,36 @@ class PrivacyLegalContent extends StatelessWidget {
         icon: Icons.privacy_tip_outlined,
         titleKey: 'privacy_policy',
         subtitleKey: 'project_document_subtitle',
-        onTap: () => _openExternal(context, AppConstants.privacyPolicyUrl),
+        onTap: () => _openExternal(
+          context,
+          AppConstants.privacyPolicyUrl,
+          const {'github.com'},
+        ),
       ),
       _LegalAction(
         icon: Icons.gavel_outlined,
         titleKey: 'terms_of_use',
         subtitleKey: 'project_document_subtitle',
-        onTap: () => _openExternal(context, AppConstants.termsUrl),
+        onTap: () =>
+            _openExternal(context, AppConstants.termsUrl, const {'github.com'}),
       ),
       _LegalAction(
         icon: Icons.fact_check_outlined,
         titleKey: 'attribution_and_data',
         subtitleKey: 'project_document_subtitle',
-        onTap: () => _openExternal(context, AppConstants.attributionUrl),
+        onTap: () => _openExternal(context, AppConstants.attributionUrl, const {
+          'github.com',
+        }),
       ),
       _LegalAction(
         icon: Icons.policy_outlined,
         titleKey: 'project_security_policy',
         subtitleKey: 'project_document_subtitle',
-        onTap: () => _openExternal(context, AppConstants.securityPolicyUrl),
+        onTap: () => _openExternal(
+          context,
+          AppConstants.securityPolicyUrl,
+          const {'github.com'},
+        ),
       ),
       _LegalAction(
         icon: Icons.balance_outlined,
@@ -98,19 +109,29 @@ class PrivacyLegalContent extends StatelessWidget {
         icon: Icons.open_in_browser_outlined,
         titleKey: 'mangabaka_privacy_policy',
         subtitleKey: 'service_policy_subtitle',
-        onTap: () => _openExternal(context, AppConstants.mangaBakaPrivacyUrl),
+        onTap: () => _openExternal(
+          context,
+          AppConstants.mangaBakaPrivacyUrl,
+          const {'mangabaka.org'},
+        ),
       ),
       _LegalAction(
         icon: Icons.description_outlined,
         titleKey: 'mangabaka_terms',
         subtitleKey: 'service_policy_subtitle',
-        onTap: () => _openExternal(context, AppConstants.mangaBakaTermsUrl),
+        onTap: () => _openExternal(
+          context,
+          AppConstants.mangaBakaTermsUrl,
+          const {'mangabaka.org'},
+        ),
       ),
       _LegalAction(
         icon: Icons.code_outlined,
         titleKey: 'project_github',
         subtitleKey: 'project_document_subtitle',
-        onTap: () => _openExternal(context, AppConstants.githubRepoUrl),
+        onTap: () => _openExternal(context, AppConstants.githubRepoUrl, const {
+          'github.com',
+        }),
       ),
     ];
 
@@ -127,16 +148,17 @@ class PrivacyLegalContent extends StatelessWidget {
     );
   }
 
-  static Future<void> _openExternal(BuildContext context, String url) async {
-    try {
-      final opened = await launchUrl(
-        Uri.parse(url),
-        mode: LaunchMode.externalApplication,
-      );
-      if (opened || !context.mounted) return;
-    } catch (_) {
-      if (!context.mounted) return;
-    }
+  static Future<void> _openExternal(
+    BuildContext context,
+    String url,
+    Set<String> allowedHosts,
+  ) async {
+    final opened = await ExternalUrlLauncher.launch(
+      url,
+      allowedHosts: allowedHosts,
+      allowSubdomains: true,
+    );
+    if (opened || !context.mounted) return;
 
     AppSnackBar.show(
       context,

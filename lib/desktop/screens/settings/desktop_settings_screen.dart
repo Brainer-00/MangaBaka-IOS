@@ -21,7 +21,7 @@ import 'package:mangabaka_app/features/profile/widgets/dialogs/general_settings_
 import 'package:mangabaka_app/features/profile/widgets/dialogs/logout_dialog.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:mangabaka_app/core/utils/external_url_launcher.dart';
 
 /// Settings as a real page on desktop: categories down the left,
 /// inline desktop-native controls (dropdowns, switches, chips) on the right.
@@ -202,9 +202,10 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
           leading: GithubLogo(size: 18, color: AppConstants.textColor),
           label: l10n.translate('github'),
           external: true,
-          onTap: () => launchUrl(
-            Uri.parse(AppConstants.githubRepoUrl),
-            mode: LaunchMode.externalApplication,
+          onTap: () => ExternalUrlLauncher.launch(
+            AppConstants.githubRepoUrl,
+            allowedHosts: const {'github.com'},
+            allowSubdomains: true,
           ),
         ),
         _link(
@@ -707,9 +708,10 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
             control: DesktopPillButton(
               label: l10n.translate('account_settings'),
               icon: Icons.open_in_new,
-              onPressed: () => launchUrl(
-                Uri.parse('https://mangabaka.org/my/settings/profile'),
-                mode: LaunchMode.externalApplication,
+              onPressed: () => ExternalUrlLauncher.launch(
+                'https://mangabaka.org/my/settings/profile',
+                allowedHosts: const {'mangabaka.org'},
+                allowSubdomains: true,
               ),
             ),
           ),

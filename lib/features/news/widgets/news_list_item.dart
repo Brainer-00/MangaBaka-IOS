@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mangabaka_app/features/news/models/news.dart';
 import 'package:mangabaka_app/features/news/widgets/referenced_list_item.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:mangabaka_app/core/utils/external_url_launcher.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/features/series/services/series_service.dart';
@@ -43,7 +43,7 @@ class NewsListItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppConstants.largeRadius),
       ),
       child: InkWell(
-        onTap: () => launchUrl(Uri.parse(news.url)),
+        onTap: () => ExternalUrlLauncher.launch(news.url),
         borderRadius: BorderRadius.circular(AppConstants.largeRadius),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -54,10 +54,15 @@ class NewsListItem extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppConstants.tertiaryBackground,
-                      borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.pillRadius,
+                      ),
                     ),
                     child: Text(
                       news.source.toUpperCase(),
@@ -131,7 +136,8 @@ class NewsListItem extends StatelessWidget {
                         return Padding(
                           padding: const EdgeInsets.only(right: 10.0),
                           child: MouseRegion(
-                            onEnter: (_) => getIt<SeriesService>().fetchSeries(s.id),
+                            onEnter: (_) =>
+                                getIt<SeriesService>().fetchSeries(s.id),
                             child: ReferencedListItem(
                               key: ValueKey('ref_${news.id}_${s.id}'),
                               series: s,
