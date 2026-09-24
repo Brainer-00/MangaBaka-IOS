@@ -35,7 +35,7 @@ Widget _content(BrowseType type, List<dynamic> results) {
             scrollController: ScrollController(),
             onRetry: () {},
             onNavigateToDetail: (_) {},
-            onNavigateToResults: (_, __, {type, staff, publisher}) {},
+            onNavigateToResults: (_, _, {type, staff, publisher}) {},
             onNavigateToMix: () {},
             onNavigateToDiscoveryQueue: () {},
           ),
@@ -68,8 +68,9 @@ void main() {
       expect(find.byIcon(Icons.business_rounded), findsNothing);
     });
 
-    testWidgets('a person with no photo gets no stand-in glyph',
-        (tester) async {
+    testWidgets('a person with no photo gets no stand-in glyph', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -92,7 +93,9 @@ void main() {
       DesktopLayout.debugOverride = true;
 
       await tester.pumpWidget(
-        _content(BrowseType.publishers, [for (var i = 0; i < 6; i++) _publisher(i)]),
+        _content(BrowseType.publishers, [
+          for (var i = 0; i < 6; i++) _publisher(i),
+        ]),
       );
       await tester.pumpAndSettle();
 
@@ -113,7 +116,8 @@ void main() {
 
       await tester.pumpWidget(
         _content(BrowseType.staff, [
-          for (var i = 0; i < 6; i++) Staff(id: i, name: 'Person $i', seriesCount: i),
+          for (var i = 0; i < 6; i++)
+            Staff(id: i, name: 'Person $i', seriesCount: i),
         ]),
       );
       await tester.pumpAndSettle();
@@ -126,7 +130,9 @@ void main() {
       DesktopLayout.debugOverride = false;
 
       await tester.pumpWidget(
-        _content(BrowseType.publishers, [for (var i = 0; i < 3; i++) _publisher(i)]),
+        _content(BrowseType.publishers, [
+          for (var i = 0; i < 3; i++) _publisher(i),
+        ]),
       );
       await tester.pumpAndSettle();
 

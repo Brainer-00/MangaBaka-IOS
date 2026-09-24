@@ -111,8 +111,10 @@ class MainScreenState extends State<MainScreen> {
     // The list-style preview in settings shows a bundled sample cover. Decoding
     // it on first paint is what made the preview pop in, so decode it now and
     // let the preview hit the image cache synchronously.
-    precacheImage(AssetImage(mockSeries222.coverUrl), context)
-        .catchError((_) {});
+    precacheImage(
+      AssetImage(mockSeries222.coverUrl),
+      context,
+    ).catchError((_) {});
   }
 
   @override
@@ -243,10 +245,10 @@ class MainScreenState extends State<MainScreen> {
   }
 
   Widget _bottomNav(LocalizationService l10n) => MbBottomNav(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _onItemTapped,
-        destinations: navDestinations(l10n),
-      );
+    selectedIndex: _selectedIndex,
+    onDestinationSelected: _onItemTapped,
+    destinations: navDestinations(l10n),
+  );
 
   // ─── Content ─────────────────────────────────────────────────────────────
 
@@ -269,17 +271,17 @@ class MainScreenState extends State<MainScreen> {
       children: [
         Navigator(
           key: _contentNavigatorKey,
-          onGenerateInitialRoutes: (_, __) => [
+          onGenerateInitialRoutes: (_, _) => [
             PageRouteBuilder<void>(
               opaque: true,
-              pageBuilder: (_, __, ___) => ValueListenableBuilder<int>(
+              pageBuilder: (_, _, _) => ValueListenableBuilder<int>(
                 valueListenable: _selectedIndexNotifier,
-                builder: (_, index, __) =>
+                builder: (_, index, _) =>
                     IndexedStack(index: index, children: _pages),
               ),
               // The tab root never animates in; only routes pushed on top of
               // it do.
-              transitionsBuilder: (_, __, ___, child) => child,
+              transitionsBuilder: (_, _, _, child) => child,
             ),
           ],
         ),

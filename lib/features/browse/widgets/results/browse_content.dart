@@ -30,7 +30,14 @@ class BrowseContent extends StatelessWidget {
   final ScrollController scrollController;
   final VoidCallback onRetry;
   final Function(Series) onNavigateToDetail;
-  final Function(String, String, {String? type, String? staff, String? publisher}) onNavigateToResults;
+  final Function(
+    String,
+    String, {
+    String? type,
+    String? staff,
+    String? publisher,
+  })
+  onNavigateToResults;
   final VoidCallback onNavigateToMix;
   final VoidCallback onNavigateToDiscoveryQueue;
 
@@ -49,16 +56,15 @@ class BrowseContent extends StatelessWidget {
     required this.onNavigateToDiscoveryQueue,
   });
 
-
   Widget _buildLoadingState() {
     if (browseType == BrowseType.series) {
       final settings = SettingsManager();
       final activeStyle = settings.resolvedBrowseListStyle;
       final isGrid = activeStyle.isGrid;
-      
+
       return SeriesListSkeleton(isGrid: isGrid);
     }
-    
+
     return const Center(child: CircularProgressIndicator());
   }
 
@@ -75,7 +81,10 @@ class BrowseContent extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
-          ElevatedButton(onPressed: onRetry, child: Text(l10n.translate('retry'))),
+          ElevatedButton(
+            onPressed: onRetry,
+            child: Text(l10n.translate('retry')),
+          ),
         ],
       ),
     );
@@ -134,7 +143,10 @@ class BrowseContent extends StatelessWidget {
                     }
                     return const SizedBox.shrink();
                   }
-                  return _buildSeriesItem(searchResults[index] as Series, activeStyle: activeStyle);
+                  return _buildSeriesItem(
+                    searchResults[index] as Series,
+                    activeStyle: activeStyle,
+                  );
                 },
               );
             }
@@ -156,7 +168,10 @@ class BrowseContent extends StatelessWidget {
                   }
                   return const SizedBox.shrink();
                 }
-                return _buildSeriesItem(searchResults[index] as Series, activeStyle: activeStyle);
+                return _buildSeriesItem(
+                  searchResults[index] as Series,
+                  activeStyle: activeStyle,
+                );
               },
             );
           }
@@ -164,7 +179,10 @@ class BrowseContent extends StatelessWidget {
           return LayoutBuilder(
             builder: (context, constraints) {
               final width = constraints.maxWidth;
-              final calculatedColumns = ((width + 10) / 170).ceil().clamp(1, 12);
+              final calculatedColumns = ((width + 10) / 170).ceil().clamp(
+                1,
+                12,
+              );
               return buildGridContent(context, calculatedColumns);
             },
           );
@@ -183,7 +201,10 @@ class BrowseContent extends StatelessWidget {
               }
               return const SizedBox.shrink();
             }
-            return _buildSeriesItem(searchResults[index] as Series, activeStyle: activeStyle);
+            return _buildSeriesItem(
+              searchResults[index] as Series,
+              activeStyle: activeStyle,
+            );
           },
         );
 
@@ -207,10 +228,8 @@ class BrowseContent extends StatelessWidget {
         return PublisherListItem(
           publisher: publisher,
           margin: margin,
-          onTap: () => CollectionsBrowseScreen.open(
-            context,
-            publisher: publisher,
-          ),
+          onTap: () =>
+              CollectionsBrowseScreen.open(context, publisher: publisher),
         );
       },
     );
@@ -239,7 +258,8 @@ class BrowseContent extends StatelessWidget {
   /// empty space between the name and the chevron.
   Widget _buildPeopleResults({
     required double cellHeight,
-    required Widget Function(BuildContext, int, EdgeInsetsGeometry?) itemBuilder,
+    required Widget Function(BuildContext, int, EdgeInsetsGeometry?)
+    itemBuilder,
   }) {
     return Builder(
       builder: (context) {
@@ -281,10 +301,10 @@ class BrowseContent extends StatelessWidget {
 
   /// Returns an appropriate icon for the empty / prompt state of each browse type.
   IconData _emptyStateIconFor(BrowseType type) => switch (type) {
-        BrowseType.publishers => Icons.business,
-        BrowseType.staff => Icons.people,
-        _ => Icons.search,
-      };
+    BrowseType.publishers => Icons.business,
+    BrowseType.staff => Icons.people,
+    _ => Icons.search,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -292,7 +312,7 @@ class BrowseContent extends StatelessWidget {
       listenable: LocalizationService(),
       builder: (context, _) {
         final l10n = LocalizationService();
-        
+
         Widget content;
         if (searchResults.isEmpty && !isLoading && error == null) {
           if (browseType == BrowseType.series) {
@@ -302,7 +322,6 @@ class BrowseContent extends StatelessWidget {
               onMix: onNavigateToMix,
               onDiscoveryQueue: onNavigateToDiscoveryQueue,
             );
-
           } else if (browseType == BrowseType.publishers) {
             content = Center(
               key: const ValueKey('publishers_prompt'),
@@ -324,7 +343,10 @@ class BrowseContent extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   OutlinedButton.icon(
-                    icon: const Icon(Icons.collections_bookmark_rounded, size: 18),
+                    icon: const Icon(
+                      Icons.collections_bookmark_rounded,
+                      size: 18,
+                    ),
                     label: Text(l10n.translate('collections_and_editions')),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppConstants.accentColor,
@@ -381,19 +403,13 @@ class BrowseContent extends StatelessWidget {
             layoutBuilder: (currentChild, previousChildren) {
               return Stack(
                 alignment: Alignment.topCenter,
-                children: [
-                  ...previousChildren,
-                  if (currentChild != null) currentChild,
-                ],
+                children: [...previousChildren, ?currentChild],
               );
             },
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
             transitionBuilder: (Widget child, Animation<double> animation) {
-              return FadeTransition(
-                opacity: animation,
-                child: child,
-              );
+              return FadeTransition(opacity: animation, child: child);
             },
             child: content,
           ),

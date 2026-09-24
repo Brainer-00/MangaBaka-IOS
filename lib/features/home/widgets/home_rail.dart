@@ -57,7 +57,7 @@ class HomeRail extends StatelessWidget {
               horizontal: AppConstants.horizontalPadding,
             ),
             itemCount: itemCount,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, i) {
               if (loading) {
                 return _RailSkeleton(width: coverWidth);

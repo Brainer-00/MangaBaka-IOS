@@ -42,30 +42,28 @@ class ApiClient {
 
   static final _logger = LoggingService.logger;
 
-  ApiClient({
-    this.healthContext,
-    http.Client? client,
-    Duration? timeout,
-  })  : _client = client ?? http.Client(),
-        _ownsClient = client == null,
-        _timeout = timeout ??
-            const Duration(seconds: AppConstants.networkTimeoutSeconds);
+  ApiClient({this.healthContext, http.Client? client, Duration? timeout})
+    : _client = client ?? http.Client(),
+      _ownsClient = client == null,
+      _timeout =
+          timeout ??
+          const Duration(seconds: AppConstants.networkTimeoutSeconds);
 
   ApiClient._shared({
     required this.healthContext,
     required http.Client client,
     required Duration timeout,
-  })  : _client = client,
-        _ownsClient = false,
-        _timeout = timeout;
+  }) : _client = client,
+       _ownsClient = false,
+       _timeout = timeout;
 
   /// Derives a client sharing this one's connection pool but reporting under a
   /// different [context]. Closing the derived client leaves the pool open.
   ApiClient withContext(String context) => ApiClient._shared(
-        healthContext: context,
-        client: _client,
-        timeout: _timeout,
-      );
+    healthContext: context,
+    client: _client,
+    timeout: _timeout,
+  );
 
   /// Builds a request URI from [base] and [params], dropping null and empty
   /// values and stringifying the rest (lists become repeated parameters).
@@ -142,9 +140,7 @@ class ApiClient {
       );
 
       if (!acceptedStatuses.contains(response.statusCode)) {
-        _logger.severe(
-          '$operation failed with HTTP ${response.statusCode}',
-        );
+        _logger.severe('$operation failed with HTTP ${response.statusCode}');
         throw ApiException(
           message: 'Failed to $operation',
           statusCode: response.statusCode,
@@ -165,9 +161,7 @@ class ApiClient {
         stackTrace: st,
       );
     } on http.ClientException catch (e, st) {
-      _logger.severe(
-        'HTTP client error during $operation (${e.runtimeType})',
-      );
+      _logger.severe('HTTP client error during $operation (${e.runtimeType})');
       _report(ok: false, error: e);
       throw NetworkException(
         message: 'Network error. Please check your connection.',
@@ -217,9 +211,7 @@ class ApiClient {
     try {
       return parse(jsonDecode(body));
     } catch (e, st) {
-      _logger.severe(
-        'Failed to parse $operation response (${e.runtimeType})',
-      );
+      _logger.severe('Failed to parse $operation response (${e.runtimeType})');
       throw ParseException(
         message: 'Failed to parse $operation response',
         originalError: e,
@@ -229,9 +221,9 @@ class ApiClient {
   }
 
   Map<String, String> _headersFor(Map<String, String>? extra) => {
-        'User-Agent': AppConstants.userAgent,
-        if (extra != null) ...extra,
-      };
+    'User-Agent': AppConstants.userAgent,
+    ...?extra,
+  };
 
   void _report({required bool ok, int? statusCode, Object? error}) {
     final context = healthContext;

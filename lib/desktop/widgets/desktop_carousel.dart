@@ -142,9 +142,9 @@ class _DesktopCarouselState extends State<DesktopCarousel> {
               scrollDirection: Axis.horizontal,
               clipBehavior: Clip.none,
               itemCount: count,
-              separatorBuilder: (_, __) => SizedBox(width: widget.spacing),
+              separatorBuilder: (_, _) => SizedBox(width: widget.spacing),
               itemBuilder: widget.loading
-                  ? (_, __) => _CoverSkeleton(width: widget.itemWidth)
+                  ? (_, _) => _CoverSkeleton(width: widget.itemWidth)
                   : widget.itemBuilder,
             ),
           ),

@@ -10,24 +10,27 @@ import 'package:mangabaka_app/core/database/database.dart' as db;
 import 'package:mangabaka_app/features/library/services/library_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const String _isIncompleteKey = '${AppConstants.prefixStorageKey}library_is_incomplete';
+const String _isIncompleteKey =
+    '${AppConstants.prefixStorageKey}library_is_incomplete';
 
 mixin LibraryCrudMixin on LibraryServiceBase {
-
   // ── Shared HTTP helpers ───────────────────────────────────────────────────
 
   /// Standard headers for every library API request.
   Map<String, String> _buildAuthHeaders(String token, {bool json = true}) => {
-        'Authorization': 'Bearer $token',
-        'User-Agent': LibraryConstants.userAgent,
-        if (json) 'Content-Type': 'application/json',
-      };
+    'Authorization': 'Bearer $token',
+    'User-Agent': LibraryConstants.userAgent,
+    if (json) 'Content-Type': 'application/json',
+  };
 
   /// Throws [AuthException] when the server returns 401.
   void _assertAuthorized(http.Response response, String seriesId) {
     if (response.statusCode == 401) {
       logger.severe('Unauthorized library request');
-      throw AuthException(message: 'Authentication failed.', code: 'AUTH_FAILED');
+      throw AuthException(
+        message: 'Authentication failed.',
+        code: 'AUTH_FAILED',
+      );
     }
   }
 
@@ -57,7 +60,11 @@ mixin LibraryCrudMixin on LibraryServiceBase {
         stackTrace: st,
       );
     }
-    throw AppError(message: 'Failed to $operation', originalError: e, stackTrace: st);
+    throw AppError(
+      message: 'Failed to $operation',
+      originalError: e,
+      stackTrace: st,
+    );
   }
 
   // ── CRUD operations ───────────────────────────────────────────────────────
@@ -68,10 +75,15 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
     try {
       final response = await http
-          .put(url, headers: _buildAuthHeaders(token), body: jsonEncode({'state': state}))
+          .put(
+            url,
+            headers: _buildAuthHeaders(token),
+            body: jsonEncode({'state': state}),
+          )
           .timeout(
             const Duration(seconds: AppConstants.networkTimeoutSeconds),
-            onTimeout: () => throw TimeoutException('Update state request timed out'),
+            onTimeout: () =>
+                throw TimeoutException('Update state request timed out'),
           );
 
       _assertAuthorized(response, seriesId);
@@ -100,10 +112,15 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
     try {
       final response = await http
-          .put(url, headers: _buildAuthHeaders(token), body: jsonEncode({'rating': rating}))
+          .put(
+            url,
+            headers: _buildAuthHeaders(token),
+            body: jsonEncode({'rating': rating}),
+          )
           .timeout(
             const Duration(seconds: AppConstants.networkTimeoutSeconds),
-            onTimeout: () => throw TimeoutException('Update rating request timed out'),
+            onTimeout: () =>
+                throw TimeoutException('Update rating request timed out'),
           );
 
       _assertAuthorized(response, seriesId);
@@ -127,7 +144,10 @@ mixin LibraryCrudMixin on LibraryServiceBase {
   }
 
   /// Restores local progress to the values captured before an optimistic update.
-  Future<void> _rollbackProgress(String seriesId, db.LibraryEntryWithSeries? snapshot) async {
+  Future<void> _rollbackProgress(
+    String seriesId,
+    db.LibraryEntryWithSeries? snapshot,
+  ) async {
     if (snapshot == null) return;
     await database.libraryEntriesDao.updateEntryProgress(
       seriesId,
@@ -144,7 +164,9 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     logger.info('Updating library entry progress (optimistic)');
 
     // Capture state for rollback, then apply optimistic local update.
-    final snapshot = await database.libraryEntriesDao.getEntryBySeriesId(seriesId);
+    final snapshot = await database.libraryEntriesDao.getEntryBySeriesId(
+      seriesId,
+    );
     await database.libraryEntriesDao.updateEntryProgress(
       seriesId,
       progressChapter: progressChapter,
@@ -156,15 +178,16 @@ mixin LibraryCrudMixin on LibraryServiceBase {
       final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
 
       final body = <String, dynamic>{
-        if (progressChapter != null) 'progress_chapter': progressChapter,
-        if (progressVolume != null) 'progress_volume': progressVolume,
+        'progress_chapter': ?progressChapter,
+        'progress_volume': ?progressVolume,
       };
 
       final response = await http
           .put(url, headers: _buildAuthHeaders(token), body: jsonEncode(body))
           .timeout(
             const Duration(seconds: AppConstants.networkTimeoutSeconds),
-            onTimeout: () => throw TimeoutException('Update progress request timed out'),
+            onTimeout: () =>
+                throw TimeoutException('Update progress request timed out'),
           );
 
       _assertAuthorized(response, seriesId);
@@ -196,10 +219,15 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
     try {
       final response = await http
-          .post(url, headers: _buildAuthHeaders(token), body: jsonEncode({'state': state}))
+          .post(
+            url,
+            headers: _buildAuthHeaders(token),
+            body: jsonEncode({'state': state}),
+          )
           .timeout(
             const Duration(seconds: AppConstants.networkTimeoutSeconds),
-            onTimeout: () => throw TimeoutException('Create entry request timed out'),
+            onTimeout: () =>
+                throw TimeoutException('Create entry request timed out'),
           );
 
       _assertAuthorized(response, seriesId);
@@ -280,7 +308,9 @@ mixin LibraryCrudMixin on LibraryServiceBase {
         anyAccepted = true;
         final data = (jsonDecode(response.body) as Map)['data'];
         if (data is List) {
-          created += data.where((e) => e is Map && e['action'] == 'created').length;
+          created += data
+              .where((e) => e is Map && e['action'] == 'created')
+              .length;
         }
       }
     } catch (e, st) {
@@ -307,7 +337,8 @@ mixin LibraryCrudMixin on LibraryServiceBase {
           .delete(url, headers: _buildAuthHeaders(token, json: false))
           .timeout(
             const Duration(seconds: AppConstants.networkTimeoutSeconds),
-            onTimeout: () => throw TimeoutException('Delete entry request timed out'),
+            onTimeout: () =>
+                throw TimeoutException('Delete entry request timed out'),
           );
 
       _assertAuthorized(response, seriesId);
