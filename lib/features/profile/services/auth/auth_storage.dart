@@ -24,9 +24,8 @@ class AuthStorage {
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
-      encryptedSharedPreferences: false,
       resetOnError: true,
-      sharedPreferencesName: 'mangabaka_app_secure_storage_v3',
+      storageNamespace: 'mangabaka_app_secure_storage_v3',
     ),
     mOptions: MacOsOptions(
       accessibility: KeychainAccessibility.first_unlock,
@@ -46,9 +45,7 @@ class AuthStorage {
       return prefs.getString(key);
     } on PlatformException catch (e) {
       if (!_allowInsecureFallback) {
-        _logger.severe(
-          'Secure storage read failed (${e.runtimeType})',
-        );
+        _logger.severe('Secure storage read failed (${e.runtimeType})');
         rethrow;
       }
 
@@ -67,9 +64,7 @@ class AuthStorage {
       await _storage.write(key: key, value: value);
     } on PlatformException catch (e) {
       if (!_allowInsecureFallback) {
-        _logger.severe(
-          'Secure storage write failed (${e.runtimeType})',
-        );
+        _logger.severe('Secure storage write failed (${e.runtimeType})');
         rethrow;
       }
 
@@ -93,9 +88,7 @@ class AuthStorage {
       await _storage.delete(key: key);
     } on PlatformException catch (e) {
       if (!_allowInsecureFallback) {
-        _logger.severe(
-          'Secure storage delete failed (${e.runtimeType})',
-        );
+        _logger.severe('Secure storage delete failed (${e.runtimeType})');
         rethrow;
       }
 
