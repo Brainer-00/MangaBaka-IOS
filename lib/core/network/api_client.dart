@@ -7,6 +7,7 @@ import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:mangabaka_app/core/network/backend_health_service.dart';
+import 'package:mangabaka_app/core/network/rate_limit_coordinator.dart';
 import 'package:mangabaka_app/core/utils/uri_utils.dart';
 
 /// The single place where an HTTP call to a MangaBaka backend is made.
@@ -39,23 +40,31 @@ class ApiClient {
   final http.Client _client;
   final bool _ownsClient;
   final Duration _timeout;
+  final RateLimitCoordinator _rateLimits;
 
   static final _logger = LoggingService.logger;
 
-  ApiClient({this.healthContext, http.Client? client, Duration? timeout})
-    : _client = client ?? http.Client(),
-      _ownsClient = client == null,
-      _timeout =
-          timeout ??
-          const Duration(seconds: AppConstants.networkTimeoutSeconds);
+  ApiClient({
+    this.healthContext,
+    http.Client? client,
+    Duration? timeout,
+    RateLimitCoordinator? rateLimitCoordinator,
+  }) : _client = client ?? http.Client(),
+       _ownsClient = client == null,
+       _timeout =
+           timeout ??
+           const Duration(seconds: AppConstants.networkTimeoutSeconds),
+       _rateLimits = rateLimitCoordinator ?? RateLimitCoordinator.shared;
 
   ApiClient._shared({
     required this.healthContext,
     required http.Client client,
     required Duration timeout,
+    required RateLimitCoordinator rateLimitCoordinator,
   }) : _client = client,
        _ownsClient = false,
-       _timeout = timeout;
+       _timeout = timeout,
+       _rateLimits = rateLimitCoordinator;
 
   /// Derives a client sharing this one's connection pool but reporting under a
   /// different [context]. Closing the derived client leaves the pool open.
@@ -63,6 +72,7 @@ class ApiClient {
     healthContext: context,
     client: _client,
     timeout: _timeout,
+    rateLimitCoordinator: _rateLimits,
   );
 
   /// Builds a request URI from [base] and [params], dropping null and empty
@@ -126,29 +136,54 @@ class ApiClient {
   }) async {
     _logger.info('$operation: request started');
     try {
-      final response = await _client
-          .get(url, headers: _headersFor(headers))
-          .timeout(
-            timeout ?? _timeout,
-            onTimeout: () => throw TimeoutException('$operation timed out'),
-          );
+      final usesRateLimitPolicy = RateLimitCoordinator.appliesTo(url);
+      var retries = 0;
+      while (true) {
+        if (usesRateLimitPolicy) await _rateLimits.waitForCooldown();
 
-      _logger.fine('$operation: status ${response.statusCode}');
-      _report(
-        ok: !isServerErrorStatus(response.statusCode),
-        statusCode: response.statusCode,
-      );
+        final response = await _client
+            .get(url, headers: _headersFor(headers))
+            .timeout(
+              timeout ?? _timeout,
+              onTimeout: () => throw TimeoutException('$operation timed out'),
+            );
 
-      if (!acceptedStatuses.contains(response.statusCode)) {
-        _logger.severe('$operation failed with HTTP ${response.statusCode}');
-        throw ApiException(
-          message: 'Failed to $operation',
+        _logger.fine('$operation: status ${response.statusCode}');
+        _report(
+          ok: !isServerErrorStatus(response.statusCode),
           statusCode: response.statusCode,
-          responseBody: response.body,
-          code: 'REQUEST_FAILED',
         );
+
+        // This precedes acceptedStatuses intentionally: callers cannot opt out
+        // of the shared MangaBaka rate-limit policy by accepting HTTP 429.
+        if (usesRateLimitPolicy && response.statusCode == 429) {
+          _rateLimits.updateFromRetryAfter(
+            RateLimitCoordinator.retryAfterHeader(response.headers),
+          );
+          if (retries >= AppConstants.maxRetries) {
+            _logger.warning('$operation rate limited after bounded retries');
+            throw ApiException(
+              message: 'Too many requests. Please try again later.',
+              statusCode: 429,
+              code: 'RATE_LIMITED',
+            );
+          }
+          retries++;
+          _logger.warning('$operation rate limited; retrying after cooldown');
+          continue;
+        }
+
+        if (!acceptedStatuses.contains(response.statusCode)) {
+          _logger.severe('$operation failed with HTTP ${response.statusCode}');
+          throw ApiException(
+            message: 'Failed to $operation',
+            statusCode: response.statusCode,
+            responseBody: response.body,
+            code: 'REQUEST_FAILED',
+          );
+        }
+        return ApiResult(statusCode: response.statusCode, body: response.body);
       }
-      return ApiResult(statusCode: response.statusCode, body: response.body);
     } on ApiException {
       rethrow;
     } on TimeoutException catch (e, st) {

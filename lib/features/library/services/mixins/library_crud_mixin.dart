@@ -87,6 +87,10 @@ mixin LibraryCrudMixin on LibraryServiceBase {
           );
 
       _assertAuthorized(response, seriesId);
+      rateLimitCoordinator.throwIfRateLimited(
+        statusCode: response.statusCode,
+        headers: response.headers,
+      );
       if (response.statusCode != 200) {
         logger.severe(
           'Failed to update entry state (HTTP ${response.statusCode})',
@@ -124,6 +128,10 @@ mixin LibraryCrudMixin on LibraryServiceBase {
           );
 
       _assertAuthorized(response, seriesId);
+      rateLimitCoordinator.throwIfRateLimited(
+        statusCode: response.statusCode,
+        headers: response.headers,
+      );
       if (response.statusCode != 200) {
         logger.severe(
           'Failed to update entry rating (HTTP ${response.statusCode})',
@@ -191,6 +199,10 @@ mixin LibraryCrudMixin on LibraryServiceBase {
           );
 
       _assertAuthorized(response, seriesId);
+      rateLimitCoordinator.throwIfRateLimited(
+        statusCode: response.statusCode,
+        headers: response.headers,
+      );
 
       if (response.statusCode != 200) {
         logger.severe(
@@ -231,6 +243,10 @@ mixin LibraryCrudMixin on LibraryServiceBase {
           );
 
       _assertAuthorized(response, seriesId);
+      rateLimitCoordinator.throwIfRateLimited(
+        statusCode: response.statusCode,
+        headers: response.headers,
+      );
       if (response.statusCode == 201) {
         logger.info('Successfully created library entry; syncing local DB');
         await syncLibrary();
@@ -296,6 +312,10 @@ mixin LibraryCrudMixin on LibraryServiceBase {
             );
 
         _assertAuthorized(response, 'batch');
+        rateLimitCoordinator.throwIfRateLimited(
+          statusCode: response.statusCode,
+          headers: response.headers,
+        );
         if (response.statusCode != 200) {
           logger.severe('Batch add failed. Status: ${response.statusCode}');
           throw ApiException(
@@ -342,6 +362,10 @@ mixin LibraryCrudMixin on LibraryServiceBase {
           );
 
       _assertAuthorized(response, seriesId);
+      rateLimitCoordinator.throwIfRateLimited(
+        statusCode: response.statusCode,
+        headers: response.headers,
+      );
       if (response.statusCode == 200 || response.statusCode == 404) {
         // 404 means already deleted on the server — still clean up locally.
         logger.info(

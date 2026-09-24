@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:mangabaka_app/core/database/database.dart' as db;
-import 'package:mangabaka_app/features/library/models/library_entry.dart' as api;
+import 'package:mangabaka_app/features/library/models/library_entry.dart'
+    as api;
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:mangabaka_app/features/library/constants/library_constants.dart';
 import 'package:mangabaka_app/features/library/services/mappers/db_to_api_mapper.dart';
@@ -10,34 +11,46 @@ import 'package:mangabaka_app/features/library/models/library_sync_status.dart';
 import 'package:mangabaka_app/features/library/services/mixins/library_crud_mixin.dart';
 import 'package:mangabaka_app/features/library/services/mixins/library_sync_mixin.dart';
 
-
 import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:flutter/foundation.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
+import 'package:mangabaka_app/core/network/rate_limit_coordinator.dart';
 
 abstract class LibraryServiceBase {
   db.AppDatabase get database;
   ProfileAuthService get auth;
   dynamic get logger;
-  
+
   ValueNotifier<LibrarySyncStatus> get syncStatus;
   bool get isSyncCancelled;
   void setIsSyncCancelled(bool val);
 
   Future<void> syncLibrary({String? state});
-  Future<FetchPageResult> fetchPage(String token, int page, {String? state, String? type, String? sortBy});
+  Future<FetchPageResult> fetchPage(
+    String token,
+    int page, {
+    String? state,
+    String? type,
+    String? sortBy,
+  });
   Future<void> saveEntries(List<api.LibraryEntry> entries);
   DateTime? parseAsUtc(String dateStr);
-  
+  RateLimitCoordinator get rateLimitCoordinator;
+
   void resetInitialSyncTask();
 }
 
-class LibraryService extends LibraryServiceBase with LibraryCrudMixin, LibrarySyncMixin {
+class LibraryService extends LibraryServiceBase
+    with LibraryCrudMixin, LibrarySyncMixin {
   final _logger = LoggingService.logger;
   final ProfileAuthService _auth;
   final db.AppDatabase _db;
+  final http.Client _httpClient;
+
+  @override
+  final RateLimitCoordinator rateLimitCoordinator;
 
   @override
   db.AppDatabase get database => _db;
@@ -58,30 +71,47 @@ class LibraryService extends LibraryServiceBase with LibraryCrudMixin, LibrarySy
   void setIsSyncCancelled(bool val) => _isSyncCancelled = val;
 
   @override
-  Future<FetchPageResult> fetchPage(String token, int page, {String? state, String? type, String? sortBy}) => _fetchPage(token, page, state: state, type: type, sortBy: sortBy);
+  Future<FetchPageResult> fetchPage(
+    String token,
+    int page, {
+    String? state,
+    String? type,
+    String? sortBy,
+  }) => _fetchPage(token, page, state: state, type: type, sortBy: sortBy);
 
   @override
-  Future<void> saveEntries(List<api.LibraryEntry> entries) => _saveEntries(entries);
+  Future<void> saveEntries(List<api.LibraryEntry> entries) =>
+      _saveEntries(entries);
 
   @override
   DateTime? parseAsUtc(String dateStr) => _parseAsUtc(dateStr);
 
-  final ValueNotifier<LibrarySyncStatus> _syncStatus =
-      ValueNotifier(LibrarySyncStatus());
+  final ValueNotifier<LibrarySyncStatus> _syncStatus = ValueNotifier(
+    LibrarySyncStatus(),
+  );
 
   bool _isSyncCancelled = false;
 
   void cancelSync() {
     _isSyncCancelled = true;
     resetInitialSyncTask();
-    _syncStatus.value = _syncStatus.value
-        .copyWith(isSyncing: false, clearError: true, clearInfo: true);
+    _syncStatus.value = _syncStatus.value.copyWith(
+      isSyncing: false,
+      clearError: true,
+      clearInfo: true,
+    );
   }
 
-  LibraryService({required ProfileAuthService auth, db.AppDatabase? database})
-      : _auth = auth,
-        _db = database ?? getIt<db.AppDatabase>();
-
+  LibraryService({
+    required ProfileAuthService auth,
+    db.AppDatabase? database,
+    http.Client? httpClient,
+    RateLimitCoordinator? rateLimitCoordinator,
+  }) : _auth = auth,
+       _db = database ?? getIt<db.AppDatabase>(),
+       _httpClient = httpClient ?? http.Client(),
+       rateLimitCoordinator =
+           rateLimitCoordinator ?? RateLimitCoordinator.shared;
 
   Stream<api.LibraryEntry?> watchEntryFromDb(String seriesId) {
     return _db.libraryEntriesDao
@@ -92,9 +122,7 @@ class LibraryService extends LibraryServiceBase with LibraryCrudMixin, LibrarySy
               : null,
         )
         .handleError((error, stackTrace) {
-          _logger.severe(
-            'Error watching entry from db (${error.runtimeType})',
-          );
+          _logger.severe('Error watching entry from db (${error.runtimeType})');
           return null;
         }, test: (error) => true);
   }
@@ -114,18 +142,12 @@ class LibraryService extends LibraryServiceBase with LibraryCrudMixin, LibrarySy
         }, test: (error) => true);
   }
 
-
-  /// How many times a rate-limited (429) page fetch is retried before giving
-  /// up. Without a cap, a persistently rate-limited sync would retry forever.
-  static const int _maxRateLimitRetries = 3;
-
   Future<FetchPageResult> _fetchPage(
     String token,
     int page, {
     String? state,
     String? type,
     String? sortBy,
-    int retryCount = 0,
   }) async {
     final queryParams = <String, String>{
       'page': page.toString(),
@@ -135,50 +157,74 @@ class LibraryService extends LibraryServiceBase with LibraryCrudMixin, LibrarySy
     if (type != null) queryParams['type'] = type;
     if (sortBy != null) queryParams['sort_by'] = sortBy;
 
-    final uri = Uri.parse(LibraryConstants.baseUrl).replace(queryParameters: queryParams);
-      _logger.info('Fetching library page $page');
+    final uri = Uri.parse(
+      LibraryConstants.baseUrl,
+    ).replace(queryParameters: queryParams);
+    _logger.info('Fetching library page $page');
 
     try {
-      final response = await http.get(uri, headers: {
-        'Authorization': 'Bearer $token',
-        'User-Agent': LibraryConstants.userAgent,
-      }).timeout(Duration(seconds: AppConstants.networkTimeoutSeconds));
+      for (var retries = 0; ;) {
+        await rateLimitCoordinator.waitForCooldown();
+        final response = await _httpClient
+            .get(
+              uri,
+              headers: {
+                'Authorization': 'Bearer $token',
+                'User-Agent': LibraryConstants.userAgent,
+              },
+            )
+            .timeout(Duration(seconds: AppConstants.networkTimeoutSeconds));
 
-      _logger.fine('Library page $page fetch completed with status ${response.statusCode}');
+        _logger.fine(
+          'Library page $page fetch completed with status ${response.statusCode}',
+        );
 
-      if (response.statusCode == 429) {
-        if (retryCount >= _maxRateLimitRetries) {
-          _logger.severe('Rate limited while fetching library page $page after $_maxRateLimitRetries retries. Giving up.');
+        if (response.statusCode == 429) {
+          rateLimitCoordinator.updateFromRetryAfter(
+            RateLimitCoordinator.retryAfterHeader(response.headers),
+          );
+          if (retries >= AppConstants.maxRetries) {
+            _logger.severe(
+              'Rate limited while fetching library page $page after bounded retries',
+            );
+            throw ApiException(
+              message: 'Too many requests. Please try again later.',
+              statusCode: 429,
+              code: 'RATE_LIMITED',
+            );
+          }
+          retries++;
+          _logger.warning(
+            'Rate limited while fetching library page $page; retrying after cooldown',
+          );
+          continue;
+        }
+
+        if (response.statusCode == 401) {
+          _logger.severe('Unauthorized fetch request for library page $page');
+          throw AuthException(message: 'Auth failed', code: 'AUTH_FAILED');
+        }
+        if (response.statusCode == 400) {
+          _logger.warning('Bad request for library page $page (HTTP 400)');
+          return FetchPageResult(entries: [], isError: true);
+        }
+        if (response.statusCode != 200) {
+          _logger.severe(
+            'Failed to fetch library page $page '
+            '(HTTP ${response.statusCode})',
+          );
           throw ApiException(
-            message: 'Rate limited by server',
+            message: 'Fetch failed',
             statusCode: response.statusCode,
-            code: 'RATE_LIMITED',
           );
         }
-        _logger.warning('Rate limited while fetching library page $page. Retrying in ${AppConstants.rateLimitRetryDelaySeconds}s...');
-        await Future.delayed(Duration(seconds: AppConstants.rateLimitRetryDelaySeconds));
-        return await _fetchPage(token, page, state: state, type: type, sortBy: sortBy, retryCount: retryCount + 1);
-      }
 
-      if (response.statusCode == 401) {
-        _logger.severe('Unauthorized fetch request for library page $page');
-        throw AuthException(message: 'Auth failed', code: 'AUTH_FAILED');
-      }
-      if (response.statusCode == 400) {
-        _logger.warning('Bad request for library page $page (HTTP 400)');
-        return FetchPageResult(entries: [], isError: true);
-      }
-      if (response.statusCode != 200) {
-        _logger.severe(
-          'Failed to fetch library page $page '
-          '(HTTP ${response.statusCode})',
+        final result = await compute(_parseLibraryPage, response.body);
+        _logger.info(
+          'Successfully parsed ${result.entries.length} entries for library page $page',
         );
-        throw ApiException(message: 'Fetch failed', statusCode: response.statusCode);
+        return result;
       }
-
-      final result = await compute(_parseLibraryPage, response.body);
-      _logger.info('Successfully parsed ${result.entries.length} entries for library page $page');
-      return result;
     } catch (e) {
       _logger.severe(
         'Exception occurred while fetching library page $page '
@@ -198,8 +244,15 @@ class LibraryService extends LibraryServiceBase with LibraryCrudMixin, LibrarySy
     if (dateStr.isEmpty) return null;
     final numValue = int.tryParse(dateStr);
     if (numValue != null) {
-      if (dateStr.length == 10) return DateTime.fromMillisecondsSinceEpoch(numValue * 1000, isUtc: true);
-      if (dateStr.length == 13) return DateTime.fromMillisecondsSinceEpoch(numValue, isUtc: true);
+      if (dateStr.length == 10) {
+        return DateTime.fromMillisecondsSinceEpoch(
+          numValue * 1000,
+          isUtc: true,
+        );
+      }
+      if (dateStr.length == 13) {
+        return DateTime.fromMillisecondsSinceEpoch(numValue, isUtc: true);
+      }
     }
     return DateTime.tryParse(dateStr)?.toUtc();
   }
@@ -214,6 +267,8 @@ class FetchPageResult {
 FetchPageResult _parseLibraryPage(String responseBody) {
   final body = jsonDecode(responseBody) as Map<String, dynamic>;
   final data = (body['data'] as List<dynamic>? ?? const []);
-  final entries = data.map((item) => api.LibraryEntry.fromJson(item as Map<String, dynamic>)).toList();
+  final entries = data
+      .map((item) => api.LibraryEntry.fromJson(item as Map<String, dynamic>))
+      .toList();
   return FetchPageResult(entries: entries);
 }
