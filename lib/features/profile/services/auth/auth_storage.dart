@@ -24,9 +24,8 @@ class AuthStorage {
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
-      encryptedSharedPreferences: false,
       resetOnError: true,
-      sharedPreferencesName: 'mangabaka_app_secure_storage_v3',
+      storageNamespace: 'mangabaka_app_secure_storage_v3',
     ),
     mOptions: MacOsOptions(
       accessibility: KeychainAccessibility.first_unlock,
