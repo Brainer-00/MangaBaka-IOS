@@ -7,6 +7,7 @@ import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:mangabaka_app/core/network/api_client.dart';
 import 'package:mangabaka_app/core/network/api_envelope.dart';
+import 'package:mangabaka_app/core/network/rate_limit_coordinator.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/features/series/models/autocomplete_series_result.dart';
 import 'package:mangabaka_app/features/series/services/autocomplete_cache.dart';
@@ -41,11 +42,25 @@ class SeriesAutocompleteService {
   /// 220ms: comfortable for fast typists, avoids a request per character.
   static const Duration _debounceDuration = Duration(milliseconds: 220);
 
-  static const Duration _timeout =
-      Duration(seconds: AppConstants.networkTimeoutSeconds);
+  static const Duration _timeout = Duration(
+    seconds: AppConstants.networkTimeoutSeconds,
+  );
 
-  final AutocompleteCache _cache =
-      AutocompleteCache(pageLimit: autocompleteLimit);
+  SeriesAutocompleteService({
+    http.Client Function()? clientFactory,
+    RateLimitCoordinator? rateLimitCoordinator,
+    Duration debounceDuration = _debounceDuration,
+  }) : _clientFactory = clientFactory ?? http.Client.new,
+       _rateLimits = rateLimitCoordinator ?? RateLimitCoordinator.shared,
+       _configuredDebounceDuration = debounceDuration;
+
+  final http.Client Function() _clientFactory;
+  final RateLimitCoordinator _rateLimits;
+  final Duration _configuredDebounceDuration;
+
+  final AutocompleteCache _cache = AutocompleteCache(
+    pageLimit: autocompleteLimit,
+  );
 
   Timer? _debounceTimer;
   http.Client? _activeClient;
@@ -86,21 +101,19 @@ class SeriesAutocompleteService {
     }
 
     _pendingQuery = trimmed;
-    _debounceTimer = Timer(_debounceDuration, () {
+    _debounceTimer = Timer(_configuredDebounceDuration, () {
       if (_pendingQuery != trimmed) return;
       _executeSearch(trimmed, onResults: onResults, onError: onError);
     });
   }
 
-  Uri _buildUri(String query) => ApiClient.uri(
-        '${AppConstants.baseApiUrl}/series/search',
-        {
-          'q': query,
-          'limit': autocompleteLimit,
-          'sort_by': 'relevance_desc',
-          'content_rating': SettingsManager().contentPreferences,
-        },
-      );
+  Uri _buildUri(String query) =>
+      ApiClient.uri('${AppConstants.baseApiUrl}/series/search', {
+        'q': query,
+        'limit': autocompleteLimit,
+        'sort_by': 'relevance_desc',
+        'content_rating': SettingsManager().contentPreferences,
+      });
 
   Future<void> _executeSearch(
     String query, {
@@ -109,13 +122,21 @@ class SeriesAutocompleteService {
   }) async {
     _cancelActiveRequest();
 
-    final client = http.Client();
+    if (_rateLimits.isCoolingDown) {
+      _logger.fine('Autocomplete skipped during shared rate-limit cooldown');
+      onError?.call('rate_limited');
+      return;
+    }
+
+    final client = _clientFactory();
     _activeClient = client;
 
     try {
       final response = await client
-          .get(_buildUri(query),
-              headers: {'User-Agent': AppConstants.userAgent})
+          .get(
+            _buildUri(query),
+            headers: {'User-Agent': AppConstants.userAgent},
+          )
           .timeout(_timeout);
 
       // A newer keystroke has already superseded this request; delivering its
@@ -147,6 +168,9 @@ class SeriesAutocompleteService {
     void Function(String message)? onError,
   }) {
     if (response.statusCode == 429) {
+      _rateLimits.updateFromRetryAfter(
+        RateLimitCoordinator.retryAfterHeader(response.headers),
+      );
       _logger.warning('Autocomplete rate-limited (HTTP 429)');
       onError?.call('rate_limited');
       // Deliberately no onResults: keep the suggestions already on screen.

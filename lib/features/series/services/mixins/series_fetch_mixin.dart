@@ -45,9 +45,9 @@ mixin SeriesFetchMixin {
     final response = await seriesApi.send(
       ApiClient.uri('${AppConstants.baseApiUrl}/series/$id'),
       operation: 'fetch series',
-      // 404 and 429 are meaningful answers from this endpoint rather than
-      // generic failures, so they are handled here with their own messages.
-      acceptedStatuses: const {200, 404, 429},
+      // A missing series remains endpoint-specific. ApiClient owns HTTP 429
+      // retries and propagates RATE_LIMITED after the shared retry cap.
+      acceptedStatuses: const {200, 404},
     );
 
     switch (response.statusCode) {
@@ -58,14 +58,6 @@ mixin SeriesFetchMixin {
           statusCode: 404,
           responseBody: response.body,
           code: 'NOT_FOUND',
-        );
-      case 429:
-        logger.warning('Rate limited while fetching series (HTTP 429)');
-        throw ApiException(
-          message: 'Too many requests. Please slow down.',
-          statusCode: 429,
-          responseBody: response.body,
-          code: 'RATE_LIMITED',
         );
     }
 
