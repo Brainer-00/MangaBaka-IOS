@@ -15,17 +15,29 @@ import 'package:mangabaka_app/features/profile/services/auth/auth_storage.dart';
 import 'package:mangabaka_app/features/profile/services/auth/windows_auth_handler.dart';
 
 class ProfileAuthService extends ChangeNotifier {
+  ProfileAuthService({
+    AuthStorage? storage,
+    AuthNetworkClient? network,
+    FlutterAppAuth? appAuth,
+    Future<TokenResponse?> Function()? loginTokens,
+    Future<TokenResponse?> Function(String refreshToken)? refreshTokens,
+  }) : _storage = storage ?? AuthStorage(),
+       _network = network ?? AuthNetworkClient(),
+       _appAuth = appAuth ?? const FlutterAppAuth(),
+       _loginTokens = loginTokens,
+       _refreshTokens = refreshTokens;
+
   final _logger = LoggingService.logger;
 
-  static const _authorizationEndpoint =
-      '${AppConstants.authBaseUrl}/authorize';
+  static const _authorizationEndpoint = '${AppConstants.authBaseUrl}/authorize';
   static const _tokenEndpoint = '${AppConstants.authBaseUrl}/token';
-  static const _endSessionEndpoint =
-      '${AppConstants.authBaseUrl}/end-session';
+  static const _endSessionEndpoint = '${AppConstants.authBaseUrl}/end-session';
 
-  final FlutterAppAuth _appAuth = const FlutterAppAuth();
-  final AuthStorage _storage = AuthStorage();
-  final AuthNetworkClient _network = AuthNetworkClient();
+  final FlutterAppAuth _appAuth;
+  final AuthStorage _storage;
+  final AuthNetworkClient _network;
+  final Future<TokenResponse?> Function()? _loginTokens;
+  final Future<TokenResponse?> Function(String refreshToken)? _refreshTokens;
 
   MbProfile? _cachedProfile;
   bool _hasSessionCache = false;
@@ -45,11 +57,9 @@ class ProfileAuthService extends ChangeNotifier {
 
   MbProfile? get cachedProfile => _cachedProfile;
 
-  String get _clientId =>
-      dotenv.env['MANGABAKA_APP_CLIENT_ID'] ?? '';
+  String get _clientId => dotenv.env['MANGABAKA_APP_CLIENT_ID'] ?? '';
 
-  String get _redirectUri =>
-      dotenv.env['MANGABAKA_APP_REDIRECT_URI'] ?? '';
+  String get _redirectUri => dotenv.env['MANGABAKA_APP_REDIRECT_URI'] ?? '';
 
   AuthorizationServiceConfiguration get _serviceConfig =>
       const AuthorizationServiceConfiguration(
@@ -95,11 +105,14 @@ class ProfileAuthService extends ChangeNotifier {
   }
 
   Future<bool> hasSession() async {
-    final token = await _storage.read(
-      AuthStorage.kAccessToken,
-    );
+    final token = await _storage.read(AuthStorage.kAccessToken);
 
-    return token != null && token.isNotEmpty;
+    if (token != null && token.isNotEmpty) {
+      return true;
+    }
+
+    await _clearLocalSession(notify: false);
+    return false;
   }
 
   Future<void> login() async {
@@ -107,9 +120,7 @@ class ProfileAuthService extends ChangeNotifier {
 
     try {
       if (_clientId.isEmpty || _redirectUri.isEmpty) {
-        _logger.severe(
-          'OAuth configuration missing from .env',
-        );
+        _logger.severe('OAuth configuration missing from .env');
 
         throw AuthException(
           message:
@@ -119,11 +130,19 @@ class ProfileAuthService extends ChangeNotifier {
         );
       }
 
+      if (_redirectUri != AppConstants.oauthRedirectUri) {
+        throw AuthException(
+          message: 'Invalid OAuth redirect URI',
+          code: 'INVALID_OAUTH_REDIRECT_URI',
+        );
+      }
+
       TokenResponse? response;
 
-      if (Platform.isWindows) {
-        response =
-            await WindowsAuthHandler.authorizeAndExchangeCode(
+      if (_loginTokens != null) {
+        response = await _loginTokens();
+      } else if (Platform.isWindows) {
+        response = await WindowsAuthHandler.authorizeAndExchangeCode(
           clientId: _clientId,
           redirectUri: _redirectUri,
           authorizationEndpoint: _authorizationEndpoint,
@@ -152,17 +171,13 @@ class ProfileAuthService extends ChangeNotifier {
         );
       }
 
-      _logger.info(
-        'OAuth2 authorization successful. Persisting tokens...',
-      );
+      _logger.info('OAuth2 authorization successful. Persisting tokens...');
 
-      await _persistTokens(response);
+      await _persistInitialTokens(response);
 
       _hasSessionCache = true;
 
-      await fetchProfile(
-        forceRefresh: true,
-      );
+      await fetchProfile(forceRefresh: true);
 
       _logger.info('Login complete');
 
@@ -171,6 +186,11 @@ class ProfileAuthService extends ChangeNotifier {
       if (e is AuthCancelledException) {
         _logger.info('Login cancelled by user');
         rethrow;
+      }
+
+      if (e is FlutterAppAuthUserCancelledException) {
+        _logger.info('Login cancelled by user');
+        throw AuthCancelledException();
       }
 
       if (e is PlatformException &&
@@ -186,60 +206,71 @@ class ProfileAuthService extends ChangeNotifier {
         }
       }
 
-      _logger.severe(
-        'Login flow failed (${e.runtimeType})',
-      );
+      _logger.severe('Login flow failed (${e.runtimeType})');
 
       if (e is AppException) {
         rethrow;
       }
 
-      throw AuthException(
-        message: 'Login failed',
-        code: 'LOGIN_FAILED',
-      );
+      throw AuthException(message: 'Login failed', code: 'LOGIN_FAILED');
     } finally {
       awaitingBrowser.value = false;
     }
   }
 
+  Future<void> _persistInitialTokens(TokenResponse response) async {
+    await _persistTokens(response, isRefresh: false);
+  }
+
+  Future<void> _persistRefreshTokens(TokenResponse response) async {
+    await _persistTokens(response, isRefresh: true);
+  }
+
   Future<void> _persistTokens(
-    TokenResponse response,
-  ) async {
+    TokenResponse response, {
+    required bool isRefresh,
+  }) async {
+    final accessToken = response.accessToken;
+
+    if (accessToken == null || accessToken.isEmpty) {
+      throw AuthException(
+        message: 'OAuth token response did not contain an access token',
+        code: 'INVALID_TOKEN_RESPONSE',
+      );
+    }
+
     try {
-      await _storage.write(
-        AuthStorage.kAccessToken,
-        response.accessToken,
-      );
+      await _storage.write(AuthStorage.kAccessToken, accessToken);
 
-      await _storage.write(
-        AuthStorage.kRefreshToken,
-        response.refreshToken,
-      );
+      final refreshToken = response.refreshToken;
+      if (refreshToken != null && refreshToken.isNotEmpty) {
+        await _storage.write(AuthStorage.kRefreshToken, refreshToken);
+      } else if (!isRefresh) {
+        await _storage.delete(AuthStorage.kRefreshToken);
+      }
 
-      await _storage.write(
-        AuthStorage.kIdToken,
-        response.idToken,
-      );
+      final idToken = response.idToken;
+      if (idToken != null && idToken.isNotEmpty) {
+        await _storage.write(AuthStorage.kIdToken, idToken);
+      } else if (!isRefresh) {
+        await _storage.delete(AuthStorage.kIdToken);
+      }
 
       final exp = response.accessTokenExpirationDateTime
           ?.toUtc()
           .toIso8601String();
 
       if (exp != null) {
-        _logger.fine(
-          'Access token expiration stored',
-        );
+        _logger.fine('Access token expiration stored');
 
-        await _storage.write(
-          AuthStorage.kAccessTokenExp,
-          exp,
-        );
+        await _storage.write(AuthStorage.kAccessTokenExp, exp);
+      } else {
+        await _storage.delete(AuthStorage.kAccessTokenExp);
       }
     } catch (e) {
-      _logger.severe(
-        'Failed to persist tokens (${e.runtimeType})',
-      );
+      _logger.severe('Failed to persist tokens (${e.runtimeType})');
+
+      await _clearLocalSession();
 
       throw AuthException(
         message: 'Failed to persist tokens',
@@ -255,21 +286,16 @@ class ProfileAuthService extends ChangeNotifier {
   Future<void>? _refreshInFlight;
 
   Future<void> _refreshIfNeeded() {
-    return _refreshInFlight ??=
-        _runRefresh().whenComplete(
+    return _refreshInFlight ??= _runRefresh().whenComplete(
       () => _refreshInFlight = null,
     );
   }
 
   Future<void> _runRefresh() async {
-    final expRaw = await _storage.read(
-      AuthStorage.kAccessTokenExp,
-    );
+    final expRaw = await _storage.read(AuthStorage.kAccessTokenExp);
 
     if (expRaw == null) {
-      _logger.fine(
-        'No token expiration found, assuming refresh not needed',
-      );
+      _logger.fine('No token expiration found, assuming refresh not needed');
       return;
     }
 
@@ -281,9 +307,7 @@ class ProfileAuthService extends ChangeNotifier {
 
     final now = DateTime.now().toUtc();
 
-    final threshold = exp.subtract(
-      const Duration(minutes: 5),
-    );
+    final threshold = exp.subtract(const Duration(minutes: 5));
 
     if (now.isBefore(threshold)) {
       _logger.fine('Access token still valid');
@@ -295,16 +319,12 @@ class ProfileAuthService extends ChangeNotifier {
       'Attempting refresh...',
     );
 
-    final refreshToken = await _storage.read(
-      AuthStorage.kRefreshToken,
-    );
+    final refreshToken = await _storage.read(AuthStorage.kRefreshToken);
 
     if (refreshToken == null || refreshToken.isEmpty) {
-      _logger.warning(
-        'No refresh token available to perform refresh',
-      );
+      _logger.warning('No refresh token available to perform refresh');
 
-      await _clearSession();
+      await _clearLocalSession();
 
       throw SessionExpiredException();
     }
@@ -312,7 +332,9 @@ class ProfileAuthService extends ChangeNotifier {
     TokenResponse? response;
 
     try {
-      if (Platform.isWindows) {
+      if (_refreshTokens != null) {
+        response = await _refreshTokens(refreshToken);
+      } else if (Platform.isWindows) {
         response = await WindowsAuthHandler.refresh(
           clientId: _clientId,
           redirectUri: _redirectUri,
@@ -332,14 +354,10 @@ class ProfileAuthService extends ChangeNotifier {
         );
       }
     } catch (e) {
-      _logger.severe(
-        'Token refresh failed (${e.runtimeType})',
-      );
+      _logger.severe('Token refresh failed (${e.runtimeType})');
 
-      // An invalid_grant (HTTP 400/401) means the refresh token is dead and no
-      // amount of retrying will help. Clear the session and force re-login.
       if (_isInvalidGrant(e)) {
-        await _clearSession();
+        await _clearLocalSession();
         throw SessionExpiredException();
       }
 
@@ -351,15 +369,14 @@ class ProfileAuthService extends ChangeNotifier {
 
     if (response == null) {
       throw AuthException(
-        message:
-            'Token refresh failed: No response from auth server',
+        message: 'Token refresh failed: No response from auth server',
         code: 'EMPTY_REFRESH_RESPONSE',
       );
     }
 
     _logger.info('Token refresh successful');
 
-    await _persistTokens(response);
+    await _persistRefreshTokens(response);
   }
 
   /// Detects an unrecoverable `invalid_grant` from either the Windows handler
@@ -367,34 +384,46 @@ class ProfileAuthService extends ChangeNotifier {
   /// payload carries the OAuth error).
   bool _isInvalidGrant(Object e) {
     if (e is ApiException) {
-      return e.statusCode == 400 ||
-          e.statusCode == 401;
+      return e.code == 'INVALID_GRANT' || e.code == 'INVALID_TOKEN';
+    }
+
+    if (e is FlutterAppAuthPlatformException) {
+      final error = e.platformErrorDetails.error?.toLowerCase();
+      return error == 'invalid_grant' || error == 'invalid_token';
     }
 
     if (e is PlatformException) {
-      final blob =
-          '${e.code} ${e.message ?? ''} ${e.details ?? ''}'
-              .toLowerCase();
+      if (_isExplicitInvalidTokenError(e.code)) {
+        return true;
+      }
 
-      return blob.contains('invalid_grant') ||
-          blob.contains('invalid_token') ||
-          blob.contains(' 400') ||
-          blob.contains(' 401');
+      final details = e.details;
+      if (details is Map) {
+        final error = details['error'];
+        return error is String && _isExplicitInvalidTokenError(error);
+      }
+
+      return details is String && _isExplicitInvalidTokenError(details);
     }
 
     return false;
+  }
+
+  bool _isExplicitInvalidTokenError(String value) {
+    final normalized = value.toLowerCase();
+    return normalized == 'invalid_grant' || normalized == 'invalid_token';
   }
 
   /// Drops the local credentials and flips state to logged-out so the UI can
   /// route the user back to login. Library data is left intact because it is
   /// server-backed and re-syncs on the next login. Explicit [logout] also
   /// clears the local library.
-  Future<void> _clearSession() async {
+  Future<void> _clearLocalSession({bool notify = true}) async {
     try {
       await _storage.deleteAll();
     } catch (e) {
       _logger.warning(
-        'Failed to clear storage during session expiry '
+        'Failed to clear local session storage '
         '(${e.runtimeType})',
       );
     }
@@ -402,12 +431,12 @@ class ProfileAuthService extends ChangeNotifier {
     _cachedProfile = null;
     _hasSessionCache = false;
 
-    notifyListeners();
+    if (notify) {
+      notifyListeners();
+    }
   }
 
-  Future<MbProfile> fetchProfile({
-    bool forceRefresh = false,
-  }) async {
+  Future<MbProfile> fetchProfile({bool forceRefresh = false}) async {
     try {
       if (!forceRefresh && _cachedProfile != null) {
         return _cachedProfile!;
@@ -415,32 +444,21 @@ class ProfileAuthService extends ChangeNotifier {
 
       await _refreshIfNeeded();
 
-      final accessToken = await _storage.read(
-        AuthStorage.kAccessToken,
-      );
+      final accessToken = await _storage.read(AuthStorage.kAccessToken);
 
-      if (accessToken == null ||
-          accessToken.isEmpty) {
-        throw AuthException(
-          message: 'Not logged in',
-          code: 'NOT_LOGGED_IN',
-        );
+      if (accessToken == null || accessToken.isEmpty) {
+        throw AuthException(message: 'Not logged in', code: 'NOT_LOGGED_IN');
       }
 
-      _cachedProfile =
-          await _network.fetchProfile(accessToken);
+      _cachedProfile = await _network.fetchProfile(accessToken);
 
-      await _storage.cacheProfile(
-        _cachedProfile!,
-      );
+      await _storage.cacheProfile(_cachedProfile!);
 
       notifyListeners();
 
       return _cachedProfile!;
     } catch (e) {
-      _logger.severe(
-        'Failed to fetch profile (${e.runtimeType})',
-      );
+      _logger.severe('Failed to fetch profile (${e.runtimeType})');
 
       if (e is AppException) {
         rethrow;
@@ -457,15 +475,10 @@ class ProfileAuthService extends ChangeNotifier {
     try {
       await _refreshIfNeeded();
 
-      final token = await _storage.read(
-        AuthStorage.kAccessToken,
-      );
+      final token = await _storage.read(AuthStorage.kAccessToken);
 
       if (token == null || token.isEmpty) {
-        throw AuthException(
-          message: 'Not logged in',
-          code: 'NOT_LOGGED_IN',
-        );
+        throw AuthException(message: 'Not logged in', code: 'NOT_LOGGED_IN');
       }
 
       return token;
@@ -494,8 +507,7 @@ class ProfileAuthService extends ChangeNotifier {
       _hasSessionCache = false;
 
       try {
-        await getIt<LibraryService>()
-            .clearLibrary();
+        await getIt<LibraryService>().clearLibrary();
       } catch (e) {
         _logger.warning(
           'Failed to clear library on logout '
@@ -505,14 +517,9 @@ class ProfileAuthService extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      _logger.severe(
-        'Failed to logout (${e.runtimeType})',
-      );
+      _logger.severe('Failed to logout (${e.runtimeType})');
 
-      throw AuthException(
-        message: 'Failed to logout',
-        code: 'LOGOUT_FAILED',
-      );
+      throw AuthException(message: 'Failed to logout', code: 'LOGOUT_FAILED');
     }
   }
 }

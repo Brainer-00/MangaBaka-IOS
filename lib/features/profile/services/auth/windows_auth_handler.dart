@@ -92,7 +92,33 @@ class WindowsAuthHandler {
     required List<String> scopes,
     VoidCallback? onBrowserOpened,
   }) async {
+    final parsedAuthorizationEndpoint = _tryParseUri(authorizationEndpoint);
+    if (parsedAuthorizationEndpoint == null ||
+        !isTrustedAuthorizationEndpoint(parsedAuthorizationEndpoint)) {
+      throw AuthException(
+        message: 'Invalid OAuth authorization endpoint',
+        code: 'INVALID_OAUTH_AUTHORIZATION_ENDPOINT',
+      );
+    }
+
+    final parsedTokenEndpoint = _tryParseUri(tokenEndpoint);
+    if (parsedTokenEndpoint == null ||
+        !isTrustedTokenEndpoint(parsedTokenEndpoint)) {
+      throw AuthException(
+        message: 'Invalid OAuth token endpoint',
+        code: 'INVALID_OAUTH_TOKEN_ENDPOINT',
+      );
+    }
+
     final redirect = Uri.parse(redirectUri);
+
+    if (!isExpectedRedirectUri(redirect)) {
+      throw AuthException(
+        message: 'Invalid OAuth redirect URI',
+        code: 'INVALID_OAUTH_REDIRECT_URI',
+      );
+    }
+
     final scheme = redirect.scheme;
 
     if (scheme.isNotEmpty) {
@@ -107,7 +133,7 @@ class WindowsAuthHandler {
     final codeChallenge = _generateCodeChallenge(codeVerifier);
     final state = _generateRandomString(32);
 
-    final authUri = Uri.parse(authorizationEndpoint).replace(
+    final authUri = parsedAuthorizationEndpoint.replace(
       queryParameters: {
         'response_type': 'code',
         'client_id': clientId,
@@ -249,7 +275,7 @@ class WindowsAuthHandler {
       _logger.info('OAuth authorization received; exchanging code');
 
       final response = await http.post(
-        Uri.parse(tokenEndpoint),
+        parsedTokenEndpoint,
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: {
           'grant_type': 'authorization_code',
@@ -261,14 +287,14 @@ class WindowsAuthHandler {
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
 
         _logger.info('OAuth token exchange successful');
 
         return TokenResponse(
           data['access_token'],
           data['refresh_token'],
-          DateTime.now().add(Duration(seconds: data['expires_in'] ?? 3600)),
+          _expirationFromSeconds(data['expires_in']),
           data['id_token'],
           'Bearer',
           scopes,
@@ -314,6 +340,43 @@ class WindowsAuthHandler {
         uri.path == expected.path;
   }
 
+  @visibleForTesting
+  static bool isTrustedAuthorizationEndpoint(Uri uri) {
+    final expected = Uri.parse('${AppConstants.authBaseUrl}/authorize');
+    return _isExactTrustedEndpoint(uri, expected);
+  }
+
+  @visibleForTesting
+  static bool isTrustedTokenEndpoint(Uri uri) {
+    final expected = Uri.parse('${AppConstants.authBaseUrl}/token');
+    return _isExactTrustedEndpoint(uri, expected);
+  }
+
+  static bool _isExactTrustedEndpoint(Uri uri, Uri expected) {
+    return uri.scheme.toLowerCase() == 'https' &&
+        uri.host.toLowerCase() == 'mangabaka.org' &&
+        uri.port == 443 &&
+        uri.scheme == expected.scheme &&
+        uri.host.toLowerCase() == expected.host.toLowerCase() &&
+        uri.port == expected.port &&
+        uri.path == expected.path &&
+        uri.userInfo.isEmpty &&
+        !uri.hasQuery &&
+        !uri.hasFragment;
+  }
+
+  static Uri? _tryParseUri(String value) {
+    try {
+      return Uri.tryParse(value);
+    } on FormatException {
+      return null;
+    }
+  }
+
+  @visibleForTesting
+  static bool isExpectedRedirectUri(Uri uri) =>
+      uri.toString() == AppConstants.oauthRedirectUri;
+
   /// Refreshes the OAuth session using the stored refresh token.
   static Future<TokenResponse?> refresh({
     required String clientId,
@@ -324,8 +387,17 @@ class WindowsAuthHandler {
   }) async {
     _logger.info('Refreshing OAuth session on Windows');
 
+    final parsedTokenEndpoint = _tryParseUri(tokenEndpoint);
+    if (parsedTokenEndpoint == null ||
+        !isTrustedTokenEndpoint(parsedTokenEndpoint)) {
+      throw AuthException(
+        message: 'Invalid OAuth token endpoint',
+        code: 'INVALID_OAUTH_TOKEN_ENDPOINT',
+      );
+    }
+
     final response = await http.post(
-      Uri.parse(tokenEndpoint),
+      parsedTokenEndpoint,
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: {
         'grant_type': 'refresh_token',
@@ -336,14 +408,14 @@ class WindowsAuthHandler {
     );
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
 
       _logger.info('OAuth session refresh successful');
 
       return TokenResponse(
         data['access_token'],
         data['refresh_token'] ?? refreshToken,
-        DateTime.now().add(Duration(seconds: data['expires_in'] ?? 3600)),
+        _expirationFromSeconds(data['expires_in']),
         data['id_token'],
         'Bearer',
         scopes,
@@ -356,11 +428,49 @@ class WindowsAuthHandler {
       'OAuth session refresh failed with HTTP ${response.statusCode}',
     );
 
+    final oauthError = _oauthErrorFromBody(response.body);
+    final errorCode = switch (oauthError) {
+      'invalid_grant' => 'INVALID_GRANT',
+      'invalid_token' => 'INVALID_TOKEN',
+      _ => 'TOKEN_REFRESH_FAILED',
+    };
+
     throw ApiException(
       message: 'Token refresh failed',
       statusCode: response.statusCode,
-      code: 'TOKEN_REFRESH_FAILED',
+      code: errorCode,
     );
+  }
+
+  static String? _oauthErrorFromBody(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic>) {
+        final error = decoded['error'];
+        return error is String ? error : null;
+      }
+    } on FormatException {
+      return null;
+    }
+
+    return null;
+  }
+
+  @visibleForTesting
+  static String refreshErrorCodeForTesting(String body) {
+    return switch (_oauthErrorFromBody(body)) {
+      'invalid_grant' => 'INVALID_GRANT',
+      'invalid_token' => 'INVALID_TOKEN',
+      _ => 'TOKEN_REFRESH_FAILED',
+    };
+  }
+
+  static DateTime? _expirationFromSeconds(Object? expiresIn) {
+    if (expiresIn is! num) {
+      return null;
+    }
+
+    return DateTime.now().add(Duration(seconds: expiresIn.toInt()));
   }
 
   static String _generateRandomString(int length) {
