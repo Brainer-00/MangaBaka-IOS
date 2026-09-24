@@ -23,7 +23,7 @@ import 'package:mangabaka_app/features/profile/services/profile_auth_service.dar
 import 'package:mangabaka_app/features/profile/services/snapshot_service.dart';
 import 'package:mangabaka_app/features/profile/services/statistics_service.dart';
 import 'package:mangabaka_app/features/profile/widgets/dialogs/logout_dialog.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:mangabaka_app/core/utils/external_url_launcher.dart';
 
 /// The profile on desktop: an identity card beside a statistics dashboard.
 ///
@@ -371,7 +371,11 @@ class DesktopProfileScreenState extends State<DesktopProfileScreen>
       children: [
         for (var i = 0; i < items.length; i++) ...[
           if (i > 0) Divider(height: 1, color: AppConstants.borderColor),
-          _OverviewRow(icon: items[i].$1, label: items[i].$2, value: items[i].$3),
+          _OverviewRow(
+            icon: items[i].$1,
+            label: items[i].$2,
+            value: items[i].$3,
+          ),
         ],
       ],
     );
@@ -575,9 +579,10 @@ class _IdentityCard extends StatelessWidget {
           DesktopPillButton(
             label: l10n.translate('account_settings'),
             icon: Icons.open_in_new_rounded,
-            onPressed: () => launchUrl(
-              Uri.parse('https://mangabaka.org/my/settings/profile'),
-              mode: LaunchMode.externalApplication,
+            onPressed: () => ExternalUrlLauncher.launch(
+              'https://mangabaka.org/my/settings/profile',
+              allowedHosts: const {'mangabaka.org'},
+              allowSubdomains: true,
             ),
           ),
           const SizedBox(width: 10),

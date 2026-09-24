@@ -6,7 +6,7 @@ import 'package:mangabaka_app/features/profile/screens/settings/settings_categor
 import 'package:mangabaka_app/features/profile/screens/translation_credits_screen.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:mangabaka_app/features/profile/widgets/settings/settings_components.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:mangabaka_app/core/utils/external_url_launcher.dart';
 
 /// The top level of settings: one row per category, then the external links.
 ///
@@ -125,8 +125,11 @@ Widget _externalLink({
   return SettingsItem(
     icon: icon,
     title: title,
-    onTap: () =>
-        launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+    onTap: () => ExternalUrlLauncher.launch(
+      url,
+      allowedHosts: const {'github.com'},
+      allowSubdomains: true,
+    ),
     trailing: Icon(
       Icons.open_in_new,
       color: AppConstants.textMutedColor,

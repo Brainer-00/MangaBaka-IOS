@@ -14,7 +14,7 @@ import 'package:mangabaka_app/features/profile/widgets/dialogs/general_settings_
 import 'package:mangabaka_app/features/profile/widgets/dialogs/logout_dialog.dart';
 import 'package:mangabaka_app/features/profile/widgets/settings/list_customization_settings.dart';
 import 'package:mangabaka_app/features/profile/widgets/settings/settings_components.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:mangabaka_app/core/utils/external_url_launcher.dart';
 
 /// The contents of each settings category.
 ///
@@ -213,9 +213,10 @@ class SettingsCategories {
               icon: Icons.manage_accounts_outlined,
               title: l10n.translate('account_settings'),
               subtitle: l10n.translate('account_settings_subtext'),
-              onTap: () => launchUrl(
-                Uri.parse('https://mangabaka.org/my/settings/profile'),
-                mode: LaunchMode.externalApplication,
+              onTap: () => ExternalUrlLauncher.launch(
+                'https://mangabaka.org/my/settings/profile',
+                allowedHosts: const {'mangabaka.org'},
+                allowSubdomains: true,
               ),
               trailing: Icon(
                 Icons.open_in_new,

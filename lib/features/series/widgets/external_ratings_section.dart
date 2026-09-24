@@ -4,29 +4,27 @@ import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:mangabaka_app/core/utils/external_url_launcher.dart';
 
 class ExternalRatingsSection extends StatelessWidget {
   final Series series;
 
-  const ExternalRatingsSection({
-    super.key,
-    required this.series,
-  });
+  const ExternalRatingsSection({super.key, required this.series});
 
   @override
   Widget build(BuildContext context) {
     final sources = series.source;
     if (sources == null || sources.isEmpty) return const SizedBox.shrink();
 
-    final ratingSources = sources.entries
-        .where((e) => e.value['rating_normalized'] != null)
-        .toList()
-      ..sort((a, b) {
-        final rA = (a.value['rating_normalized'] as num).toDouble();
-        final rB = (b.value['rating_normalized'] as num).toDouble();
-        return rB.compareTo(rA);
-      });
+    final ratingSources =
+        sources.entries
+            .where((e) => e.value['rating_normalized'] != null)
+            .toList()
+          ..sort((a, b) {
+            final rA = (a.value['rating_normalized'] as num).toDouble();
+            final rB = (b.value['rating_normalized'] as num).toDouble();
+            return rB.compareTo(rA);
+          });
 
     if (ratingSources.isEmpty) return const SizedBox.shrink();
 
@@ -41,40 +39,51 @@ class ExternalRatingsSection extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildItems(BuildContext context, List<MapEntry<String, dynamic>> sources) {
+  List<Widget> _buildItems(
+    BuildContext context,
+    List<MapEntry<String, dynamic>> sources,
+  ) {
     final items = <Widget>[];
     final l10n = LocalizationService();
 
     // Add Combined Average first if available
     final avg = series.combinedAverage;
     if (avg != null) {
-      items.add(WidgetUtils.tooltip(
-        message: l10n.translate('combined_average'),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.stars_rounded, size: 18, color: AppConstants.starColor),
-            const SizedBox(width: 8),
-            Text(
-              avg.toStringAsFixed(1),
-              style: AppTypography.sans(
-                color: AppConstants.textColor,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
+      items.add(
+        WidgetUtils.tooltip(
+          message: l10n.translate('combined_average'),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.stars_rounded,
+                size: 18,
+                color: AppConstants.starColor,
               ),
-            ),
-          ],
+              const SizedBox(width: 8),
+              Text(
+                avg.toStringAsFixed(1),
+                style: AppTypography.sans(
+                  color: AppConstants.textColor,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
         ),
-      ));
+      );
 
       if (sources.isNotEmpty) {
-        items.add(Text(
-          '•',
-          style: AppTypography.sans(
-            color: AppConstants.textMutedColor.withValues(alpha: 0.5),
-            fontSize: 16,
+        items.add(
+          Text(
+            '•',
+            style: AppTypography.sans(
+              color: AppConstants.textMutedColor.withValues(alpha: 0.5),
+              fontSize: 16,
+            ),
           ),
-        ));
+        );
       }
     }
 
@@ -82,13 +91,15 @@ class ExternalRatingsSection extends StatelessWidget {
       final entry = sources[i];
       items.add(_buildRatingItem(entry.key, entry.value));
       if (i < sources.length - 1) {
-        items.add(Text(
-          '•',
-          style: AppTypography.sans(
-            color: AppConstants.textMutedColor.withValues(alpha: 0.5),
-            fontSize: 16,
+        items.add(
+          Text(
+            '•',
+            style: AppTypography.sans(
+              color: AppConstants.textMutedColor.withValues(alpha: 0.5),
+              fontSize: 16,
+            ),
           ),
-        ));
+        );
       }
     }
     return items;
@@ -97,16 +108,28 @@ class ExternalRatingsSection extends StatelessWidget {
   Widget _buildRatingItem(String key, dynamic data) {
     final rating = data['rating_normalized'];
     final url = _getUrl(key, data);
+    final domain = _getDomain(key);
+    final uri = url == null || domain.isEmpty
+        ? null
+        : ExternalUrlLauncher.parseHttpsUrl(
+            url,
+            allowedHosts: {domain},
+            allowSubdomains: true,
+          );
     final String displayName = _getDisplayName(key);
-    
+
     return WidgetUtils.tooltip(
       message: LocalizationService()
           .translate('open_link')
           .replaceAll('{name}', displayName),
       child: InkWell(
-        onTap: url != null && url.isNotEmpty 
-            ? () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication)
-            : null,
+        onTap: uri == null
+            ? null
+            : () => ExternalUrlLauncher.launchUri(
+                uri,
+                allowedHosts: {domain},
+                allowSubdomains: true,
+              ),
         borderRadius: BorderRadius.circular(4),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -153,16 +176,22 @@ class ExternalRatingsSection extends StatelessWidget {
 
   String? _getUrl(String key, dynamic data) {
     if (data['url'] != null) return data['url'].toString();
-    
+
     final id = data['id']?.toString();
     if (id != null && id.isNotEmpty) {
       switch (key) {
-        case 'anilist': return 'https://anilist.co/manga/$id';
-        case 'my_anime_list': return 'https://myanimelist.net/manga/$id';
-        case 'kitsu': return 'https://kitsu.io/manga/$id';
-        case 'anime_planet': return 'https://www.anime-planet.com/manga/$id';
-        case 'shikimori': return 'https://shikimori.one/mangas/$id';
-        case 'manga_updates': return 'https://www.mangaupdates.com/series/$id';
+        case 'anilist':
+          return 'https://anilist.co/manga/$id';
+        case 'my_anime_list':
+          return 'https://myanimelist.net/manga/$id';
+        case 'kitsu':
+          return 'https://kitsu.io/manga/$id';
+        case 'anime_planet':
+          return 'https://www.anime-planet.com/manga/$id';
+        case 'shikimori':
+          return 'https://shikimori.one/mangas/$id';
+        case 'manga_updates':
+          return 'https://www.mangaupdates.com/series/$id';
       }
     }
 
@@ -176,33 +205,48 @@ class ExternalRatingsSection extends StatelessWidget {
         } else if (link is Map && link['url'] != null) {
           linkUrl = link['url'].toString();
         }
-        
-        if (linkUrl.contains(domain)) {
+
+        if (ExternalUrlLauncher.parseHttpsUrl(
+              linkUrl,
+              allowedHosts: {domain},
+              allowSubdomains: true,
+            ) !=
+            null) {
           return linkUrl;
         }
       }
     }
-    
+
     return null;
   }
 
   String _getDomain(String key) {
     switch (key) {
-      case 'anilist': return 'anilist.co';
-      case 'my_anime_list': return 'myanimelist.net';
-      case 'kitsu': return 'kitsu.io';
-      case 'anime_planet': return 'anime-planet.com';
-      case 'shikimori': return 'shikimori.one';
-      case 'manga_updates': return 'mangaupdates.com';
-      case 'anime_news_network': return 'animenewsnetwork.com';
-      default: return '';
+      case 'anilist':
+        return 'anilist.co';
+      case 'my_anime_list':
+        return 'myanimelist.net';
+      case 'kitsu':
+        return 'kitsu.io';
+      case 'anime_planet':
+        return 'anime-planet.com';
+      case 'shikimori':
+        return 'shikimori.one';
+      case 'manga_updates':
+        return 'mangaupdates.com';
+      case 'anime_news_network':
+        return 'animenewsnetwork.com';
+      default:
+        return '';
     }
   }
 
   Widget _getFavicon(String key) {
     final domain = _getDomain(key);
 
-    if (domain.isEmpty) return Icon(Icons.star_rounded, size: 16, color: AppConstants.starColor);
+    if (domain.isEmpty) {
+      return Icon(Icons.star_rounded, size: 16, color: AppConstants.starColor);
+    }
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(4),
@@ -210,7 +254,11 @@ class ExternalRatingsSection extends StatelessWidget {
         url: 'https://www.google.com/s2/favicons?sz=64&domain=$domain',
         width: 18,
         height: 18,
-        errorWidget: Icon(Icons.star_rounded, size: 16, color: AppConstants.starColor),
+        errorWidget: Icon(
+          Icons.star_rounded,
+          size: 16,
+          color: AppConstants.starColor,
+        ),
       ),
     );
   }

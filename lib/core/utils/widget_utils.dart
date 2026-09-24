@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/utils/external_url_launcher.dart';
 import 'package:mangabaka_app/features/series/widgets/chip.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
@@ -168,9 +168,9 @@ class WidgetUtils {
             String? language;
 
             if (l is String) {
-              if (Uri.tryParse(l)?.hasAbsolutePath == true) {
+              final uri = ExternalUrlLauncher.parseHttpsUrl(l);
+              if (uri != null) {
                 url = l;
-                final uri = Uri.parse(l);
                 final domain = uri.host.replaceFirst('www.', '');
                 displayName = domain.split('.').first;
                 displayName =
@@ -194,7 +194,8 @@ class WidgetUtils {
             }
 
             if (url.isEmpty) return const SizedBox.shrink();
-            final uri = Uri.parse(url);
+            final uri = ExternalUrlLauncher.parseHttpsUrl(url);
+            if (uri == null) return const SizedBox.shrink();
             final domain = uri.host.replaceFirst('www.', '');
             final faviconUrl =
                 'https://www.google.com/s2/favicons?domain=$domain&sz=64';
@@ -262,7 +263,7 @@ class _HoverableLinkChip extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () => launchUrl(uri),
+            onTap: () => ExternalUrlLauncher.launchUri(uri),
             borderRadius: borderRadius,
             hoverColor: AppConstants.accentColor.withValues(alpha: 0.1),
             splashColor: AppConstants.accentColor.withValues(alpha: 0.1),
