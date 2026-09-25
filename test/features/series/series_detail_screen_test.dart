@@ -32,19 +32,20 @@ class MockSeriesService extends Fake implements SeriesService {
 
   @override
   Future<List<SeriesLink>> fetchSeriesLinks(String id) async => [];
-  
+
   @override
   Future<Series> fetchSeries(String id) async {
     fetchSeriesCalled = true;
     if (delayFetch) await Future.delayed(const Duration(milliseconds: 100));
     if (error != null) throw error!;
-    return seriesResponse ?? Series.fromJson({
-      'id': id, 
-      'title': 'Fetched Title',
-      'description': 'Fetched Description',
-    });
+    return seriesResponse ??
+        Series.fromJson({
+          'id': id,
+          'title': 'Fetched Title',
+          'description': 'Fetched Description',
+        });
   }
-  
+
   @override
   get logger => LoggingService.logger;
 
@@ -53,7 +54,7 @@ class MockSeriesService extends Fake implements SeriesService {
     fetchCoversCalled = true;
     return [];
   }
-  
+
   @override
   Future<List<Series>> fetchSeriesRelated(String id) async => [];
   @override
@@ -89,7 +90,7 @@ class MockLibraryService extends Fake implements LibraryService {
     );
     _controller.add(currentEntry);
   }
-  
+
   @override
   Future<void> deleteEntry(String id) async {
     deleteCalled = true;
@@ -98,7 +99,8 @@ class MockLibraryService extends Fake implements LibraryService {
   }
 }
 
-class MockProfileAuthService extends ChangeNotifier implements ProfileAuthService {
+class MockProfileAuthService extends ChangeNotifier
+    implements ProfileAuthService {
   bool _isLoggedIn = false;
   @override
   final ValueNotifier<bool> awaitingBrowser = ValueNotifier(false);
@@ -112,9 +114,10 @@ class MockProfileAuthService extends ChangeNotifier implements ProfileAuthServic
     _isLoggedIn = value;
     notifyListeners();
   }
+
   @override
   MbProfile? get cachedProfile => null;
-  
+
   @override
   Future<void> init() async {}
   @override
@@ -124,9 +127,13 @@ class MockProfileAuthService extends ChangeNotifier implements ProfileAuthServic
   @override
   Future<bool> hasSession() async => _isLoggedIn;
   @override
-  Future<MbProfile> fetchProfile({bool forceRefresh = false}) async => MbProfile(id: '1', role: 'user', scopes: []);
+  Future<MbProfile> fetchProfile({bool forceRefresh = false}) async =>
+      MbProfile(id: '1', role: 'user', scopes: []);
   @override
   Future<String> getValidAccessToken() async => 'token';
+  @override
+  Future<String> recoverAfterUnauthorized(String rejectedAccessToken) async =>
+      'token';
 }
 
 void main() {
@@ -145,20 +152,20 @@ void main() {
   setUp(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/path_provider'),
-      (MethodCall methodCall) async {
-        return '.';
-      },
-    );
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          (MethodCall methodCall) async {
+            return '.';
+          },
+        );
     SharedPreferences.setMockInitialValues({});
     await resetServiceLocator();
     await SettingsManager().init();
-    
+
     mockSeriesService = MockSeriesService();
     mockLibraryService = MockLibraryService();
     mockAuthService = MockProfileAuthService();
     db = AppDatabase.forTesting(NativeDatabase.memory());
-    
+
     getIt.registerSingleton<LoggingService>(LoggingService());
     getIt.registerSingleton<AppDatabase>(db!);
     getIt.registerSingleton<SeriesService>(mockSeriesService);
@@ -173,85 +180,98 @@ void main() {
   });
 
   Widget createWidgetUnderTest() {
-    return MaterialApp(
-      home: SeriesDetailScreen(series: testSeries),
-    );
+    return MaterialApp(home: SeriesDetailScreen(series: testSeries));
   }
 
-  testWidgets('SeriesDetailScreen renders fetched info on success', (WidgetTester tester) async {
+  testWidgets('SeriesDetailScreen renders fetched info on success', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(createWidgetUnderTest());
     await tester.pumpAndSettle();
     expect(find.text('Fetched Title'), findsAtLeast(1));
   });
 
-  testWidgets('SeriesDetailScreen shows error banner on fetch failure', (WidgetTester tester) async {
+  testWidgets('SeriesDetailScreen shows error banner on fetch failure', (
+    WidgetTester tester,
+  ) async {
     mockSeriesService.error = Exception('Network error');
     await tester.pumpWidget(createWidgetUnderTest());
     await tester.pumpAndSettle();
     expect(find.text('failed_to_load'), findsOneWidget);
-    
+
     mockSeriesService.error = null;
     await tester.tap(find.text('retry'));
     await tester.pumpAndSettle();
     expect(mockSeriesService.fetchSeriesCalled, isTrue);
   });
 
-  testWidgets('SeriesDetailScreen allows adding to library when logged in (wide: sidebar button, no FAB)', (WidgetTester tester) async {
-    mockAuthService.isLoggedIn = true;
-    
-    // Set a large viewport for widget tests
+  testWidgets(
+    'SeriesDetailScreen allows adding to library when logged in (wide: sidebar button, no FAB)',
+    (WidgetTester tester) async {
+      mockAuthService.isLoggedIn = true;
+
+      // Set a large viewport for widget tests
+      tester.view.physicalSize = const Size(1200, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      await tester.pump();
+      addTearDown(() => tester.view.reset());
+
+      await tester.pumpWidget(createWidgetUnderTest());
+      await tester.pumpAndSettle();
+
+      final fabFinder = find.byKey(const Key('add_to_library_button'));
+      expect(find.byKey(const Key('add_to_library_fab')), findsNothing);
+      expect(fabFinder, findsOneWidget);
+
+      // Use standard tap instead of tapAt to be more robust
+      await tester.tap(fabFinder);
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(mockLibraryService.createCalled, isTrue);
+    },
+  );
+
+  testWidgets(
+    'SeriesDetailScreen allows adding to library when logged in (phone: FAB)',
+    (WidgetTester tester) async {
+      mockAuthService.isLoggedIn = true;
+
+      // Set a large viewport for widget tests
+      tester.view.physicalSize = const Size(500, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      await tester.pump();
+      addTearDown(() => tester.view.reset());
+
+      await tester.pumpWidget(createWidgetUnderTest());
+      await tester.pumpAndSettle();
+
+      final fabFinder = find.byKey(const Key('add_to_library_fab'));
+      expect(fabFinder, findsOneWidget);
+      expect(
+        tester.widget<FloatingActionButton>(fabFinder).onPressed,
+        isNotNull,
+      );
+
+      // Use standard tap instead of tapAt to be more robust
+      await tester.tap(fabFinder);
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(mockLibraryService.createCalled, isTrue);
+    },
+  );
+
+  testWidgets('SeriesDetailScreen fetches tab data when switching tabs', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(1200, 1600);
     tester.view.devicePixelRatio = 1.0;
-    await tester.pump();
-    addTearDown(() => tester.view.reset());
-    
-    await tester.pumpWidget(createWidgetUnderTest());
-    await tester.pumpAndSettle();
-    
-    final fabFinder = find.byKey(const Key('add_to_library_button'));
-    expect(find.byKey(const Key('add_to_library_fab')), findsNothing);
-    expect(fabFinder, findsOneWidget);
-    
-    // Use standard tap instead of tapAt to be more robust
-    await tester.tap(fabFinder);
-    await tester.pump();
-    await tester.pumpAndSettle();
-    
-    expect(mockLibraryService.createCalled, isTrue);
-  });
-
-  testWidgets('SeriesDetailScreen allows adding to library when logged in (phone: FAB)', (WidgetTester tester) async {
-    mockAuthService.isLoggedIn = true;
-    
-    // Set a large viewport for widget tests
-    tester.view.physicalSize = const Size(500, 1600);
-    tester.view.devicePixelRatio = 1.0;
-    await tester.pump();
-    addTearDown(() => tester.view.reset());
-    
-    await tester.pumpWidget(createWidgetUnderTest());
-    await tester.pumpAndSettle();
-    
-    final fabFinder = find.byKey(const Key('add_to_library_fab'));
-    expect(fabFinder, findsOneWidget);
-    expect(tester.widget<FloatingActionButton>(fabFinder).onPressed, isNotNull);
-    
-    // Use standard tap instead of tapAt to be more robust
-    await tester.tap(fabFinder);
-    await tester.pump();
-    await tester.pumpAndSettle();
-    
-    expect(mockLibraryService.createCalled, isTrue);
-  });
-
-  testWidgets('SeriesDetailScreen fetches tab data when switching tabs', (WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.reset());
 
     await tester.pumpWidget(createWidgetUnderTest());
     await tester.pumpAndSettle();
-    
+
     final coverTabFinder = find.text('COVERS');
     await tester.ensureVisible(coverTabFinder);
     await tester.pumpAndSettle();

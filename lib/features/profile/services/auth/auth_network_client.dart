@@ -16,6 +16,7 @@ class AuthNetworkClient {
       MbProfile? meProfile;
       MbProfile? userInfoProfile;
       Object? lastError;
+      var unauthorized = false;
 
       // 1. Fetch userinfo from OIDC endpoint
       try {
@@ -32,15 +33,14 @@ class AuthNetworkClient {
             );
 
         _logger.fine('Profile fetch (userinfo) status: ${res.statusCode}');
+        unauthorized = unauthorized || res.statusCode == 401;
         if (res.statusCode == 200) {
           final body = jsonDecode(res.body) as Map<String, dynamic>;
           userInfoProfile = MbProfile.fromUserInfo(body);
         }
       } catch (e) {
         lastError = e;
-        _logger.warning(
-          'Failed to fetch from /userinfo (${e.runtimeType})',
-        );
+        _logger.warning('Failed to fetch from /userinfo (${e.runtimeType})');
       }
 
       // 2. Fetch profile from MangaBaka API (/v1/my/profile)
@@ -58,15 +58,14 @@ class AuthNetworkClient {
             );
 
         _logger.fine('Profile fetch (me) status: ${meRes.statusCode}');
+        unauthorized = unauthorized || meRes.statusCode == 401;
         if (meRes.statusCode == 200) {
           final body = jsonDecode(meRes.body) as Map<String, dynamic>;
           meProfile = MbProfile.fromMeResponse(body);
         }
       } catch (e) {
         lastError = e;
-        _logger.warning(
-          'Failed to fetch from /my/profile (${e.runtimeType})',
-        );
+        _logger.warning('Failed to fetch from /my/profile (${e.runtimeType})');
       }
 
       if (userInfoProfile != null && meProfile != null) {
@@ -95,6 +94,13 @@ class AuthNetworkClient {
 
       if (userInfoProfile != null) {
         return userInfoProfile;
+      }
+
+      if (unauthorized) {
+        throw AuthException(
+          message: 'Authentication failed',
+          code: 'AUTH_FAILED',
+        );
       }
 
       throw AuthException(

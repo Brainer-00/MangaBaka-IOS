@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_appauth/flutter_appauth.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -40,6 +42,21 @@ class FakeAuthNetworkClient extends AuthNetworkClient {
   @override
   Future<MbProfile> fetchProfile(String accessToken) async {
     return MbProfile(id: 'user-1', role: 'user', scopes: ['openid']);
+  }
+}
+
+class SequencedAuthNetworkClient extends AuthNetworkClient {
+  SequencedAuthNetworkClient(this.results);
+
+  final List<Object> results;
+  final tokens = <String>[];
+
+  @override
+  Future<MbProfile> fetchProfile(String accessToken) async {
+    tokens.add(accessToken);
+    final result = results.removeAt(0);
+    if (result is MbProfile) return result;
+    throw result;
   }
 }
 
@@ -388,6 +405,261 @@ void main() {
         ),
       );
       expect(storage.values[AuthStorage.kAccessToken], 'access-old');
+    });
+  });
+
+  group('unauthorized recovery', () {
+    final profile = MbProfile(
+      id: 'user-1',
+      role: 'user',
+      scopes: const ['openid'],
+    );
+
+    void seedSession({bool includeRefreshToken = true}) {
+      storage.values[AuthStorage.kAccessToken] = 'access-old';
+      if (includeRefreshToken) {
+        storage.values[AuthStorage.kRefreshToken] = 'refresh-old';
+      }
+      storage.values[AuthStorage.kAccessTokenExp] = DateTime.now()
+          .toUtc()
+          .add(const Duration(hours: 1))
+          .toIso8601String();
+    }
+
+    test(
+      'profile 401 forces refresh and retries once with new token',
+      () async {
+        seedSession();
+        final network = SequencedAuthNetworkClient([
+          AuthException(message: 'Unauthorized', code: 'AUTH_FAILED'),
+          profile,
+        ]);
+        var refreshCalls = 0;
+        auth = ProfileAuthService(
+          storage: storage,
+          network: network,
+          refreshTokens: (_) async {
+            refreshCalls++;
+            return tokenResponse(refreshToken: 'refresh-new');
+          },
+        );
+
+        expect(await auth.fetchProfile(forceRefresh: true), same(profile));
+        expect(network.tokens, ['access-old', 'access-new']);
+        expect(refreshCalls, 1);
+      },
+    );
+
+    for (final code in ['INVALID_GRANT', 'INVALID_TOKEN']) {
+      test('profile 401 followed by $code clears the session', () async {
+        seedSession();
+        final network = SequencedAuthNetworkClient([
+          AuthException(message: 'Unauthorized', code: 'AUTH_FAILED'),
+        ]);
+        auth = ProfileAuthService(
+          storage: storage,
+          network: network,
+          refreshTokens: (_) async => throw ApiException(
+            message: 'Refresh rejected',
+            statusCode: 400,
+            code: code,
+          ),
+        );
+
+        await expectLater(
+          auth.fetchProfile(forceRefresh: true),
+          throwsA(isA<SessionExpiredException>()),
+        );
+        expect(storage.values, isEmpty);
+      });
+    }
+
+    test('a second profile 401 stops without another refresh', () async {
+      seedSession();
+      final network = SequencedAuthNetworkClient([
+        AuthException(message: 'Unauthorized', code: 'AUTH_FAILED'),
+        AuthException(message: 'Unauthorized', code: 'AUTH_FAILED'),
+      ]);
+      var refreshCalls = 0;
+      auth = ProfileAuthService(
+        storage: storage,
+        network: network,
+        refreshTokens: (_) async {
+          refreshCalls++;
+          return tokenResponse();
+        },
+      );
+
+      await expectLater(
+        auth.fetchProfile(forceRefresh: true),
+        throwsA(
+          isA<AuthException>().having(
+            (error) => error.code,
+            'code',
+            'AUTH_FAILED',
+          ),
+        ),
+      );
+      expect(network.tokens, ['access-old', 'access-new']);
+      expect(refreshCalls, 1);
+    });
+
+    test('non-401 profile failure does not force refresh', () async {
+      seedSession();
+      var refreshCalls = 0;
+      auth = ProfileAuthService(
+        storage: storage,
+        network: SequencedAuthNetworkClient([
+          AuthException(message: 'Server failed', code: 'PROFILE_FETCH_FAILED'),
+        ]),
+        refreshTokens: (_) async {
+          refreshCalls++;
+          return tokenResponse();
+        },
+      );
+
+      await expectLater(
+        auth.fetchProfile(forceRefresh: true),
+        throwsA(
+          isA<AuthException>().having(
+            (error) => error.code,
+            'code',
+            'PROFILE_FETCH_FAILED',
+          ),
+        ),
+      );
+      expect(refreshCalls, 0);
+    });
+
+    test('transient forced-refresh failure preserves the session', () async {
+      seedSession();
+      auth = ProfileAuthService(
+        storage: storage,
+        refreshTokens: (_) async => throw StateError('temporary failure'),
+      );
+
+      await expectLater(
+        auth.recoverAfterUnauthorized('access-old'),
+        throwsA(
+          isA<AuthException>().having(
+            (error) => error.code,
+            'code',
+            'TOKEN_REFRESH_FAILED',
+          ),
+        ),
+      );
+      expect(storage.values[AuthStorage.kAccessToken], 'access-old');
+      expect(storage.values[AuthStorage.kRefreshToken], 'refresh-old');
+    });
+
+    test('missing refresh token expires the session', () async {
+      seedSession(includeRefreshToken: false);
+      auth = ProfileAuthService(storage: storage);
+
+      await expectLater(
+        auth.recoverAfterUnauthorized('access-old'),
+        throwsA(isA<SessionExpiredException>()),
+      );
+      expect(storage.values, isEmpty);
+    });
+
+    test('concurrent recovery shares one rotating-token refresh', () async {
+      seedSession();
+      final response = Completer<TokenResponse?>();
+      var refreshCalls = 0;
+      auth = ProfileAuthService(
+        storage: storage,
+        refreshTokens: (_) {
+          refreshCalls++;
+          return response.future;
+        },
+      );
+
+      final first = auth.recoverAfterUnauthorized('access-old');
+      final second = auth.recoverAfterUnauthorized('access-old');
+      await Future<void>.delayed(Duration.zero);
+      expect(refreshCalls, 1);
+
+      response.complete(tokenResponse());
+      expect(await Future.wait([first, second]), ['access-new', 'access-new']);
+      expect(refreshCalls, 1);
+    });
+
+    test(
+      'concurrent recovery shares refresh when access token is unchanged',
+      () async {
+        seedSession();
+        final response = Completer<TokenResponse?>();
+        var refreshCalls = 0;
+        auth = ProfileAuthService(
+          storage: storage,
+          refreshTokens: (_) {
+            refreshCalls++;
+            return response.future;
+          },
+        );
+
+        final first = auth.recoverAfterUnauthorized('access-old');
+        final second = auth.recoverAfterUnauthorized('access-old');
+        await Future<void>.delayed(Duration.zero);
+        expect(refreshCalls, 1);
+
+        response.complete(
+          tokenResponse(
+            accessToken: 'access-old',
+            refreshToken: 'refresh-rotated',
+          ),
+        );
+
+        expect(await Future.wait([first, second]), [
+          'access-old',
+          'access-old',
+        ]);
+        expect(refreshCalls, 1);
+        expect(storage.values[AuthStorage.kRefreshToken], 'refresh-rotated');
+      },
+    );
+
+    test('already-replaced rejected token does not refresh again', () async {
+      seedSession();
+      storage.values[AuthStorage.kAccessToken] = 'access-newer';
+      var refreshCalls = 0;
+      auth = ProfileAuthService(
+        storage: storage,
+        refreshTokens: (_) async {
+          refreshCalls++;
+          return tokenResponse();
+        },
+      );
+
+      expect(await auth.recoverAfterUnauthorized('access-old'), 'access-newer');
+      expect(refreshCalls, 0);
+    });
+
+    test('recovery reuses a token produced by an in-flight refresh', () async {
+      seedSession();
+      storage.values[AuthStorage.kAccessTokenExp] = DateTime.now()
+          .toUtc()
+          .subtract(const Duration(minutes: 1))
+          .toIso8601String();
+      final response = Completer<TokenResponse?>();
+      var refreshCalls = 0;
+      auth = ProfileAuthService(
+        storage: storage,
+        refreshTokens: (_) {
+          refreshCalls++;
+          return response.future;
+        },
+      );
+
+      final normalRefresh = auth.getValidAccessToken();
+      await Future<void>.delayed(Duration.zero);
+      final recovery = auth.recoverAfterUnauthorized('access-old');
+      response.complete(tokenResponse());
+
+      expect(await normalRefresh, 'access-new');
+      expect(await recovery, 'access-new');
+      expect(refreshCalls, 1);
     });
   });
 

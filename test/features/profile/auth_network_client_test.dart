@@ -89,6 +89,71 @@ void main() {
       );
     });
 
+    test(
+      'preserves 401 as AUTH_FAILED when neither endpoint succeeds',
+      () async {
+        final mockClient = MockClient(
+          (_) async => http.Response('private', 401),
+        );
+
+        await expectLater(
+          http.runWithClient(
+            () => AuthNetworkClient().fetchProfile('tok'),
+            () => mockClient,
+          ),
+          throwsA(
+            isA<AuthException>().having(
+              (error) => error.code,
+              'code',
+              'AUTH_FAILED',
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'one successful endpoint still wins when the other returns 401',
+      () async {
+        final mockClient = MockClient((request) async {
+          if (request.url.path.endsWith('/userinfo')) {
+            return http.Response('private', 401);
+          }
+          return http.Response(
+            jsonEncode({
+              'data': {'id': 'user-2', 'role': 'user'},
+            }),
+            200,
+          );
+        });
+
+        final profile = await http.runWithClient(
+          () => AuthNetworkClient().fetchProfile('tok'),
+          () => mockClient,
+        );
+
+        expect(profile.id, 'user-2');
+      },
+    );
+
+    test('HTTP 500 is not classified as AUTH_FAILED', () async {
+      final mockClient = MockClient((_) async => http.Response('broken', 500));
+
+      await expectLater(
+        http.runWithClient(
+          () => AuthNetworkClient().fetchProfile('tok'),
+          () => mockClient,
+        ),
+        throwsA(
+          isA<AuthException>().having(
+            (error) => error.code,
+            'code',
+            isNot('AUTH_FAILED'),
+          ),
+        ),
+      );
+    });
+
     test('merges /userinfo and /my/profile with avatar', () async {
       final mockClient = MockClient((req) async {
         if (req.url.path.endsWith('/userinfo')) {
