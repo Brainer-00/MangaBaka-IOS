@@ -12,21 +12,24 @@ Map<String, dynamic> _releaseJson({
   bool draft = false,
   bool prerelease = false,
   List<Map<String, dynamic>>? assets,
-}) =>
-    {
-      'tag_name': tag,
-      'name': 'Release $tag',
-      'body': 'Changelog',
-      'html_url': 'https://github.com/example/repo/releases/tag/$tag',
-      'draft': draft,
-      'prerelease': prerelease,
-      'published_at': '2026-01-01T00:00:00Z',
-      'assets': assets ?? [],
-    };
+}) => {
+  'tag_name': tag,
+  'name': 'Release $tag',
+  'body': 'Changelog',
+  'html_url': 'https://github.com/example/repo/releases/tag/$tag',
+  'draft': draft,
+  'prerelease': prerelease,
+  'published_at': '2026-01-01T00:00:00Z',
+  'assets': assets ?? [],
+};
 
-http.Client _clientWith(int status, Object body) => MockClient((request) async =>
-    http.Response(jsonEncode(body), status,
-        headers: {'content-type': 'application/json'}));
+http.Client _clientWith(int status, Object body) => MockClient(
+  (request) async => http.Response(
+    jsonEncode(body),
+    status,
+    headers: {'content-type': 'application/json'},
+  ),
+);
 
 void main() {
   group('UpdateService.fetchLatestRelease', () {
@@ -59,7 +62,9 @@ void main() {
     });
 
     test('returns null on network error', () async {
-      final client = MockClient((_) async => throw const SocketException('no network'));
+      final client = MockClient(
+        (_) async => throw const SocketException('no network'),
+      );
       final svc = UpdateService(client: client);
       final release = await svc.fetchLatestRelease();
       expect(release, isNull);
@@ -85,7 +90,7 @@ void main() {
     });
 
     test('returns null when same as installed', () async {
-      // AppConstants.appVersion is '0.2.4', so a lower version returns null
+      // The release is older than the generated current application version.
       final client = _clientWith(200, [_releaseJson(tag: 'v0.1.0')]);
       final svc = UpdateService(client: client);
       final result = await svc.checkForUpdate();

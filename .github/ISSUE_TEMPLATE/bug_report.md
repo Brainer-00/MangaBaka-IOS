@@ -29,7 +29,7 @@ Describe what happened instead.
 
 - Device: e.g. iPhone 11 Pro Max
 - iOS version: e.g. iOS 18.6
-- MangaBaka iOS version: e.g. 0.3.1
+- MangaBaka iOS version: e.g. 1.0.0
 - Installation method: e.g. Sideloadly / AltStore / SideStore
 - App signing type: e.g. free Apple ID / paid developer certificate, if relevant
 
