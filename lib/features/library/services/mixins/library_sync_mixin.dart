@@ -5,10 +5,12 @@ import 'package:mangabaka_app/features/library/models/library_sync_status.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
-import 'package:mangabaka_app/features/library/models/library_entry.dart' as api;
+import 'package:mangabaka_app/features/library/models/library_entry.dart'
+    as api;
 
 const String _lastSyncKey = AppConstants.lastSyncKey;
-const String _isIncompleteKey = '${AppConstants.prefixStorageKey}library_is_incomplete';
+const String _isIncompleteKey =
+    '${AppConstants.prefixStorageKey}library_is_incomplete';
 
 mixin LibrarySyncMixin on LibraryServiceBase {
   bool _hasPerformedInitialSync = false;
@@ -33,7 +35,9 @@ mixin LibrarySyncMixin on LibraryServiceBase {
       final lastSync = prefs.getString(_lastSyncKey);
 
       if (lastSync != null) {
-        logger.info('Library already imported. Performing incremental catch-up.');
+        logger.info(
+          'Library already imported. Performing incremental catch-up.',
+        );
         _hasPerformedInitialSync = true;
         unawaited(syncLibrary());
         return;
@@ -69,7 +73,9 @@ mixin LibrarySyncMixin on LibraryServiceBase {
           totalFetched += n;
           fetchedIds.addAll(ids);
           syncStatus.value = syncStatus.value.copyWith(
-            currentEntries: totalFetched, error: null);
+            currentEntries: totalFetched,
+            error: null,
+          );
         },
       );
 
@@ -80,13 +86,17 @@ mixin LibrarySyncMixin on LibraryServiceBase {
       if (!isSyncCancelled) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool(_isIncompleteKey, result.hitCap);
-        final watermark = result.newestWatermark ?? DateTime.now().toUtc().toIso8601String();
+        final watermark =
+            result.newestWatermark ?? DateTime.now().toUtc().toIso8601String();
         await prefs.setString(_lastSyncKey, watermark);
       }
 
       syncStatus.value = syncStatus.value.copyWith(isSyncing: false);
     } catch (e) {
-      syncStatus.value = syncStatus.value.copyWith(isSyncing: false, error: e.toString());
+      syncStatus.value = syncStatus.value.copyWith(
+        isSyncing: false,
+        error: e.toString(),
+      );
       rethrow;
     }
   }
@@ -101,17 +111,32 @@ mixin LibrarySyncMixin on LibraryServiceBase {
     String? newestWatermark;
 
     while (page <= apiPageCap) {
-      if (isSyncCancelled) return (hitCap: false, fetchedIds: allFetchedIds, newestWatermark: newestWatermark);
+      if (isSyncCancelled) {
+        return (
+          hitCap: false,
+          fetchedIds: allFetchedIds,
+          newestWatermark: newestWatermark,
+        );
+      }
 
       final token = await auth.getValidAccessToken();
       final result = await fetchPage(token, page, sortBy: 'updated_at_desc');
       final entries = result.entries;
 
-      if (result.isError) return (hitCap: true, fetchedIds: allFetchedIds, newestWatermark: newestWatermark);
+      if (result.isError) {
+        return (
+          hitCap: true,
+          fetchedIds: allFetchedIds,
+          newestWatermark: newestWatermark,
+        );
+      }
 
       if (page == 1 && entries.isNotEmpty) {
         final e = entries.first;
-        newestWatermark = e.updatedAt ?? e.createdAt ?? '${e.id}|${e.state}|${e.progressChapter ?? 0}';
+        newestWatermark =
+            e.updatedAt ??
+            e.createdAt ??
+            '${e.id}|${e.state}|${e.progressChapter ?? 0}';
       }
 
       await saveEntries(entries);
@@ -120,17 +145,27 @@ mixin LibrarySyncMixin on LibraryServiceBase {
       onProgress(entries.length, ids);
 
       if (entries.isEmpty || entries.length < LibraryConstants.pageLimit) {
-        return (hitCap: false, fetchedIds: allFetchedIds, newestWatermark: newestWatermark);
+        return (
+          hitCap: false,
+          fetchedIds: allFetchedIds,
+          newestWatermark: newestWatermark,
+        );
       }
       page++;
     }
-    return (hitCap: true, fetchedIds: allFetchedIds, newestWatermark: newestWatermark);
+    return (
+      hitCap: true,
+      fetchedIds: allFetchedIds,
+      newestWatermark: newestWatermark,
+    );
   }
 
   @override
   Future<void> syncLibrary({String? state}) async {
     if (syncStatus.value.isSyncing) {
-      logger.info('Sync already in progress, skipping incremental sync request.');
+      logger.info(
+        'Sync already in progress, skipping incremental sync request.',
+      );
       return;
     }
 
@@ -144,7 +179,7 @@ mixin LibrarySyncMixin on LibraryServiceBase {
       final prefs = await SharedPreferences.getInstance();
       final lastSyncStr = prefs.getString(_lastSyncKey);
       final lastSync = lastSyncStr != null ? parseAsUtc(lastSyncStr) : null;
-      
+
       logger.fine('Loaded last sync watermark: ${lastSyncStr != null}');
       String? newestEntryTimestamp;
 
@@ -159,7 +194,12 @@ mixin LibrarySyncMixin on LibraryServiceBase {
         }
 
         final token = await auth.getValidAccessToken();
-        final result = await fetchPage(token, page, sortBy: 'updated_at_desc', state: state);
+        final result = await fetchPage(
+          token,
+          page,
+          sortBy: 'updated_at_desc',
+          state: state,
+        );
         final entries = result.entries;
 
         if (entries.isEmpty) {
@@ -172,14 +212,21 @@ mixin LibrarySyncMixin on LibraryServiceBase {
 
         for (final e in entries) {
           final dateStr = e.updatedAt ?? e.createdAt;
-          newestEntryTimestamp ??= dateStr ?? '${e.id}|${e.state}|${e.progressChapter ?? 0}';
+          newestEntryTimestamp ??=
+              dateStr ?? '${e.id}|${e.state}|${e.progressChapter ?? 0}';
 
           bool isNew = true;
           if (dateStr != null) {
             final entryDate = parseAsUtc(dateStr);
-            if (lastSync != null && entryDate != null && !entryDate.isAfter(lastSync)) isNew = false;
+            if (lastSync != null &&
+                entryDate != null &&
+                !entryDate.isAfter(lastSync)) {
+              isNew = false;
+            }
           } else if (lastSyncStr != null) {
-            if ('${e.id}|${e.state}|${e.progressChapter ?? 0}' == lastSyncStr) isNew = false;
+            if ('${e.id}|${e.state}|${e.progressChapter ?? 0}' == lastSyncStr) {
+              isNew = false;
+            }
           }
 
           if (!isNew) {
@@ -190,17 +237,24 @@ mixin LibrarySyncMixin on LibraryServiceBase {
         }
 
         if (newEntries.isNotEmpty) {
-          logger.info('Saving ${newEntries.length} new/updated entries from page $page');
+          logger.info(
+            'Saving ${newEntries.length} new/updated entries from page $page',
+          );
           await saveEntries(newEntries);
           totalFetched += newEntries.length;
-          syncStatus.value = syncStatus.value.copyWith(currentEntries: totalFetched, error: null);
+          syncStatus.value = syncStatus.value.copyWith(
+            currentEntries: totalFetched,
+            error: null,
+          );
         }
 
         if (reachedKnown) {
-          logger.info('Reached known entries at page $page. Sync catch-up complete.');
+          logger.info(
+            'Reached known entries at page $page. Sync catch-up complete.',
+          );
           break;
         }
-        
+
         if (entries.length < LibraryConstants.pageLimit) {
           logger.fine('Page $page was the last page of results');
           break;
@@ -209,16 +263,18 @@ mixin LibrarySyncMixin on LibraryServiceBase {
       }
 
       if (!isSyncCancelled) {
-        final newWatermark = newestEntryTimestamp ?? DateTime.now().toUtc().toIso8601String();
-        logger.info(
-          'Incremental sync completed. Total fetched: $totalFetched',
-        );
+        final newWatermark =
+            newestEntryTimestamp ?? DateTime.now().toUtc().toIso8601String();
+        logger.info('Incremental sync completed. Total fetched: $totalFetched');
         await prefs.setString(_lastSyncKey, newWatermark);
       }
       syncStatus.value = syncStatus.value.copyWith(isSyncing: false);
     } catch (e) {
       logger.severe('Incremental sync failed (${e.runtimeType})');
-      syncStatus.value = syncStatus.value.copyWith(isSyncing: false, error: e.toString());
+      syncStatus.value = syncStatus.value.copyWith(
+        isSyncing: false,
+        error: e.toString(),
+      );
       rethrow;
     }
   }
