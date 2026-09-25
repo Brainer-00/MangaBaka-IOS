@@ -174,8 +174,9 @@ class LibraryScreenState extends State<LibraryScreen>
   }
 
   void _navigateToSeriesDetail(api.Series series) {
-    Navigator.of(context)
-        .push(AppTransitions.slideUp(SeriesDetailScreen(series: series)));
+    Navigator.of(
+      context,
+    ).push(AppTransitions.slideUp(SeriesDetailScreen(series: series)));
   }
 
   // ─── Build ───────────────────────────────────────────────────────────────
@@ -230,6 +231,7 @@ class LibraryScreenState extends State<LibraryScreen>
     return Column(
       children: [
         LibraryStatusBanners(
+          loggedIn: _session.isLoggedIn,
           status: status,
           isIncomplete: _session.isIncomplete,
           onRetrySync: _session.refresh,

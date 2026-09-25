@@ -121,7 +121,12 @@ mixin ProfileDataMixin<T extends StatefulWidget> on State<T> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          error = 'Failed to load profile: $e';
+          if (!auth.isLoggedIn || e is SessionExpiredException) {
+            profile = null;
+            error = null;
+          } else {
+            error = 'Failed to load profile: $e';
+          }
           loading = false;
         });
       }

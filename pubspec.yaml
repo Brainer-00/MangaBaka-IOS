@@ -55,8 +55,8 @@ dev_dependencies:
 
 
 flutter_native_splash:
-  color: "#0a0a0a"
-  image: assets/mangabaka512.png
+  color: "#0b0b0b"
+  image: assets/mangabaka_splash.png
 
   ios: true
   android: false
@@ -67,6 +67,7 @@ flutter:
     - assets/lang/
     - assets/fonts/licenses/
     - assets/mangabaka512.png
+    - assets/mangabaka_splash.png
     - assets/series_222_cover.jpg
   uses-material-design: true
 
