@@ -12,6 +12,11 @@ import 'package:mangabaka_app/features/library/widgets/library_status_banner.dar
 /// At most all three can apply at once, so they stack rather than replacing
 /// each other — each describes a different problem with a different remedy.
 class LibraryStatusBanners extends StatelessWidget {
+  /// Status messages belong to an active account session. Once the session
+  /// has ended, the sign-in prompt is the complete state and stale sync
+  /// failures should not remain above it.
+  final bool loggedIn;
+
   final LibrarySyncStatus status;
 
   /// True when the local library is known to be missing entries — the initial
@@ -24,6 +29,7 @@ class LibraryStatusBanners extends StatelessWidget {
 
   const LibraryStatusBanners({
     super.key,
+    required this.loggedIn,
     required this.status,
     required this.isIncomplete,
     required this.onRetrySync,
@@ -33,6 +39,8 @@ class LibraryStatusBanners extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!loggedIn) return const SizedBox.shrink();
+
     final l10n = LocalizationService();
 
     return Column(

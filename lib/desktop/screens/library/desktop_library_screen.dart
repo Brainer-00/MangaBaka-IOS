@@ -264,6 +264,7 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
               ],
             ),
             LibraryStatusBanners(
+              loggedIn: _session.isLoggedIn,
               status: status,
               isIncomplete: _session.isIncomplete,
               onRetrySync: _session.refresh,
@@ -301,7 +302,9 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
                         library: true,
                       ),
                       const SizedBox(width: 10),
-                      const DesktopListStyleToggle(scope: DesktopListScope.library),
+                      const DesktopListStyleToggle(
+                        scope: DesktopListScope.library,
+                      ),
                     ],
                   );
 

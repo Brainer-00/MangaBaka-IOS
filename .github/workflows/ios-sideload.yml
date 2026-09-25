@@ -55,6 +55,12 @@ jobs:
       - name: Generate app icons
         run: dart run flutter_launcher_icons
 
+      - name: Generate padded splash source
+        run: dart run tool/generate_splash_asset.dart
+
+      - name: Verify padded splash source is current
+        run: git diff --exit-code -- assets/mangabaka_splash.png
+
       - name: Generate native splash assets
         run: dart run flutter_native_splash:create
 

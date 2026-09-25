@@ -156,6 +156,12 @@ class _ProfileScreenState extends State<ProfileScreen> with ProfileDataMixin {
   }
 
   Widget _buildBody(LocalizationService l10n) {
+    if (!_auth.isLoggedIn) {
+      return MBLoginPrompt(
+        onLogin: login,
+        message: l10n.translate('login_prompt_profile'),
+      );
+    }
     if (loading) return const Center(child: CircularProgressIndicator());
     if (error != null) return Center(child: Text(error!));
     if (profile == null) {

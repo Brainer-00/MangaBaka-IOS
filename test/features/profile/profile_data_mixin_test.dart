@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mangabaka_app/core/database/database.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
+import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
@@ -15,18 +16,26 @@ import 'package:mangabaka_app/features/profile/services/statistics_service.dart'
 // ─── Fakes ───────────────────────────────────────────────────────────────────
 
 MbProfile _profile() => MbProfile(
-      id: 'u1',
-      role: 'user',
-      scopes: [],
-      preferredUsername: 'testuser',
-    );
+  id: 'u1',
+  role: 'user',
+  scopes: [],
+  preferredUsername: 'testuser',
+);
 
 class _FakeAuth extends Fake implements ProfileAuthService {
   @override
   bool get isLoggedIn => false;
 
   @override
-  Future<MbProfile> fetchProfile({bool forceRefresh = false}) async => _profile();
+  Future<MbProfile> fetchProfile({bool forceRefresh = false}) async =>
+      _profile();
+}
+
+class _ExpiredAuth extends _FakeAuth {
+  @override
+  Future<MbProfile> fetchProfile({bool forceRefresh = false}) {
+    throw SessionExpiredException();
+  }
 }
 
 class _FakeStats extends Fake implements StatisticsService {
@@ -49,8 +58,7 @@ class _FakeSnapshotService extends Fake implements SnapshotService {
     required String sortBy,
     int page = 1,
     int limit = 10,
-  }) async =>
-      const [];
+  }) async => const [];
 }
 
 // ─── Host widget ─────────────────────────────────────────────────────────────
@@ -127,8 +135,9 @@ void main() {
   }
 
   group('ProfileDataMixin.fetchStatistics', () {
-    testWidgets('populates totalSeries, chaptersRead, volumesRead, meanScore',
-        (tester) async {
+    testWidgets('populates totalSeries, chaptersRead, volumesRead, meanScore', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildTestWidget());
       final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
 
@@ -163,9 +172,12 @@ void main() {
       expect(state.recentlyChanged, isEmpty);
     });
 
-    testWidgets('sets hasMoreChanged false when snapshot returns empty',
-        (tester) async {
-      await tester.pumpWidget(buildTestWidget(snapshot: _FakeSnapshotService()));
+    testWidgets('sets hasMoreChanged false when snapshot returns empty', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildTestWidget(snapshot: _FakeSnapshotService()),
+      );
       final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
 
       await state.fetchRecentlyChanged();
@@ -183,6 +195,22 @@ void main() {
       await state.fetchRecentlyAdded();
       await tester.pump();
       expect(state.pageAdded, 2);
+    });
+  });
+
+  group('ProfileDataMixin.bootstrap', () {
+    testWidgets('keeps the logged-out state clear after session expiry', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildTestWidget(auth: _ExpiredAuth()));
+      final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
+
+      await state.bootstrap();
+      await tester.pump();
+
+      expect(state.loading, isFalse);
+      expect(state.profile, isNull);
+      expect(state.error, isNull);
     });
   });
 }

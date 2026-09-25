@@ -4,3 +4,4 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/mangabaka512.png"
   remove_alpha_ios: true
+  background_color_ios: "#0B0B0B"
