@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../generated/app_version.dart';
+
 class AppConstants {
   static const String appName = 'MangaBaka iOS';
-  static const String appVersion = '0.3.1';
+  static const String appVersion = GeneratedAppVersion.version;
   static const String baseApiUrl = 'https://api.mangabaka.org/v1';
   static const String baseApiUrlV2 = 'https://api.mangabaka.org/v2';
 

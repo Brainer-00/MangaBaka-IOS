@@ -48,6 +48,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Verify application version metadata
+        run: dart run tool/generate_app_version.dart --check
+
       - name: Verify formatting for changed Dart files
         shell: bash
         env:
