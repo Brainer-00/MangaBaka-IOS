@@ -284,39 +284,55 @@ class ProfileAuthService extends ChangeNotifier {
   /// is still using, permanently breaking the session. Callers share one
   /// in-flight refresh instead.
   Future<void>? _refreshInFlight;
+  int _successfulRefreshGeneration = 0;
 
-  Future<void> _refreshIfNeeded() {
-    return _refreshInFlight ??= _runRefresh().whenComplete(
-      () => _refreshInFlight = null,
-    );
+  Future<void> _refresh({required bool force}) {
+    final existing = _refreshInFlight;
+    if (existing != null) {
+      return existing;
+    }
+
+    final refresh = _runRefresh(force: force);
+    _refreshInFlight = refresh;
+    return refresh.whenComplete(() {
+      if (identical(_refreshInFlight, refresh)) {
+        _refreshInFlight = null;
+      }
+    });
   }
 
-  Future<void> _runRefresh() async {
-    final expRaw = await _storage.read(AuthStorage.kAccessTokenExp);
+  Future<void> _refreshIfNeeded() => _refresh(force: false);
 
-    if (expRaw == null) {
-      _logger.fine('No token expiration found, assuming refresh not needed');
-      return;
-    }
+  Future<void> _runRefresh({required bool force}) async {
+    if (!force) {
+      final expRaw = await _storage.read(AuthStorage.kAccessTokenExp);
 
-    final exp = DateTime.tryParse(expRaw);
+      if (expRaw == null) {
+        _logger.fine('No token expiration found, assuming refresh not needed');
+        return;
+      }
 
-    if (exp == null) {
-      return;
-    }
+      final exp = DateTime.tryParse(expRaw);
 
-    final now = DateTime.now().toUtc();
+      if (exp == null) {
+        return;
+      }
 
-    final threshold = exp.subtract(const Duration(minutes: 5));
+      final now = DateTime.now().toUtc();
 
-    if (now.isBefore(threshold)) {
-      _logger.fine('Access token still valid');
-      return;
+      final threshold = exp.subtract(const Duration(minutes: 5));
+
+      if (now.isBefore(threshold)) {
+        _logger.fine('Access token still valid');
+        return;
+      }
     }
 
     _logger.info(
-      'Access token expiring soon or already expired. '
-      'Attempting refresh...',
+      force
+          ? 'Attempting token refresh after an unauthorized response...'
+          : 'Access token expiring soon or already expired. '
+                'Attempting refresh...',
     );
 
     final refreshToken = await _storage.read(AuthStorage.kRefreshToken);
@@ -377,6 +393,50 @@ class ProfileAuthService extends ChangeNotifier {
     _logger.info('Token refresh successful');
 
     await _persistRefreshTokens(response);
+    _successfulRefreshGeneration++;
+  }
+
+  /// Recovers from a 401 produced by [rejectedAccessToken].
+  ///
+  /// A refresh already in progress is joined first. If that refresh replaced
+  /// the rejected token, its result is reused; otherwise one forced refresh is
+  /// started through the same rotating-token single-flight guard.
+  Future<String> recoverAfterUnauthorized(String rejectedAccessToken) async {
+    final generationAtEntry = _successfulRefreshGeneration;
+
+    while (true) {
+      final inFlight = _refreshInFlight;
+      if (inFlight != null) {
+        await inFlight;
+      }
+
+      var currentToken = await _storage.read(AuthStorage.kAccessToken);
+      if (currentToken != null &&
+          currentToken.isNotEmpty &&
+          (currentToken != rejectedAccessToken ||
+              _successfulRefreshGeneration > generationAtEntry)) {
+        return currentToken;
+      }
+
+      // A normal refresh may have started while storage was being read. Join
+      // it, then re-check the token before deciding whether force is needed.
+      final refreshStartedDuringRead = _refreshInFlight;
+      if (refreshStartedDuringRead != null) {
+        await refreshStartedDuringRead;
+        continue;
+      }
+
+      await _refresh(force: true);
+
+      currentToken = await _storage.read(AuthStorage.kAccessToken);
+      if (currentToken == null || currentToken.isEmpty) {
+        throw AuthException(
+          message: 'Failed to recover authentication',
+          code: 'TOKEN_REFRESH_FAILED',
+        );
+      }
+      return currentToken;
+    }
   }
 
   /// Detects an unrecoverable `invalid_grant` from either the Windows handler
@@ -450,7 +510,15 @@ class ProfileAuthService extends ChangeNotifier {
         throw AuthException(message: 'Not logged in', code: 'NOT_LOGGED_IN');
       }
 
-      _cachedProfile = await _network.fetchProfile(accessToken);
+      try {
+        _cachedProfile = await _network.fetchProfile(accessToken);
+      } on AuthException catch (e) {
+        if (e.code != 'AUTH_FAILED') {
+          rethrow;
+        }
+        final recoveredToken = await recoverAfterUnauthorized(accessToken);
+        _cachedProfile = await _network.fetchProfile(recoveredToken);
+      }
 
       await _storage.cacheProfile(_cachedProfile!);
 

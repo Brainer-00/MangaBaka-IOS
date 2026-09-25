@@ -163,13 +163,15 @@ class LibraryService extends LibraryServiceBase
     _logger.info('Fetching library page $page');
 
     try {
+      var currentToken = token;
+      var unauthorizedRecoveryAttempted = false;
       for (var retries = 0; ;) {
         await rateLimitCoordinator.waitForCooldown();
         final response = await _httpClient
             .get(
               uri,
               headers: {
-                'Authorization': 'Bearer $token',
+                'Authorization': 'Bearer $currentToken',
                 'User-Agent': LibraryConstants.userAgent,
               },
             )
@@ -202,6 +204,11 @@ class LibraryService extends LibraryServiceBase
 
         if (response.statusCode == 401) {
           _logger.severe('Unauthorized fetch request for library page $page');
+          if (!unauthorizedRecoveryAttempted) {
+            unauthorizedRecoveryAttempted = true;
+            currentToken = await _auth.recoverAfterUnauthorized(currentToken);
+            continue;
+          }
           throw AuthException(message: 'Auth failed', code: 'AUTH_FAILED');
         }
         if (response.statusCode == 400) {

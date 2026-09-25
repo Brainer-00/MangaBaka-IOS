@@ -23,13 +23,20 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     if (json) 'Content-Type': 'application/json',
   };
 
-  /// Throws [AuthException] when the server returns 401.
-  void _assertAuthorized(http.Response response, String seriesId) {
+  /// Refreshes authentication for future requests after a mutation receives
+  /// 401, but deliberately never replays the original mutation.
+  Future<void> _recoverUnauthorizedMutation(
+    http.Response response,
+    String rejectedAccessToken,
+  ) async {
     if (response.statusCode == 401) {
-      logger.severe('Unauthorized library request');
+      logger.warning(
+        'Unauthorized library mutation; refreshing session for future requests',
+      );
+      await auth.recoverAfterUnauthorized(rejectedAccessToken);
       throw AuthException(
-        message: 'Authentication failed.',
-        code: 'AUTH_FAILED',
+        message: 'Authentication was refreshed. Please retry the action.',
+        code: 'AUTH_RETRY_REQUIRED',
       );
     }
   }
@@ -86,7 +93,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
                 throw TimeoutException('Update state request timed out'),
           );
 
-      _assertAuthorized(response, seriesId);
+      await _recoverUnauthorizedMutation(response, token);
       rateLimitCoordinator.throwIfRateLimited(
         statusCode: response.statusCode,
         headers: response.headers,
@@ -127,7 +134,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
                 throw TimeoutException('Update rating request timed out'),
           );
 
-      _assertAuthorized(response, seriesId);
+      await _recoverUnauthorizedMutation(response, token);
       rateLimitCoordinator.throwIfRateLimited(
         statusCode: response.statusCode,
         headers: response.headers,
@@ -198,7 +205,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
                 throw TimeoutException('Update progress request timed out'),
           );
 
-      _assertAuthorized(response, seriesId);
+      await _recoverUnauthorizedMutation(response, token);
       rateLimitCoordinator.throwIfRateLimited(
         statusCode: response.statusCode,
         headers: response.headers,
@@ -242,7 +249,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
                 throw TimeoutException('Create entry request timed out'),
           );
 
-      _assertAuthorized(response, seriesId);
+      await _recoverUnauthorizedMutation(response, token);
       rateLimitCoordinator.throwIfRateLimited(
         statusCode: response.statusCode,
         headers: response.headers,
@@ -311,7 +318,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
                   throw TimeoutException('Batch add request timed out'),
             );
 
-        _assertAuthorized(response, 'batch');
+        await _recoverUnauthorizedMutation(response, token);
         rateLimitCoordinator.throwIfRateLimited(
           statusCode: response.statusCode,
           headers: response.headers,
@@ -361,7 +368,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
                 throw TimeoutException('Delete entry request timed out'),
           );
 
-      _assertAuthorized(response, seriesId);
+      await _recoverUnauthorizedMutation(response, token);
       rateLimitCoordinator.throwIfRateLimited(
         statusCode: response.statusCode,
         headers: response.headers,

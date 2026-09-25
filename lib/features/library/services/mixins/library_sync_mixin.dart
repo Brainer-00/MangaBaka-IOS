@@ -62,11 +62,9 @@ mixin LibrarySyncMixin on LibraryServiceBase {
     syncStatus.value = LibrarySyncStatus(isSyncing: true);
 
     try {
-      final token = await auth.getValidAccessToken();
       var totalFetched = 0;
       final fetchedIds = <String>[];
       final result = await importSlice(
-        token,
         onProgress: (n, ids) {
           totalFetched += n;
           fetchedIds.addAll(ids);
@@ -93,8 +91,8 @@ mixin LibrarySyncMixin on LibraryServiceBase {
     }
   }
 
-  Future<({bool hitCap, List<String> fetchedIds, String? newestWatermark})> importSlice(
-    String token, {
+  Future<({bool hitCap, List<String> fetchedIds, String? newestWatermark})>
+  importSlice({
     required void Function(int fetched, List<String> fetchedIds) onProgress,
   }) async {
     var page = 1;
@@ -105,6 +103,7 @@ mixin LibrarySyncMixin on LibraryServiceBase {
     while (page <= apiPageCap) {
       if (isSyncCancelled) return (hitCap: false, fetchedIds: allFetchedIds, newestWatermark: newestWatermark);
 
+      final token = await auth.getValidAccessToken();
       final result = await fetchPage(token, page, sortBy: 'updated_at_desc');
       final entries = result.entries;
 
@@ -142,7 +141,6 @@ mixin LibrarySyncMixin on LibraryServiceBase {
     syncStatus.value = LibrarySyncStatus(isSyncing: true);
 
     try {
-      final token = await auth.getValidAccessToken();
       final prefs = await SharedPreferences.getInstance();
       final lastSyncStr = prefs.getString(_lastSyncKey);
       final lastSync = lastSyncStr != null ? parseAsUtc(lastSyncStr) : null;
@@ -160,6 +158,7 @@ mixin LibrarySyncMixin on LibraryServiceBase {
           break;
         }
 
+        final token = await auth.getValidAccessToken();
         final result = await fetchPage(token, page, sortBy: 'updated_at_desc', state: state);
         final entries = result.entries;
 

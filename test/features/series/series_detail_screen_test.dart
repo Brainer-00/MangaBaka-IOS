@@ -127,6 +127,8 @@ class MockProfileAuthService extends ChangeNotifier implements ProfileAuthServic
   Future<MbProfile> fetchProfile({bool forceRefresh = false}) async => MbProfile(id: '1', role: 'user', scopes: []);
   @override
   Future<String> getValidAccessToken() async => 'token';
+  @override
+  Future<String> recoverAfterUnauthorized(String rejectedAccessToken) async => 'token';
 }
 
 void main() {
