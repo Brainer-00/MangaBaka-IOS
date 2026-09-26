@@ -53,6 +53,23 @@ void main() {
       svc.dispose();
     });
 
+    test(
+      'requests a release window large enough to see past prereleases',
+      () async {
+        late Uri requestedUri;
+        final client = MockClient((request) async {
+          requestedUri = request.url;
+          return http.Response(jsonEncode(<dynamic>[]), 200);
+        });
+        final svc = UpdateService(client: client, currentVersion: '1.0.0');
+
+        await svc.fetchLatestRelease();
+
+        expect(requestedUri.queryParameters['per_page'], '20');
+        svc.dispose();
+      },
+    );
+
     test('returns null on non-200', () async {
       final client = _clientWith(500, {'error': 'server error'});
       final svc = UpdateService(client: client);
@@ -97,6 +114,163 @@ void main() {
       expect(result, isNull);
       svc.dispose();
     });
+
+    test('stable installation ignores newer GitHub prerelease', () async {
+      final client = _clientWith(200, [
+        _releaseJson(tag: 'v1.1.0-pre-release-3', prerelease: true),
+        _releaseJson(tag: 'v1.0.1'),
+      ]);
+      final svc = UpdateService(client: client, currentVersion: '1.0.0');
+
+      final result = await svc.checkForUpdate();
+
+      expect(result?.tagName, 'v1.0.1');
+      svc.dispose();
+    });
+
+    test(
+      'stable installation ignores prerelease tag when GitHub flag is false',
+      () async {
+        final client = _clientWith(200, [
+          _releaseJson(tag: 'v1.1.0-pre-release-3'),
+        ]);
+        final svc = UpdateService(client: client, currentVersion: '1.0.0');
+
+        final result = await svc.checkForUpdate();
+
+        expect(result, isNull);
+        svc.dispose();
+      },
+    );
+
+    test(
+      'stable installation skips misclassified prerelease before stable',
+      () async {
+        final client = _clientWith(200, [
+          _releaseJson(tag: 'v1.2.0-pre-release-4'),
+          _releaseJson(tag: 'v1.0.1'),
+        ]);
+        final svc = UpdateService(client: client, currentVersion: '1.0.0');
+
+        final result = await svc.checkForUpdate();
+
+        expect(result?.tagName, 'v1.0.1');
+        svc.dispose();
+      },
+    );
+
+    test(
+      'stable installation returns null when only prereleases are newer',
+      () async {
+        final client = _clientWith(200, [
+          _releaseJson(tag: 'v1.1.0-pre-release-3', prerelease: true),
+        ]);
+        final svc = UpdateService(client: client, currentVersion: '1.0.0');
+
+        final result = await svc.checkForUpdate();
+
+        expect(result, isNull);
+        svc.dispose();
+      },
+    );
+
+    test('prerelease installation can receive a newer prerelease', () async {
+      final client = _clientWith(200, [
+        _releaseJson(tag: 'v1.1.0-pre-release-3', prerelease: true),
+      ]);
+      final svc = UpdateService(
+        client: client,
+        currentVersion: '1.1.0-pre-release-2',
+      );
+
+      final result = await svc.checkForUpdate();
+
+      expect(result?.tagName, 'v1.1.0-pre-release-3');
+      svc.dispose();
+    });
+
+    test(
+      'prerelease installation accepts prerelease tag when GitHub flag is false',
+      () async {
+        final client = _clientWith(200, [
+          _releaseJson(tag: 'v1.1.0-pre-release-3'),
+        ]);
+        final svc = UpdateService(
+          client: client,
+          currentVersion: '1.1.0-pre-release-2',
+        );
+
+        final result = await svc.checkForUpdate();
+
+        expect(result?.tagName, 'v1.1.0-pre-release-3');
+        svc.dispose();
+      },
+    );
+
+    test(
+      'prerelease installation can receive stable release of same base',
+      () async {
+        final client = _clientWith(200, [_releaseJson(tag: 'v1.1.0')]);
+        final svc = UpdateService(
+          client: client,
+          currentVersion: '1.1.0-pre-release-2',
+        );
+
+        final result = await svc.checkForUpdate();
+
+        expect(result?.tagName, 'v1.1.0');
+        svc.dispose();
+      },
+    );
+
+    test(
+      'chooses highest eligible version rather than first API item',
+      () async {
+        final client = _clientWith(200, [
+          _releaseJson(tag: 'v1.0.1'),
+          _releaseJson(tag: 'v1.3.0'),
+          _releaseJson(tag: 'v1.2.0'),
+        ]);
+        final svc = UpdateService(client: client, currentVersion: '1.0.0');
+
+        final result = await svc.checkForUpdate();
+
+        expect(result?.tagName, 'v1.3.0');
+        svc.dispose();
+      },
+    );
+
+    test('same and older eligible releases do not trigger an update', () async {
+      final client = _clientWith(200, [
+        _releaseJson(tag: 'v1.0.0'),
+        _releaseJson(tag: 'v0.9.9'),
+      ]);
+      final svc = UpdateService(client: client, currentVersion: '1.0.0+15');
+
+      final result = await svc.checkForUpdate();
+
+      expect(result, isNull);
+      svc.dispose();
+    });
+
+    test(
+      'malformed release entries are skipped without aborting the check',
+      () async {
+        final malformed = _releaseJson(tag: 'not-a-version')..['draft'] = 'no';
+        final client = _clientWith(200, [
+          malformed,
+          _releaseJson(tag: ''),
+          'not an object',
+          _releaseJson(tag: 'v1.0.2'),
+        ]);
+        final svc = UpdateService(client: client, currentVersion: '1.0.0');
+
+        final result = await svc.checkForUpdate();
+
+        expect(result?.tagName, 'v1.0.2');
+        svc.dispose();
+      },
+    );
   });
 
   group('UpdateService.shouldPrompt', () {
