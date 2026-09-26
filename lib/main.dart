@@ -8,7 +8,6 @@ import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/theme/app_theme.dart';
 import 'package:mangabaka_app/desktop/widgets/desktop_window_frame.dart';
-import 'package:mangabaka_app/features/navigation/screens/animated_splash_screen.dart';
 import 'package:mangabaka_app/features/navigation/screens/main_screen.dart';
 import 'package:mangabaka_app/features/navigation/screens/onboarding_screen.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
@@ -22,8 +21,8 @@ Future<void> main() async {
   runApp(const MangaBakaApp());
 }
 
-/// The app root: chooses between onboarding and the main shell, holds the
-/// splash overlay until it finishes, and owns the theme.
+/// The app root: chooses between onboarding and the main shell, schedules the
+/// launch update check, and owns the theme.
 class MangaBakaApp extends StatefulWidget {
   const MangaBakaApp({super.key});
 
@@ -38,7 +37,20 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
   ThemeData? _cachedTheme;
   bool? _lastShowTooltips;
 
-  bool _showSplash = true;
+  bool _updateCheckScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final settings = SettingsManager();
+    final isPastOnboarding =
+        settings.hasCompletedOnboarding ||
+        getIt<ProfileAuthService>().isLoggedIn;
+    if (isPastOnboarding) {
+      _scheduleUpdateCheckAfterFirstFrame();
+    }
+  }
 
   ThemeData _themeFor(bool showTooltips) {
     if (_cachedTheme != null && _lastShowTooltips == showTooltips) {
@@ -60,12 +72,12 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
     await UpdateDialog.show(context, release);
   }
 
-  void _onSplashComplete({required bool isPastOnboarding}) {
-    setState(() => _showSplash = false);
-    // Only once the splash has cleared, and only for a user who is actually
-    // in the app — an update prompt over onboarding is the wrong first thing
-    // to see.
-    if (isPastOnboarding) _checkForAppUpdate();
+  void _scheduleUpdateCheckAfterFirstFrame() {
+    if (_updateCheckScheduled) return;
+    _updateCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _checkForAppUpdate();
+    });
   }
 
   @override
@@ -79,7 +91,8 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
         final settings = SettingsManager();
         // Signing in implies onboarding is done, so a returning user who
         // cleared their settings does not get sent back through it.
-        final isPastOnboarding = settings.hasCompletedOnboarding ||
+        final isPastOnboarding =
+            settings.hasCompletedOnboarding ||
             getIt<ProfileAuthService>().isLoggedIn;
 
         return ExcludeSemantics(
@@ -96,20 +109,7 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
             ),
             home: AnnotatedRegion<SystemUiOverlayStyle>(
               value: AppTheme.systemOverlay,
-              child: Stack(
-                children: [
-                  if (isPastOnboarding)
-                    MainScreen()
-                  else
-                    const OnboardingScreen(),
-                  if (_showSplash)
-                    AnimatedSplashOverlay(
-                      onComplete: () => _onSplashComplete(
-                        isPastOnboarding: isPastOnboarding,
-                      ),
-                    ),
-                ],
-              ),
+              child: isPastOnboarding ? MainScreen() : const OnboardingScreen(),
             ),
           ),
         );
