@@ -14,9 +14,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeAuth extends Fake implements ProfileAuthService {
   String token = 'tok-abc';
+  String recoveredToken = 'access-new';
+  Object? recoveryError;
+  final rejectedTokens = <String>[];
 
   @override
   Future<String> getValidAccessToken() async => token;
+
+  @override
+  Future<String> recoverAfterUnauthorized(String rejectedAccessToken) async {
+    rejectedTokens.add(rejectedAccessToken);
+    final error = recoveryError;
+    if (error != null) throw error;
+    token = recoveredToken;
+    return recoveredToken;
+  }
 }
 
 Map<String, dynamic> _entryJson(String id, {String contentRating = 'safe'}) {
@@ -59,9 +71,9 @@ void main() {
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/path_provider'),
-      (MethodCall methodCall) async => '.',
-    );
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          (MethodCall methodCall) async => '.',
+        );
     SharedPreferences.setMockInitialValues({});
     SettingsManager.resetForTesting();
     await SettingsManager().init();
@@ -75,17 +87,17 @@ void main() {
         captured = req.url;
         capturedHeaders = req.headers;
         return http.Response(
-          jsonEncode({'data': [_entryJson('1'), _entryJson('2')]}),
+          jsonEncode({
+            'data': [_entryJson('1'), _entryJson('2')],
+          }),
           200,
         );
       });
 
       final result = await http.runWithClient(
-        () => SnapshotService(auth: _FakeAuth()).fetchSnapshot(
-          sortBy: 'recent',
-          page: 1,
-          limit: 10,
-        ),
+        () => SnapshotService(
+          auth: _FakeAuth(),
+        ).fetchSnapshot(sortBy: 'recent', page: 1, limit: 10),
         () => mockClient,
       );
 
@@ -95,6 +107,102 @@ void main() {
       expect(captured!.queryParameters['limit'], '10');
       expect(capturedHeaders!['Authorization'], 'Bearer tok-abc');
     });
+
+    test('recovers one 401 and retries with the recovered token', () async {
+      final auth = _FakeAuth()..token = 'access-old';
+      final authorizationHeaders = <String?>[];
+      final mockClient = MockClient((request) async {
+        authorizationHeaders.add(request.headers['Authorization']);
+        return authorizationHeaders.length == 1
+            ? http.Response('', 401)
+            : http.Response(
+                jsonEncode({
+                  'data': [_entryJson('1')],
+                }),
+                200,
+              );
+      });
+
+      final result = await http.runWithClient(
+        () => SnapshotService(auth: auth).fetchSnapshot(sortBy: 'recent'),
+        () => mockClient,
+      );
+
+      expect(result, hasLength(1));
+      expect(authorizationHeaders, ['Bearer access-old', 'Bearer access-new']);
+      expect(auth.rejectedTokens, ['access-old']);
+    });
+
+    test('second 401 stops without a second recovery', () async {
+      final auth = _FakeAuth()..token = 'access-old';
+      var requests = 0;
+      final mockClient = MockClient((_) async {
+        requests++;
+        return http.Response('', 401);
+      });
+
+      await expectLater(
+        http.runWithClient(
+          () => SnapshotService(auth: auth).fetchSnapshot(sortBy: 'recent'),
+          () => mockClient,
+        ),
+        throwsA(
+          isA<AuthException>().having(
+            (error) => error.code,
+            'code',
+            'AUTH_FAILED',
+          ),
+        ),
+      );
+      expect(requests, 2);
+      expect(auth.rejectedTokens, ['access-old']);
+    });
+
+    test(
+      'propagates SessionExpiredException from recovery unchanged',
+      () async {
+        final error = SessionExpiredException();
+        final auth = _FakeAuth()
+          ..token = 'access-old'
+          ..recoveryError = error;
+        var requests = 0;
+
+        await expectLater(
+          http.runWithClient(
+            () => SnapshotService(auth: auth).fetchSnapshot(sortBy: 'recent'),
+            () => MockClient((_) async {
+              requests++;
+              return http.Response('', 401);
+            }),
+          ),
+          throwsA(same(error)),
+        );
+        expect(requests, 1);
+        expect(auth.rejectedTokens, ['access-old']);
+      },
+    );
+
+    test(
+      'propagates transient AuthException from recovery unchanged',
+      () async {
+        final error = AuthException(
+          message: 'Refresh temporarily failed',
+          code: 'TOKEN_REFRESH_FAILED',
+        );
+        final auth = _FakeAuth()
+          ..token = 'access-old'
+          ..recoveryError = error;
+
+        await expectLater(
+          http.runWithClient(
+            () => SnapshotService(auth: auth).fetchSnapshot(sortBy: 'recent'),
+            () => MockClient((_) async => http.Response('', 401)),
+          ),
+          throwsA(same(error)),
+        );
+        expect(auth.rejectedTokens, ['access-old']);
+      },
+    );
 
     test('filters out entries outside contentPreferences', () async {
       final mockClient = MockClient((req) async {
@@ -111,22 +219,25 @@ void main() {
 
       // Default content prefs include 'safe' and 'suggestive' but not 'erotica'.
       final result = await http.runWithClient(
-        () => SnapshotService(auth: _FakeAuth()).fetchSnapshot(sortBy: 'recent'),
+        () =>
+            SnapshotService(auth: _FakeAuth()).fetchSnapshot(sortBy: 'recent'),
         () => mockClient,
       );
 
       expect(result.map((e) => e.id), ['1']);
     });
 
-    test('throws ApiException on non-200', () async {
+    test('HTTP 500 throws ApiException without auth recovery', () async {
+      final auth = _FakeAuth();
       final mockClient = MockClient((_) async => http.Response('err', 500));
       await expectLater(
         http.runWithClient(
-          () => SnapshotService(auth: _FakeAuth()).fetchSnapshot(sortBy: 'recent'),
+          () => SnapshotService(auth: auth).fetchSnapshot(sortBy: 'recent'),
           () => mockClient,
         ),
         throwsA(isA<ApiException>()),
       );
+      expect(auth.rejectedTokens, isEmpty);
     });
 
     test('wraps unknown errors in NetworkException', () async {
@@ -135,7 +246,9 @@ void main() {
       });
       await expectLater(
         http.runWithClient(
-          () => SnapshotService(auth: _FakeAuth()).fetchSnapshot(sortBy: 'recent'),
+          () => SnapshotService(
+            auth: _FakeAuth(),
+          ).fetchSnapshot(sortBy: 'recent'),
           () => mockClient,
         ),
         throwsA(isA<NetworkException>()),

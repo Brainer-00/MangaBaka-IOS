@@ -1,6 +1,7 @@
 import 'package:http/http.dart' as http;
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
+import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:mangabaka_app/core/network/api_client.dart';
 import 'package:mangabaka_app/core/network/api_envelope.dart';
@@ -32,9 +33,11 @@ class HomeService {
   static const String _v2Base = 'https://api.mangabaka.org/v2';
 
   final ApiClient _api;
+  final ProfileAuthService? _injectedAuth;
 
-  HomeService({http.Client? client, ApiClient? api})
-    : _api = api ?? ApiClient(healthContext: 'home', client: client);
+  HomeService({http.Client? client, ApiClient? api, ProfileAuthService? auth})
+    : _api = api ?? ApiClient(healthContext: 'home', client: client),
+      _injectedAuth = auth;
 
   /// Content-rating preferences apply to every discovery rail, so an unwanted
   /// rating never reaches the Home screen in the first place.
@@ -116,29 +119,27 @@ class HomeService {
   /// Personalised recommendations. Returns an empty list when logged out or
   /// when the profile is not warm enough to rank against.
   Future<List<Series>> fetchForYou({int limit = 20}) async {
-    final headers = await _authHeaders();
-    if (headers == null) return const [];
-
     try {
-      final uri = ApiClient.uri('${AppConstants.baseApiUrl}/my/series/recommendations', {
-        'limit': limit,
-        ..._contentParams(),
-      });
-      final series = await _api
-          .withContext('home:for-you')
-          .getJson(
-            uri,
-            operation: 'fetch for-you',
-            parse: (json) {
-              final list = (json is Map) ? (json['results'] ?? json['data']) : null;
-              if (list is! List) return const <Series>[];
-              return list
-                  .whereType<Map>()
-                  .map((m) => Series.fromRecommendationJson(m.cast<String, dynamic>()))
-                  .toList();
-            },
-            headers: headers,
-          );
+      final uri = ApiClient.uri(
+        '${AppConstants.baseApiUrl}/my/series/recommendations',
+        {'limit': limit, ..._contentParams()},
+      );
+      final series = await _authenticatedGet(
+        _api.withContext('home:for-you'),
+        uri,
+        operation: 'fetch for-you',
+        parse: (json) {
+          final list = (json is Map) ? (json['results'] ?? json['data']) : null;
+          if (list is! List) return const <Series>[];
+          return list
+              .whereType<Map>()
+              .map(
+                (m) => Series.fromRecommendationJson(m.cast<String, dynamic>()),
+              )
+              .toList();
+        },
+      );
+      if (series == null) return const [];
       _logger.info('HomeService for-you returned ${series.length} series');
       return series;
     } catch (e) {
@@ -152,27 +153,24 @@ class HomeService {
   ///
   /// Unlike the other endpoints this one answers with `results`, not `data`.
   Future<List<TopGenre>> fetchTopGenres({int limit = 3}) async {
-    final headers = await _authHeaders();
-    if (headers == null) return const [];
     try {
-      final genres = await _api
-          .withContext('home:top-genres')
-          .getJson(
-            ApiClient.uri(
-              '${AppConstants.baseApiUrl}/my/series/discover/top-genres',
-              {'limit': limit},
-            ),
-            operation: 'fetch top genres',
-            parse: (json) {
-              final results = json is Map ? json['results'] : null;
-              if (results is! List) return const <TopGenre>[];
-              return results
-                  .map(TopGenre.tryParse)
-                  .whereType<TopGenre>()
-                  .toList(growable: false);
-            },
-            headers: headers,
-          );
+      final genres = await _authenticatedGet(
+        _api.withContext('home:top-genres'),
+        ApiClient.uri(
+          '${AppConstants.baseApiUrl}/my/series/discover/top-genres',
+          {'limit': limit},
+        ),
+        operation: 'fetch top genres',
+        parse: (json) {
+          final results = json is Map ? json['results'] : null;
+          if (results is! List) return const <TopGenre>[];
+          return results
+              .map(TopGenre.tryParse)
+              .whereType<TopGenre>()
+              .toList(growable: false);
+        },
+      );
+      if (genres == null) return const [];
       _logger.info('HomeService returned ${genres.length} top genres');
       return genres;
     } catch (e) {
@@ -217,19 +215,17 @@ class HomeService {
   /// Null means "don't show the rail and don't explain why" — logged out, or
   /// the probe itself failed.
   Future<ForYouReadiness?> fetchForYouReadiness() async {
-    final headers = await _authHeaders();
-    if (headers == null) return null;
-
     try {
-      final readiness = await _api.getJson(
+      final readiness = await _authenticatedGet(
+        _api,
         ApiClient.uri(
           '${AppConstants.baseApiUrl}/my/series/recommendations/status',
         ),
         operation: 'probe For-You readiness',
         parse: (json) =>
             ForYouReadiness.fromJson((json as Map).cast<String, dynamic>()),
-        headers: headers,
       );
+      if (readiness == null) return null;
       _logger.info(
         'For-You readiness: coldStart=${readiness.coldStart} '
         'stale=${readiness.profileStale}',
@@ -241,21 +237,37 @@ class HomeService {
     }
   }
 
-  /// The bearer header for the signed-in user, or null when logged out or the
-  /// token could not be refreshed — in which case the caller shows nothing
-  /// rather than an error, since the rail is only meaningful when signed in.
-  Future<Map<String, String>?> _authHeaders() async {
-    final auth = getIt<ProfileAuthService>();
+  /// Performs one authenticated safe GET, with one runtime-401 recovery and
+  /// one replay using the recovered token. Other failures are left untouched
+  /// for the calling rail to degrade into its existing empty/null result.
+  Future<T?> _authenticatedGet<T>(
+    ApiClient api,
+    Uri uri, {
+    required String operation,
+    required T Function(dynamic json) parse,
+  }) async {
+    final auth = _injectedAuth ?? getIt<ProfileAuthService>();
     if (!auth.isLoggedIn) return null;
+
+    final token = await auth.getValidAccessToken();
     try {
-      final token = await auth.getValidAccessToken();
-      return {'Authorization': 'Bearer $token'};
-    } catch (e) {
-      _logger.warning(
-        'Could not obtain access token for Home rail (${e.runtimeType})',
+      return await api.getJson(
+        uri,
+        operation: operation,
+        parse: parse,
+        headers: {'Authorization': 'Bearer $token'},
       );
-      return null;
+    } on ApiException catch (error) {
+      if (error.statusCode != 401) rethrow;
     }
+
+    final recoveredToken = await auth.recoverAfterUnauthorized(token);
+    return api.getJson(
+      uri,
+      operation: operation,
+      parse: parse,
+      headers: {'Authorization': 'Bearer $recoveredToken'},
+    );
   }
 
   /// Fetches one rail. A dead rail never takes the whole Home screen down
@@ -278,9 +290,7 @@ class HomeService {
       _logger.info('HomeService $label returned ${series.length} series');
       return series;
     } catch (e) {
-      _logger.warning(
-        'HomeService failed to fetch $label (${e.runtimeType})',
-      );
+      _logger.warning('HomeService failed to fetch $label (${e.runtimeType})');
       return const [];
     }
   }
