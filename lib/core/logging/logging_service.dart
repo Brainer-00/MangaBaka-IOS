@@ -28,6 +28,9 @@ class LoggingService {
   static Future<void> _writeChain = Future<void>.value();
 
   @visibleForTesting
+  static Future<void> Function()? beforeFileAppendForTesting;
+
+  @visibleForTesting
   static void resetForTesting() {
     _logBuffer.clear();
     _pendingWrites.clear();
@@ -36,6 +39,7 @@ class LoggingService {
     _subscription?.cancel();
     _subscription = null;
     _writeChain = Future<void>.value();
+    beforeFileAppendForTesting = null;
     _logFile = null;
   }
 
@@ -106,6 +110,7 @@ class LoggingService {
 
     _writeChain = _writeChain.then((_) async {
       try {
+        await beforeFileAppendForTesting?.call();
         await _logFile!.writeAsString(payload, mode: FileMode.append);
       } catch (e) {
         if (kDebugMode) {
@@ -127,19 +132,24 @@ class LoggingService {
   static Future<void> clearLogs() async {
     _logBuffer.clear();
     _pendingWrites.clear();
-    // Drop any in-flight writes and start a fresh chain — clearing means the
-    // file should end up empty regardless of what was queued.
-    _writeChain = Future<void>.value();
-    try {
-      // Truncate (creating the file if necessary) so the persisted log is
-      // left in a known-empty state.
-      await _logFile?.writeAsString('');
-    } catch (e) {
-      if (kDebugMode) {
-        // ignore: avoid_print
-        print('Failed to clear log file (${e.runtimeType})');
+
+    final logFile = _logFile;
+    if (logFile == null) return;
+
+    final clearOperation = _writeChain.then((_) async {
+      try {
+        // Truncate (creating the file if necessary) after every append that
+        // was already scheduled. Later flushes chain behind this operation.
+        await logFile.writeAsString('');
+      } catch (e) {
+        if (kDebugMode) {
+          // ignore: avoid_print
+          print('Failed to clear log file (${e.runtimeType})');
+        }
       }
-    }
+    });
+    _writeChain = clearOperation;
+    await clearOperation;
   }
 
   static Future<String?> getLogFilePath() async {
@@ -174,7 +184,8 @@ class LoggingService {
         r'''(["']?\b(?:access_token|refresh_token|id_token|token|client_secret|code|state)\b["']?\s*[:=]\s*)(["']?)([^"'\s,;&}\]]+)(["']?)''',
         caseSensitive: false,
       ),
-      (match) => '${match.group(1)}${match.group(2)}[REDACTED]${match.group(4)}',
+      (match) =>
+          '${match.group(1)}${match.group(2)}[REDACTED]${match.group(4)}',
     );
 
     sanitized = sanitized.replaceAll(
@@ -203,8 +214,7 @@ class LoggingService {
   static String _sanitizeUrl(String rawUrl) {
     var url = rawUrl;
     var trailingPunctuation = '';
-    while (
-        url.isNotEmpty &&
+    while (url.isNotEmpty &&
         RegExp(r'''[.,;:!?\)\]}'"]''').hasMatch(url[url.length - 1])) {
       trailingPunctuation = '${url[url.length - 1]}$trailingPunctuation';
       url = url.substring(0, url.length - 1);

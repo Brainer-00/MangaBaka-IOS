@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -18,22 +19,22 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late Directory tempDir;
-  const MethodChannel channel = MethodChannel('plugins.flutter.io/path_provider');
+  const MethodChannel channel = MethodChannel(
+    'plugins.flutter.io/path_provider',
+  );
 
   setUp(() async {
     LoggingService.resetForTesting();
     tempDir = await Directory.systemTemp.createTemp('logging_test');
-    
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      channel,
-      (MethodCall methodCall) async {
-        if (methodCall.method == 'getApplicationDocumentsDirectory' || 
-            methodCall.method == 'getApplicationSupportDirectory') {
-          return tempDir.path;
-        }
-        return null;
-      },
-    );
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
+          if (methodCall.method == 'getApplicationDocumentsDirectory' ||
+              methodCall.method == 'getApplicationSupportDirectory') {
+            return tempDir.path;
+          }
+          return null;
+        });
   });
 
   tearDown(() async {
@@ -47,24 +48,27 @@ void main() {
       await LoggingService.setup();
       LoggingService.logger.info('Initial log');
       await Future.delayed(const Duration(milliseconds: 100));
-      
+
       final logFilePath = await LoggingService.getLogFilePath();
       expect(logFilePath, isNotNull);
-      
+
       final logFile = File(logFilePath!);
       expect(await logFile.exists(), true);
     });
 
     test('logging messages adds to buffer and file', () async {
       await LoggingService.setup();
-      
+
       LoggingService.logger.info('Test log message');
-      
+
       // Wait for the async listener to process the log
       await Future.delayed(const Duration(milliseconds: 100));
-      
-      expect(LoggingService.logs.any((l) => l.contains('Test log message')), true);
-      
+
+      expect(
+        LoggingService.logs.any((l) => l.contains('Test log message')),
+        true,
+      );
+
       final logFilePath = await LoggingService.getLogFilePath();
       final content = await File(logFilePath!).readAsString();
       expect(content.contains('Test log message'), true);
@@ -74,14 +78,46 @@ void main() {
       await LoggingService.setup();
       LoggingService.logger.info('Message to clear');
       await Future.delayed(const Duration(milliseconds: 100));
-      
+
       await LoggingService.clearLogs();
-      
+
       expect(LoggingService.logs, isEmpty);
-      
+
       final logFilePath = await LoggingService.getLogFilePath();
       final content = await File(logFilePath!).readAsString();
       expect(content, isEmpty);
+    });
+
+    test('clearLogs stays ordered with an in-flight append', () async {
+      await LoggingService.setup();
+      final appendStarted = Completer<void>();
+      final releaseAppend = Completer<void>();
+      var appendCount = 0;
+      LoggingService.beforeFileAppendForTesting = () async {
+        appendCount++;
+        if (appendCount == 1) {
+          appendStarted.complete();
+          await releaseAppend.future;
+        }
+      };
+
+      LoggingService.logger.info('Pre-clear log');
+      final preClearFlush = LoggingService.flush();
+      await appendStarted.future;
+
+      final clear = LoggingService.clearLogs();
+      LoggingService.logger.info('Post-clear log');
+      final postClearFlush = LoggingService.flush();
+
+      releaseAppend.complete();
+      await preClearFlush;
+      await clear;
+      await postClearFlush;
+
+      final logFilePath = await LoggingService.getLogFilePath();
+      final content = await File(logFilePath!).readAsString();
+      expect(content, isNot(contains('Pre-clear log')));
+      expect(content, contains('Post-clear log'));
     });
 
     test('redacts sensitive message values from buffer and file', () async {

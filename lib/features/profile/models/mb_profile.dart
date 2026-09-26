@@ -114,10 +114,8 @@ class MbProfile {
       'cover',
     ]) {
       if (data.containsKey(key)) {
-        final url = _extractImageUrl(data[key]);
-        if (url != null && url.isNotEmpty) {
-          return _normalizeUrl(url);
-        }
+        final normalized = _extractImageUrl(data[key]);
+        if (normalized != null) return normalized;
       }
     }
     for (final userKey in ['user', 'profile', 'attributes']) {
@@ -132,41 +130,59 @@ class MbProfile {
   static String? _extractImageUrl(dynamic val) {
     if (val == null) return null;
     if (val is String) {
-      final s = val.trim();
-      return s.isNotEmpty ? s : null;
+      return _normalizeUrl(val);
     }
     if (val is Map) {
       final map = val.cast<String, dynamic>();
-      final u =
-          map['url'] ??
-          map['raw'] ??
-          map['x250'] ??
-          map['medium'] ??
-          map['large'] ??
-          map['original'] ??
-          map['href'] ??
-          (map['image'] is Map
-              ? (map['image']['x250']?['x1'] ?? map['image']['raw']?['url'])
-              : null);
-      if (u is String && u.trim().isNotEmpty) return u.trim();
-      if (u is Map) {
-        final nestedUrl = u['url'] ?? u['x1'];
-        if (nestedUrl is String && nestedUrl.trim().isNotEmpty) {
-          return nestedUrl.trim();
+      for (final key in [
+        'url',
+        'raw',
+        'x250',
+        'medium',
+        'large',
+        'original',
+        'href',
+        'x1',
+      ]) {
+        final normalized = _extractImageUrl(map[key]);
+        if (normalized != null) return normalized;
+      }
+      if (map['image'] is Map) {
+        final image = map['image'] as Map;
+        for (final key in ['x250', 'raw']) {
+          final normalized = _extractImageUrl(image[key]);
+          if (normalized != null) return normalized;
         }
       }
     }
-    if (val is List && val.isNotEmpty) {
-      return _extractImageUrl(val.first);
+    if (val is List) {
+      for (final candidate in val) {
+        final normalized = _extractImageUrl(candidate);
+        if (normalized != null) return normalized;
+      }
     }
     return null;
   }
 
   static String? _normalizeUrl(String? url) {
-    if (url == null || url.isEmpty) return null;
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    if (url.startsWith('//')) return 'https:$url';
-    if (url.startsWith('/')) return 'https://mangabaka.org$url';
-    return 'https://mangabaka.org/$url';
+    final value = url?.trim();
+    if (value == null || value.isEmpty) return null;
+
+    if (value.startsWith('//')) {
+      final normalized = Uri.tryParse('https:$value');
+      return normalized != null && normalized.host.isNotEmpty
+          ? normalized.toString()
+          : null;
+    }
+
+    final parsed = Uri.tryParse(value);
+    if (parsed == null) return null;
+    if (parsed.hasScheme) {
+      return parsed.scheme.toLowerCase() == 'https' && parsed.host.isNotEmpty
+          ? value
+          : null;
+    }
+
+    return Uri.parse('https://mangabaka.org/').resolveUri(parsed).toString();
   }
 }
