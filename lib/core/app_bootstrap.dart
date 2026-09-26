@@ -3,7 +3,6 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
@@ -27,13 +26,9 @@ class AppBootstrap {
   static const Size _minWindowSize = Size(500, 700);
 
   static Future<void> run() async {
-    final binding = WidgetsFlutterBinding.ensureInitialized();
+    WidgetsFlutterBinding.ensureInitialized();
 
     await _configureDesktopWindow();
-
-    // Hold the native splash until the app's own splash overlay takes over,
-    // so there is no bare frame between them.
-    FlutterNativeSplash.preserve(widgetsBinding: binding);
 
     await LoggingService.setup();
     _installErrorHandlers();
@@ -47,10 +42,7 @@ class AppBootstrap {
     await getIt<MetadataService>().init();
 
     // Independent of each other, so they overlap.
-    await Future.wait([
-      SettingsManager().init(),
-      LocalizationService().init(),
-    ]);
+    await Future.wait([SettingsManager().init(), LocalizationService().init()]);
 
     AppTheme.applySystemOverlay();
   }
@@ -63,8 +55,9 @@ class AppBootstrap {
     // custom styled title bar and window control buttons.
     final windowOptions = WindowOptions(
       minimumSize: _minWindowSize,
-      titleBarStyle:
-          Platform.isWindows ? TitleBarStyle.hidden : TitleBarStyle.normal,
+      titleBarStyle: Platform.isWindows
+          ? TitleBarStyle.hidden
+          : TitleBarStyle.normal,
       windowButtonVisibility: !Platform.isWindows,
     );
 
@@ -90,9 +83,9 @@ class AppBootstrap {
     };
 
     PlatformDispatcher.instance.onError = (error, stack) {
-    LoggingService.logger.severe(
-      'Unhandled platform error (${error.runtimeType})',
-    );
+      LoggingService.logger.severe(
+        'Unhandled platform error (${error.runtimeType})',
+      );
       // Handled: reported to the log rather than crashing the app.
       return true;
     };

@@ -51,7 +51,7 @@ class SettingsManager extends ChangeNotifier {
   );
   final _defaultStartPage = EnumSetting(
     SettingsKeys.defaultStartPage,
-    AppStartPage.browse,
+    AppStartPage.home,
     AppStartPage.values,
   );
   final _ratingSliderStep = EnumSetting(
@@ -75,46 +75,78 @@ class SettingsManager extends ChangeNotifier {
     LandscapeAppBarPosition.values,
   );
 
-  final _separateListStyles = BoolSetting(SettingsKeys.separateListStyles, false);
-  final _separateGridColumnCounts =
-      BoolSetting(SettingsKeys.separateGridColumnCounts, false);
-  final _hideLibrarySeriesInBrowse =
-      BoolSetting(SettingsKeys.hideLibrarySeriesInBrowse, false);
-  final _hasCompletedOnboarding =
-      BoolSetting(SettingsKeys.onboardingCompleted, false);
+  final _separateListStyles = BoolSetting(
+    SettingsKeys.separateListStyles,
+    false,
+  );
+  final _separateGridColumnCounts = BoolSetting(
+    SettingsKeys.separateGridColumnCounts,
+    false,
+  );
+  final _hideLibrarySeriesInBrowse = BoolSetting(
+    SettingsKeys.hideLibrarySeriesInBrowse,
+    false,
+  );
+  final _hasCompletedOnboarding = BoolSetting(
+    SettingsKeys.onboardingCompleted,
+    false,
+  );
   final _pushNotifications = BoolSetting(SettingsKeys.pushNotifications, false);
   final _autoSuggestBrowse = BoolSetting(SettingsKeys.autoSuggestBrowse, true);
-  final _autoSuggestLibrary = BoolSetting(SettingsKeys.autoSuggestLibrary, false);
+  final _autoSuggestLibrary = BoolSetting(
+    SettingsKeys.autoSuggestLibrary,
+    false,
+  );
   final _showTooltips = BoolSetting(SettingsKeys.showTooltips, true);
   final _showQuickProgress = BoolSetting(SettingsKeys.showQuickProgress, true);
-  final _showLibraryProgress =
-      BoolSetting(SettingsKeys.showLibraryProgress, true);
-  final _showRemainingProgress =
-      BoolSetting(SettingsKeys.showRemainingProgress, false);
-  final _showLibraryTabCounts =
-      BoolSetting(SettingsKeys.showLibraryTabCounts, true);
+  final _showLibraryProgress = BoolSetting(
+    SettingsKeys.showLibraryProgress,
+    true,
+  );
+  final _showRemainingProgress = BoolSetting(
+    SettingsKeys.showRemainingProgress,
+    false,
+  );
+  final _showLibraryTabCounts = BoolSetting(
+    SettingsKeys.showLibraryTabCounts,
+    true,
+  );
 
   /// 0 means "auto": fit as many columns as the available width allows.
   final _gridColumnCount = IntSetting(SettingsKeys.gridColumnCount, 0);
-  final _libraryGridColumnCount =
-      IntSetting(SettingsKeys.libraryGridColumnCount, 0);
-  final _browseGridColumnCount =
-      IntSetting(SettingsKeys.browseGridColumnCount, 0);
-  final _collectionsListColumns =
-      IntSetting(SettingsKeys.collectionsGridColumns, 0);
+  final _libraryGridColumnCount = IntSetting(
+    SettingsKeys.libraryGridColumnCount,
+    0,
+  );
+  final _browseGridColumnCount = IntSetting(
+    SettingsKeys.browseGridColumnCount,
+    0,
+  );
+  final _collectionsListColumns = IntSetting(
+    SettingsKeys.collectionsGridColumns,
+    0,
+  );
   final _newsListColumns = IntSetting(SettingsKeys.newsListColumns, 1);
-  final _compactGridTitleRows =
-      IntSetting(SettingsKeys.compactGridTitleRows, 1, min: 1, max: 99);
+  final _compactGridTitleRows = IntSetting(
+    SettingsKeys.compactGridTitleRows,
+    1,
+    min: 1,
+    max: 99,
+  );
 
-  final _addLibraryDefaultTab =
-      StringSetting(SettingsKeys.addLibraryDefaultTab, 'plan_to_read');
+  final _addLibraryDefaultTab = StringSetting(
+    SettingsKeys.addLibraryDefaultTab,
+    'plan_to_read',
+  );
 
   final _contentPreferences = StringListSetting(
     SettingsKeys.contentPreferences,
     const ['safe', 'suggestive'],
   );
-  final _blurredContentRatings =
-      StringListSetting(SettingsKeys.blurredContentRatings, const []);
+  final _blurredContentRatings = StringListSetting(
+    SettingsKeys.blurredContentRatings,
+    const [],
+  );
 
   /// Every declared setting, in no particular order — the list `init` and
   /// `resetForTesting` walk. Adding a setting above and here is all it takes.

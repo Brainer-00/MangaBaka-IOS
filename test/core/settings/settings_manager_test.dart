@@ -11,11 +11,11 @@ void main() {
   setUp(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/path_provider'),
-      (MethodCall methodCall) async {
-        return '.';
-      },
-    );
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          (MethodCall methodCall) async {
+            return '.';
+          },
+        );
     SharedPreferences.setMockInitialValues({});
     SettingsManager.resetForTesting();
   });
@@ -30,6 +30,7 @@ void main() {
       expect(manager.contentPreferences, ['safe', 'suggestive']);
       expect(manager.showTooltips, true);
       expect(manager.compactGridTitleRows, 1);
+      expect(manager.defaultStartPage, AppStartPage.home);
     });
 
     test('loads values from SharedPreferences', () async {
@@ -39,6 +40,7 @@ void main() {
         SettingsKeys.contentPreferences: ['safe', 'suggestive', 'erotica'],
         SettingsKeys.showTooltips: false,
         SettingsKeys.compactGridTitleRows: 3,
+        SettingsKeys.defaultStartPage: AppStartPage.news.index,
       });
 
       final manager = SettingsManager();
@@ -49,6 +51,7 @@ void main() {
       expect(manager.contentPreferences, contains('erotica'));
       expect(manager.showTooltips, false);
       expect(manager.compactGridTitleRows, 3);
+      expect(manager.defaultStartPage, AppStartPage.news);
     });
 
     test('updates values and notifies listeners', () async {
@@ -65,7 +68,10 @@ void main() {
       expect(notified, true);
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getInt(SettingsKeys.listStylePref), AppListStyle.compact.index);
+      expect(
+        prefs.getInt(SettingsKeys.listStylePref),
+        AppListStyle.compact.index,
+      );
     });
 
     test('setContentPreferences updates and persists', () async {
