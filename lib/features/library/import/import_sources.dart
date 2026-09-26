@@ -21,11 +21,25 @@ class ImportSourceException implements Exception {
 /// `.proto.gz`) is a gzipped protobuf. Both are unwrapped here, so the text box
 /// always shows what will be imported — for a Mihon backup, its titles.
 abstract final class ImportFileReader {
+  /// Import sources larger than 16 MiB are not needed for the supported title
+  /// count and are rejected before parsing or decompression.
+  static const int maxSourceBytes = 16 * 1024 * 1024;
+
+  /// Gzip output is capped at 32 MiB while it is decoded to prevent compressed
+  /// input from causing an unbounded allocation.
+  static const int maxDecompressedBytes = 32 * 1024 * 1024;
+
+  static const int _gzipInputChunkBytes = 64 * 1024;
+
   static String readText(Uint8List bytes) {
+    if (bytes.length > maxSourceBytes) {
+      throw const ImportSourceException('import_file_failed');
+    }
+
     var data = bytes;
     if (data.length > 2 && data[0] == 0x1f && data[1] == 0x8b) {
       try {
-        data = Uint8List.fromList(gzip.decode(data));
+        data = _decodeGzip(data);
       } catch (_) {
         throw const ImportSourceException('import_file_failed');
       }
@@ -44,6 +58,84 @@ abstract final class ImportFileReader {
     if (titles.isEmpty) throw const ImportSourceException('import_file_failed');
     return titles.join('\n');
   }
+
+  static Uint8List _decodeGzip(Uint8List data) {
+    // A complete gzip member needs a 10-byte header and 8-byte trailer. Dart's
+    // chunked decoder otherwise accepts some shorter prefixes as empty output.
+    if (data.length < 18) throw const FormatException('truncated gzip');
+
+    final output = _BoundedByteSink(maxDecompressedBytes);
+    final decoder = gzip.decoder.startChunkedConversion(output);
+    for (var offset = 0; offset < data.length; offset += _gzipInputChunkBytes) {
+      final end = offset + _gzipInputChunkBytes < data.length
+          ? offset + _gzipInputChunkBytes
+          : data.length;
+      decoder.add(Uint8List.sublistView(data, offset, end));
+    }
+    decoder.close();
+
+    final trailerOffset = data.length - 8;
+    final expectedChecksum = _uint32LittleEndian(data, trailerOffset);
+    final expectedLength = _uint32LittleEndian(data, trailerOffset + 4);
+    final decoded = output.takeBytes();
+    if (expectedLength > decoded.length) {
+      throw const FormatException('invalid gzip trailer');
+    }
+    final finalMember = Uint8List.sublistView(
+      decoded,
+      decoded.length - expectedLength,
+    );
+    if (finalMember.length != expectedLength ||
+        _crc32(finalMember) != expectedChecksum) {
+      throw const FormatException('invalid gzip trailer');
+    }
+    return decoded;
+  }
+
+  static int _uint32LittleEndian(Uint8List data, int offset) {
+    return data[offset] |
+        data[offset + 1] << 8 |
+        data[offset + 2] << 16 |
+        data[offset + 3] << 24;
+  }
+}
+
+final List<int> _gzipCrc32Table = List<int>.generate(256, (value) {
+  var crc = value;
+  for (var bit = 0; bit < 8; bit++) {
+    crc = (crc & 1) == 1 ? 0xedb88320 ^ (crc >> 1) : crc >> 1;
+  }
+  return crc;
+}, growable: false);
+
+int _crc32(Uint8List data) {
+  var crc = 0xffffffff;
+  for (final byte in data) {
+    crc = _gzipCrc32Table[(crc ^ byte) & 0xff] ^ (crc >> 8);
+  }
+  return (crc ^ 0xffffffff) & 0xffffffff;
+}
+
+final class _BoundedByteSink implements Sink<List<int>> {
+  final int _maxBytes;
+  final BytesBuilder _builder = BytesBuilder(copy: false);
+  var _length = 0;
+
+  _BoundedByteSink(this._maxBytes);
+
+  @override
+  void add(List<int> data) {
+    if (data.length > _maxBytes - _length) {
+      throw const FormatException('decoded import exceeds size limit');
+    }
+    _builder.add(data);
+    _length += data.length;
+  }
+
+  @override
+  void close() {}
+
+  Uint8List takeBytes() => _builder.takeBytes();
 }
 
 /// Reads the manga titles out of a Mihon (or Tachiyomi) backup.
@@ -100,6 +192,9 @@ abstract final class MihonBackup {
           varint();
           yield _Field(number, null);
         case 1:
+          if (i + 8 > data.length) {
+            throw const FormatException('truncated fixed64');
+          }
           i += 8;
           yield _Field(number, null);
         case 2:
@@ -110,6 +205,9 @@ abstract final class MihonBackup {
           yield _Field(number, Uint8List.sublistView(data, i, i + length));
           i += length;
         case 5:
+          if (i + 4 > data.length) {
+            throw const FormatException('truncated fixed32');
+          }
           i += 4;
           yield _Field(number, null);
         default:

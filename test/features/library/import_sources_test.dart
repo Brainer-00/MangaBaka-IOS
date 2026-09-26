@@ -26,7 +26,8 @@ List<int> _lengthDelimited(int field, List<int> payload) => [
 
 /// A BackupManga with a source (varint), url and title, like Mihon writes.
 List<int> _manga(String title) => [
-  ..._varint(1 << 3), ..._varint(2499283573021220255 & 0xffffff),
+  ..._varint(1 << 3),
+  ..._varint(2499283573021220255 & 0xffffff),
   ..._lengthDelimited(2, utf8.encode('/manga/x')),
   ..._lengthDelimited(3, utf8.encode(title)),
 ];
@@ -36,6 +37,24 @@ Uint8List _backup(List<String> titles) => Uint8List.fromList([
   // A field a reader has never heard of, which must be skipped.
   ..._lengthDelimited(101, utf8.encode('categories')),
 ]);
+
+Uint8List _gzipRepeatedByte(int byte, int count) {
+  final compressed = BytesBuilder(copy: false);
+  final encoder = gzip.encoder.startChunkedConversion(
+    ByteConversionSink.withCallback(compressed.add),
+  );
+  final chunk = Uint8List(64 * 1024)..fillRange(0, 64 * 1024, byte);
+  var remaining = count;
+  while (remaining > 0) {
+    final length = remaining < chunk.length ? remaining : chunk.length;
+    encoder.add(
+      length == chunk.length ? chunk : Uint8List.sublistView(chunk, 0, length),
+    );
+    remaining -= length;
+  }
+  encoder.close();
+  return compressed.takeBytes();
+}
 
 void main() {
   group('ImportFileReader', () {
@@ -47,7 +66,8 @@ void main() {
     });
 
     test('a gzipped MyAnimeList export is unwrapped', () {
-      const xml = '<myanimelist><manga><manga_title>A</manga_title></manga></myanimelist>';
+      const xml =
+          '<myanimelist><manga><manga_title>A</manga_title></manga></myanimelist>';
       final text = ImportFileReader.readText(
         Uint8List.fromList(gzip.encode(utf8.encode(xml))),
       );
@@ -59,9 +79,7 @@ void main() {
       final backup = _backup(['Frieren', 'Berserk 日本']);
       expect(ImportFileReader.readText(backup), 'Frieren\nBerserk 日本');
       expect(
-        ImportFileReader.readText(
-          Uint8List.fromList(gzip.encode(backup)),
-        ),
+        ImportFileReader.readText(Uint8List.fromList(gzip.encode(backup))),
         'Frieren\nBerserk 日本',
       );
     });
@@ -70,6 +88,115 @@ void main() {
       expect(
         () => ImportFileReader.readText(
           Uint8List.fromList([0xff, 0xfe, 0x00, 0x01, 0x02]),
+        ),
+        throwsA(isA<ImportSourceException>()),
+      );
+    });
+
+    test('rejects a source larger than the input limit', () {
+      final oversized = Uint8List(ImportFileReader.maxSourceBytes + 1);
+
+      expect(
+        () => ImportFileReader.readText(oversized),
+        throwsA(
+          isA<ImportSourceException>().having(
+            (e) => e.key,
+            'key',
+            'import_file_failed',
+          ),
+        ),
+      );
+    });
+
+    test('rejects gzip output larger than the decompression limit', () {
+      final compressed = _gzipRepeatedByte(
+        0x41,
+        ImportFileReader.maxDecompressedBytes + 1,
+      );
+
+      expect(compressed.length, lessThan(ImportFileReader.maxSourceBytes));
+      expect(
+        () => ImportFileReader.readText(compressed),
+        throwsA(
+          isA<ImportSourceException>().having(
+            (e) => e.key,
+            'key',
+            'import_file_failed',
+          ),
+        ),
+      );
+    });
+
+    test('rejects invalid or truncated gzip data', () {
+      final valid = gzip.encode(utf8.encode('truncated'));
+      for (final data in [
+        Uint8List.fromList([0x1f, 0x8b, 0x08, 0x00]),
+        Uint8List.fromList(valid.sublist(0, valid.length - 1)),
+      ]) {
+        expect(
+          () => ImportFileReader.readText(data),
+          throwsA(isA<ImportSourceException>()),
+        );
+      }
+    });
+
+    test('rejects gzip data with a corrupted CRC trailer', () {
+      final corrupted = Uint8List.fromList(
+        gzip.encode(utf8.encode('checksum protected')),
+      );
+      corrupted[corrupted.length - 8] ^= 0xff;
+
+      expect(
+        () => ImportFileReader.readText(corrupted),
+        throwsA(
+          isA<ImportSourceException>().having(
+            (error) => error.key,
+            'key',
+            'import_file_failed',
+          ),
+        ),
+      );
+    });
+
+    test('rejects gzip data with a corrupted ISIZE trailer', () {
+      final corrupted = Uint8List.fromList(
+        gzip.encode(utf8.encode('length protected')),
+      );
+      corrupted[corrupted.length - 4] ^= 0xff;
+
+      expect(
+        () => ImportFileReader.readText(corrupted),
+        throwsA(
+          isA<ImportSourceException>().having(
+            (error) => error.key,
+            'key',
+            'import_file_failed',
+          ),
+        ),
+      );
+    });
+
+    test('accepts concatenated gzip members', () {
+      final first = gzip.encode(utf8.encode('first'));
+      final second = gzip.encode(utf8.encode('second'));
+      final concatenated = Uint8List.fromList([...first, ...second]);
+
+      expect(ImportFileReader.readText(concatenated), 'firstsecond');
+    });
+
+    test('truncated fixed64 protobuf input fails safely', () {
+      expect(
+        () => ImportFileReader.readText(
+          Uint8List.fromList([1 << 3 | 1, 0x00, 0x01]),
+        ),
+        throwsA(isA<ImportSourceException>()),
+      );
+    });
+
+    test('truncated fixed32 protobuf input fails safely', () {
+      expect(
+        () => ImportFileReader.readText(
+          Uint8List.fromList([1 << 3 | 5, 0x00, 0x01]),
         ),
         throwsA(isA<ImportSourceException>()),
       );

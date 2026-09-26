@@ -116,7 +116,8 @@ class MbProfile {
       if (data.containsKey(key)) {
         final url = _extractImageUrl(data[key]);
         if (url != null && url.isNotEmpty) {
-          return _normalizeUrl(url);
+          final normalized = _normalizeUrl(url);
+          if (normalized != null) return normalized;
         }
       }
     }
@@ -163,10 +164,24 @@ class MbProfile {
   }
 
   static String? _normalizeUrl(String? url) {
-    if (url == null || url.isEmpty) return null;
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    if (url.startsWith('//')) return 'https:$url';
-    if (url.startsWith('/')) return 'https://mangabaka.org$url';
-    return 'https://mangabaka.org/$url';
+    final value = url?.trim();
+    if (value == null || value.isEmpty) return null;
+
+    if (value.startsWith('//')) {
+      final normalized = Uri.tryParse('https:$value');
+      return normalized != null && normalized.host.isNotEmpty
+          ? normalized.toString()
+          : null;
+    }
+
+    final parsed = Uri.tryParse(value);
+    if (parsed == null) return null;
+    if (parsed.hasScheme) {
+      return parsed.scheme.toLowerCase() == 'https' && parsed.host.isNotEmpty
+          ? value
+          : null;
+    }
+
+    return Uri.parse('https://mangabaka.org/').resolveUri(parsed).toString();
   }
 }
