@@ -114,11 +114,8 @@ class MbProfile {
       'cover',
     ]) {
       if (data.containsKey(key)) {
-        final url = _extractImageUrl(data[key]);
-        if (url != null && url.isNotEmpty) {
-          final normalized = _normalizeUrl(url);
-          if (normalized != null) return normalized;
-        }
+        final normalized = _extractImageUrl(data[key]);
+        if (normalized != null) return normalized;
       }
     }
     for (final userKey in ['user', 'profile', 'attributes']) {
@@ -133,32 +130,36 @@ class MbProfile {
   static String? _extractImageUrl(dynamic val) {
     if (val == null) return null;
     if (val is String) {
-      final s = val.trim();
-      return s.isNotEmpty ? s : null;
+      return _normalizeUrl(val);
     }
     if (val is Map) {
       final map = val.cast<String, dynamic>();
-      final u =
-          map['url'] ??
-          map['raw'] ??
-          map['x250'] ??
-          map['medium'] ??
-          map['large'] ??
-          map['original'] ??
-          map['href'] ??
-          (map['image'] is Map
-              ? (map['image']['x250']?['x1'] ?? map['image']['raw']?['url'])
-              : null);
-      if (u is String && u.trim().isNotEmpty) return u.trim();
-      if (u is Map) {
-        final nestedUrl = u['url'] ?? u['x1'];
-        if (nestedUrl is String && nestedUrl.trim().isNotEmpty) {
-          return nestedUrl.trim();
+      for (final key in [
+        'url',
+        'raw',
+        'x250',
+        'medium',
+        'large',
+        'original',
+        'href',
+        'x1',
+      ]) {
+        final normalized = _extractImageUrl(map[key]);
+        if (normalized != null) return normalized;
+      }
+      if (map['image'] is Map) {
+        final image = map['image'] as Map;
+        for (final key in ['x250', 'raw']) {
+          final normalized = _extractImageUrl(image[key]);
+          if (normalized != null) return normalized;
         }
       }
     }
-    if (val is List && val.isNotEmpty) {
-      return _extractImageUrl(val.first);
+    if (val is List) {
+      for (final candidate in val) {
+        final normalized = _extractImageUrl(candidate);
+        if (normalized != null) return normalized;
+      }
     }
     return null;
   }

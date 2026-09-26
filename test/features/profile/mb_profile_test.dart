@@ -95,6 +95,28 @@ void main() {
       },
     );
 
+    test('continues through avatar map values until one is valid', () {
+      final profile = MbProfile.fromMeResponse({
+        'avatar': {
+          'url': 'http://insecure.example/old.png',
+          'raw': 'https://cdn.example.com/new.png',
+        },
+      });
+
+      expect(profile.avatarUrl, 'https://cdn.example.com/new.png');
+    });
+
+    test('continues through avatar list values until one is valid', () {
+      final profile = MbProfile.fromMeResponse({
+        'avatar': [
+          'http://insecure.example/old.png',
+          'https://cdn.example.com/new.png',
+        ],
+      });
+
+      expect(profile.avatarUrl, 'https://cdn.example.com/new.png');
+    });
+
     test('fromJson applies the same avatar normalization policy', () {
       final profile = MbProfile.fromJson({
         'id': 'cached-user',
