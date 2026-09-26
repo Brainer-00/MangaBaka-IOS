@@ -22,7 +22,7 @@ class SnapshotService {
   List<LibraryEntry>? get cachedActivities => _cachedActivities;
 
   SnapshotService({ProfileAuthService? auth})
-      : _auth = auth ?? getIt<ProfileAuthService>();
+    : _auth = auth ?? getIt<ProfileAuthService>();
 
   void setCachedActivities(List<LibraryEntry> activities) {
     _cachedActivities = activities;
@@ -49,13 +49,11 @@ class SnapshotService {
       await previousLock;
 
       // Add a small cool-down delay between requests.
-      await Future.delayed(
-        const Duration(milliseconds: 300),
-      );
+      await Future.delayed(const Duration(milliseconds: 300));
     }
 
     try {
-      final token = await _auth.getValidAccessToken();
+      var token = await _auth.getValidAccessToken();
       final contentPrefs = SettingsManager().contentPreferences;
 
       var urlStr =
@@ -67,34 +65,26 @@ class SnapshotService {
 
       final uri = Uri.parse(urlStr);
 
-      final response = await http
-          .get(
-            uri,
-            headers: {
-              'Authorization': 'Bearer $token',
-              'User-Agent': LibraryConstants.userAgent,
-            },
-          )
-          .timeout(
-            Duration(
-              seconds: AppConstants.networkTimeoutSeconds,
-            ),
-            onTimeout: () {
-              throw TimeoutException(
-                'Snapshot fetch timed out',
-              );
-            },
-          );
-
-      _logger.fine(
-        'Snapshot fetch completed (sortBy: $sortBy, page: $page)',
+      var response = await _sendSnapshotRequest(
+        uri,
+        token,
+        sortBy: sortBy,
+        page: page,
       );
 
-      reportApiOutcome(
-        ok: !isServerErrorStatus(response.statusCode),
-        context: 'library-snapshot',
-        statusCode: response.statusCode,
-      );
+      if (response.statusCode == 401) {
+        token = await _auth.recoverAfterUnauthorized(token);
+        response = await _sendSnapshotRequest(
+          uri,
+          token,
+          sortBy: sortBy,
+          page: page,
+        );
+
+        if (response.statusCode == 401) {
+          throw AuthException(message: 'Auth failed', code: 'AUTH_FAILED');
+        }
+      }
 
       if (response.statusCode != 200) {
         _logger.severe(
@@ -112,11 +102,7 @@ class SnapshotService {
       final decoded = jsonDecode(response.body);
       final data = decoded['data'] as List<dynamic>? ?? [];
 
-      final results = data
-          .map(
-            (item) => LibraryEntry.fromJson(item),
-          )
-          .toList();
+      final results = data.map((item) => LibraryEntry.fromJson(item)).toList();
 
       if (contentPrefs.isNotEmpty) {
         return results
@@ -134,14 +120,9 @@ class SnapshotService {
     } catch (e) {
       // Avoid persisting raw exception text or stack traces here because
       // authenticated request failures can contain user-specific context.
-      _logger.severe(
-        'Library snapshot request failed (${e.runtimeType})',
-      );
+      _logger.severe('Library snapshot request failed (${e.runtimeType})');
 
-      reportApiOutcome(
-        ok: false,
-        context: 'library-snapshot',
-      );
+      reportApiOutcome(ok: false, context: 'library-snapshot');
 
       throw NetworkException(
         message: 'Failed to fetch library snapshot',
@@ -150,5 +131,37 @@ class SnapshotService {
     } finally {
       completer.complete();
     }
+  }
+
+  Future<http.Response> _sendSnapshotRequest(
+    Uri uri,
+    String token, {
+    required String sortBy,
+    required int page,
+  }) async {
+    final response = await http
+        .get(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'User-Agent': LibraryConstants.userAgent,
+          },
+        )
+        .timeout(
+          Duration(seconds: AppConstants.networkTimeoutSeconds),
+          onTimeout: () => throw TimeoutException('Snapshot fetch timed out'),
+        );
+
+    _logger.fine(
+      'Snapshot fetch completed '
+      '(sortBy: $sortBy, page: $page, status: ${response.statusCode})',
+    );
+
+    reportApiOutcome(
+      ok: !isServerErrorStatus(response.statusCode),
+      context: 'library-snapshot',
+      statusCode: response.statusCode,
+    );
+    return response;
   }
 }
