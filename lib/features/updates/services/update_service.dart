@@ -21,10 +21,13 @@ import 'package:mangabaka_app/features/updates/models/app_release.dart';
 /// "dismissed": tapping "Later" simply closes it, so it reappears on the next
 /// launch as long as the installed version is still behind the latest release.
 class UpdateService {
-  UpdateService({http.Client? client}) : _client = client ?? http.Client();
+  UpdateService({http.Client? client, String? currentVersion})
+    : _client = client ?? http.Client(),
+      _currentVersion = currentVersion ?? AppConstants.appVersion;
 
   static final _logger = LoggingService.logger;
   final http.Client _client;
+  final String _currentVersion;
 
   bool _promptedThisLaunch = false;
 
@@ -32,9 +35,12 @@ class UpdateService {
   /// platforms fall back to opening the release page in a browser.
   bool get supportsInAppUpdate => Platform.isAndroid || Platform.isWindows;
 
-  /// Returns the newest non-draft release (including pre-releases), or `null` on failure.
+  /// Returns the highest eligible non-draft release, or `null` on failure.
+  ///
+  /// Stable installations follow the stable channel. Pre-release installations
+  /// may receive either pre-release or stable updates.
   Future<AppRelease?> fetchLatestRelease() async {
-    final url = '${AppConstants.githubReleasesApi}?per_page=5';
+    final url = '${AppConstants.githubReleasesApi}?per_page=20';
     try {
       final response = await _client
           .get(
@@ -47,20 +53,41 @@ class UpdateService {
           .timeout(Duration(seconds: AppConstants.networkTimeoutSeconds));
 
       if (response.statusCode != 200) {
-        _logger.warning(
-          'Update check failed (HTTP ${response.statusCode})',
-        );
+        _logger.warning('Update check failed (HTTP ${response.statusCode})');
         return null;
       }
 
-      final List data = jsonDecode(response.body) as List;
+      final data = jsonDecode(response.body);
+      if (data is! List) return null;
+
+      final current = AppVersion.parse(_currentVersion);
+      final followsPrereleaseChannel = current.preRelease != null;
+      AppRelease? latest;
+      AppVersion? latestVersion;
       for (final item in data) {
         if (item is Map<String, dynamic>) {
-          final release = AppRelease.fromJson(item);
-          if (!release.draft) return release; // newest non-draft release
+          try {
+            final release = AppRelease.fromJson(item);
+            if (release.draft || !_hasUsableVersion(release.tagName)) {
+              continue;
+            }
+            final releaseVersion = release.version;
+            final isPrerelease =
+                release.prerelease || releaseVersion.preRelease != null;
+            if (!followsPrereleaseChannel && isPrerelease) {
+              continue;
+            }
+            if (latestVersion == null ||
+                releaseVersion.isNewerThan(latestVersion)) {
+              latest = release;
+              latestVersion = releaseVersion;
+            }
+          } catch (_) {
+            // Ignore malformed release entries while considering the rest.
+          }
         }
       }
-      return null;
+      return latest;
     } catch (e) {
       _logger.warning('Update check failed (${e.runtimeType})');
       return null;
@@ -73,15 +100,22 @@ class UpdateService {
     final latest = await fetchLatestRelease();
     if (latest == null) return null;
 
-    final current = AppVersion.parse(AppConstants.appVersion);
+    final current = AppVersion.parse(_currentVersion);
     if (latest.version.isNewerThan(current)) {
       _logger.info(
-        'Update available: ${latest.tagName} (installed ${AppConstants.appVersion})',
+        'Update available: ${latest.tagName} (installed $_currentVersion)',
       );
       return latest;
     }
-    _logger.fine('App is up to date (${AppConstants.appVersion}).');
+    _logger.fine('App is up to date ($_currentVersion).');
     return null;
+  }
+
+  static bool _hasUsableVersion(String tagName) {
+    return RegExp(
+      r'^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$',
+      caseSensitive: false,
+    ).hasMatch(tagName.trim());
   }
 
   /// Returns `true` once per launch if an update check should be performed.
@@ -202,11 +236,7 @@ class UpdateService {
     }
 
     if (Platform.isWindows) {
-      await Process.start(
-        file.path,
-        const [],
-        mode: ProcessStartMode.detached,
-      );
+      await Process.start(file.path, const [], mode: ProcessStartMode.detached);
       // Give the installer a moment to spawn, then quit so it can overwrite
       // the running executable.
       await Future.delayed(const Duration(milliseconds: 500));
@@ -226,5 +256,5 @@ class UpdateService {
 /// to apply an Android update.
 class InstallPermissionException extends AppException {
   InstallPermissionException()
-      : super(message: 'Install permission was denied.');
+    : super(message: 'Install permission was denied.');
 }
