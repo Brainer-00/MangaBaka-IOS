@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +14,7 @@ import 'package:mangabaka_app/features/profile/models/mb_profile.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:mangabaka_app/features/profile/services/snapshot_service.dart';
 import 'package:mangabaka_app/features/profile/services/statistics_service.dart';
+import 'package:mangabaka_app/features/series/models/series.dart';
 
 // ─── Fakes ───────────────────────────────────────────────────────────────────
 
@@ -29,6 +32,17 @@ class _FakeAuth extends Fake implements ProfileAuthService {
   @override
   Future<MbProfile> fetchProfile({bool forceRefresh = false}) async =>
       _profile();
+}
+
+class _CompleterAuth extends _FakeAuth {
+  final profileCompleter = Completer<MbProfile>();
+
+  @override
+  bool get isLoggedIn => true;
+
+  @override
+  Future<MbProfile> fetchProfile({bool forceRefresh = false}) =>
+      profileCompleter.future;
 }
 
 class _ExpiredAuth extends _FakeAuth {
@@ -60,6 +74,59 @@ class _FakeSnapshotService extends Fake implements SnapshotService {
     int limit = 10,
   }) async => const [];
 }
+
+class _ScriptedSnapshotService extends Fake implements SnapshotService {
+  _ScriptedSnapshotService(this.handler);
+
+  final Future<List<LibraryEntry>> Function(String sortBy, int page) handler;
+  final calls = <({String sortBy, int page})>[];
+
+  @override
+  Future<List<LibraryEntry>> fetchSnapshot({
+    required String sortBy,
+    int page = 1,
+    int limit = 10,
+  }) {
+    calls.add((sortBy: sortBy, page: page));
+    return handler(sortBy, page);
+  }
+}
+
+class _FakeLibraryService extends Fake implements LibraryService {
+  @override
+  Future<void> performInitialSyncIfNeeded() async {}
+}
+
+Series _series(String id) => Series(
+  id: id,
+  title: 'Series $id',
+  state: 'active',
+  nativeTitle: '',
+  romanizedTitle: '',
+  secondaryTitles: const [],
+  coverUrl: '',
+  rawCoverUrl: '',
+  authors: const [],
+  artists: const [],
+  description: '',
+  year: '',
+  status: '',
+  isLicensed: '',
+  hasAnime: '',
+  contentRating: 'safe',
+  type: 'manga',
+  rating: '0',
+  finalVolume: '',
+  totalChapters: '',
+  links: const [],
+  publishers: const [],
+  genres: const [],
+  tags: const [],
+  lastUpdated: '',
+);
+
+LibraryEntry _entry(String id) =>
+    LibraryEntry(id: id, state: 'reading', series: _series(id));
 
 // ─── Host widget ─────────────────────────────────────────────────────────────
 
@@ -123,13 +190,14 @@ void main() {
     ProfileAuthService? auth,
     StatisticsService? stats,
     SnapshotService? snapshot,
+    LibraryService? library,
   }) {
     return MaterialApp(
       home: _TestWidget(
         auth: auth ?? _FakeAuth(),
         stats: stats ?? _FakeStats(),
         snapshot: snapshot ?? _FakeSnapshotService(),
-        library: libraryService,
+        library: library ?? libraryService,
       ),
     );
   }
@@ -184,6 +252,96 @@ void main() {
       await tester.pump();
       expect(state.hasMoreChanged, isFalse);
     });
+
+    testWidgets('initial refresh restarts at page 1 and replaces old entries', (
+      tester,
+    ) async {
+      final replacement = _entry('replacement');
+      final snapshot = _ScriptedSnapshotService((_, _) async => [replacement]);
+      await tester.pumpWidget(buildTestWidget(snapshot: snapshot));
+      final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
+      state
+        ..recentlyChanged.add(_entry('old'))
+        ..pageChanged = 4
+        ..hasMoreChanged = false;
+
+      await state.fetchRecentlyChanged(initial: true);
+      await tester.pump();
+
+      expect(snapshot.calls.single.page, 1);
+      expect(state.recentlyChanged, [replacement]);
+      expect(state.pageChanged, 2);
+      expect(state.hasMoreChanged, isTrue);
+    });
+
+    testWidgets('failed initial refresh preserves entries and pagination', (
+      tester,
+    ) async {
+      final existing = _entry('existing');
+      final snapshot = _ScriptedSnapshotService(
+        (_, _) async => throw StateError('network failed'),
+      );
+      await tester.pumpWidget(buildTestWidget(snapshot: snapshot));
+      final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
+      state
+        ..recentlyChanged.add(existing)
+        ..pageChanged = 3
+        ..hasMoreChanged = false;
+
+      await state.fetchRecentlyChanged(initial: true);
+      await tester.pump();
+
+      expect(snapshot.calls.single.page, 1);
+      expect(state.recentlyChanged, [existing]);
+      expect(state.pageChanged, 3);
+      expect(state.hasMoreChanged, isFalse);
+    });
+
+    testWidgets('normal load more appends and advances pagination', (
+      tester,
+    ) async {
+      final next = _entry('next');
+      final snapshot = _ScriptedSnapshotService((_, page) async {
+        expect(page, 2);
+        return [next];
+      });
+      await tester.pumpWidget(buildTestWidget(snapshot: snapshot));
+      final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
+      final existing = _entry('existing');
+      state
+        ..recentlyChanged.add(existing)
+        ..pageChanged = 2;
+
+      await state.fetchRecentlyChanged();
+      await tester.pump();
+
+      expect(state.recentlyChanged, [existing, next]);
+      expect(state.pageChanged, 3);
+    });
+
+    testWidgets('stale load-more result cannot corrupt a newer refresh', (
+      tester,
+    ) async {
+      final loadMore = Completer<List<LibraryEntry>>();
+      final refresh = Completer<List<LibraryEntry>>();
+      final snapshot = _ScriptedSnapshotService((_, page) {
+        return page == 1 ? refresh.future : loadMore.future;
+      });
+      await tester.pumpWidget(buildTestWidget(snapshot: snapshot));
+      final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
+      state.pageChanged = 2;
+
+      final loadMoreFuture = state.fetchRecentlyChanged();
+      final refreshFuture = state.fetchRecentlyChanged(initial: true);
+      refresh.complete([_entry('fresh')]);
+      await refreshFuture;
+      loadMore.complete([_entry('stale')]);
+      await loadMoreFuture;
+      await tester.pump();
+
+      expect(state.recentlyChanged.map((entry) => entry.id), ['fresh']);
+      expect(state.pageChanged, 2);
+    });
   });
 
   group('ProfileDataMixin.fetchRecentlyAdded', () {
@@ -195,6 +353,26 @@ void main() {
       await state.fetchRecentlyAdded();
       await tester.pump();
       expect(state.pageAdded, 2);
+    });
+
+    testWidgets('initial refresh bypasses stale hasMore and requests page 1', (
+      tester,
+    ) async {
+      final snapshot = _ScriptedSnapshotService(
+        (_, _) async => [_entry('fresh')],
+      );
+      await tester.pumpWidget(buildTestWidget(snapshot: snapshot));
+      final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
+      state
+        ..pageAdded = 5
+        ..hasMoreAdded = false;
+
+      await state.fetchRecentlyAdded(initial: true);
+      await tester.pump();
+
+      expect(snapshot.calls.single.page, 1);
+      expect(state.pageAdded, 2);
+      expect(state.hasMoreAdded, isTrue);
     });
   });
 
@@ -211,6 +389,31 @@ void main() {
       expect(state.loading, isFalse);
       expect(state.profile, isNull);
       expect(state.error, isNull);
+    });
+
+    testWidgets('keeps an available profile visible while refreshing', (
+      tester,
+    ) async {
+      final auth = _CompleterAuth();
+      await tester.pumpWidget(
+        buildTestWidget(auth: auth, library: _FakeLibraryService()),
+      );
+      final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
+      final existing = _profile();
+      state
+        ..profile = existing
+        ..loading = false;
+
+      final refresh = state.bootstrap();
+      await tester.pump();
+
+      expect(state.loading, isFalse);
+      expect(state.profile, same(existing));
+
+      auth.profileCompleter.complete(_profile());
+      await refresh;
+      await tester.pump();
+      expect(state.loading, isFalse);
     });
   });
 }

@@ -20,6 +20,14 @@ class AuthStorage {
   static const kAccessTokenExp = 'mb_access_token_exp';
   static const kProfileCache = 'mb_profile_cache';
 
+  static const authenticationKeys = [
+    kAccessToken,
+    kRefreshToken,
+    kIdToken,
+    kAccessTokenExp,
+    kProfileCache,
+  ];
+
   final _logger = LoggingService.logger;
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
@@ -119,15 +127,19 @@ class AuthStorage {
     if (_allowInsecureFallback) {
       final prefs = await SharedPreferences.getInstance();
 
-      for (final key in [
-        kAccessToken,
-        kRefreshToken,
-        kIdToken,
-        kAccessTokenExp,
-        kProfileCache,
-      ]) {
+      for (final key in authenticationKeys) {
         await prefs.remove(key);
       }
+    }
+  }
+
+  /// Removes only MangaBaka authentication credentials and profile cache.
+  ///
+  /// This intentionally avoids a namespace-wide clear so install detection
+  /// cannot remove unrelated secure values if more are added in the future.
+  Future<void> clearAuthenticationData() async {
+    for (final key in authenticationKeys) {
+      await delete(key);
     }
   }
 
