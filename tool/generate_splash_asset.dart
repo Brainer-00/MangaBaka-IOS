@@ -1,7 +1,3 @@
-// The image package is already supplied by the repository's existing
-// flutter_launcher_icons/flutter_native_splash development tooling.
-// ignore_for_file: depend_on_referenced_packages
-
 import 'dart:io';
 import 'dart:math' as math;
 
