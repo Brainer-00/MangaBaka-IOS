@@ -2196,10 +2196,7 @@ final class $$SeriesTableTableReferences
   _libraryEntriesTableRefsTable(_$AppDatabase db) =>
       MultiTypedResultKey.fromTable(
         db.libraryEntriesTable,
-        aliasName: $_aliasNameGenerator(
-          db.seriesTable.id,
-          db.libraryEntriesTable.seriesId,
-        ),
+        aliasName: 'series_table__id__library_entries_table__series_id',
       );
 
   $$LibraryEntriesTableTableProcessedTableManager get libraryEntriesTableRefs {
@@ -2856,7 +2853,7 @@ class $$SeriesTableTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<$SeriesTableTable, SeriesTableData>(table),
                   $$SeriesTableTableReferences(db, table, e),
                 ),
               )
@@ -2949,13 +2946,8 @@ final class $$LibraryEntriesTableTableReferences
     super.$_typedResult,
   );
 
-  static $SeriesTableTable _seriesIdTable(_$AppDatabase db) =>
-      db.seriesTable.createAlias(
-        $_aliasNameGenerator(
-          db.libraryEntriesTable.seriesId,
-          db.seriesTable.id,
-        ),
-      );
+  static $SeriesTableTable _seriesIdTable(_$AppDatabase db) => db.seriesTable
+      .createAlias('library_entries_table__series_id__series_table__id');
 
   $$SeriesTableTableProcessedTableManager get seriesId {
     final $_column = $_itemColumn<String>('series_id')!;
@@ -3249,7 +3241,10 @@ class $$LibraryEntriesTableTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<
+                    $LibraryEntriesTableTable,
+                    LibraryEntriesTableData
+                  >(table),
                   $$LibraryEntriesTableTableReferences(db, table, e),
                 ),
               )
