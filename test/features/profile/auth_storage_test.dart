@@ -30,9 +30,7 @@ void main() {
 
     SharedPreferences.setMockInitialValues({});
 
-    storage = AuthStorage(
-      allowInsecureFallbackForTesting: true,
-    );
+    storage = AuthStorage(allowInsecureFallbackForTesting: true);
   });
 
   tearDown(() {
@@ -59,10 +57,7 @@ void main() {
     test('write + read round-trip via SharedPreferences', () async {
       await storage.write(AuthStorage.kAccessToken, 'tok-123');
 
-      expect(
-        await storage.read(AuthStorage.kAccessToken),
-        'tok-123',
-      );
+      expect(await storage.read(AuthStorage.kAccessToken), 'tok-123');
     });
 
     test('read returns null for unknown key', () async {
@@ -96,6 +91,21 @@ void main() {
       expect(await storage.read(AuthStorage.kRefreshToken), isNull);
     });
 
+    test('clearAuthenticationData removes only auth-related values', () async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('unrelated_setting', 'keep-me');
+      for (final key in AuthStorage.authenticationKeys) {
+        await storage.write(key, 'stored-value');
+      }
+
+      await storage.clearAuthenticationData();
+
+      for (final key in AuthStorage.authenticationKeys) {
+        expect(await storage.read(key), isNull, reason: key);
+      }
+      expect(prefs.getString('unrelated_setting'), 'keep-me');
+    });
+
     test('cacheProfile stores JSON and getCachedProfile decodes it', () async {
       final profile = MbProfile(
         id: 'user-1',
@@ -125,10 +135,7 @@ void main() {
     });
 
     test('getCachedProfile returns null on malformed cache', () async {
-      await storage.write(
-        AuthStorage.kProfileCache,
-        'not-json',
-      );
+      await storage.write(AuthStorage.kProfileCache, 'not-json');
 
       expect(await storage.getCachedProfile(), isNull);
     });
@@ -140,19 +147,13 @@ void main() {
       final secureOnlyStorage = AuthStorage();
 
       await expectLater(
-        secureOnlyStorage.write(
-          AuthStorage.kAccessToken,
-          'secret-token',
-        ),
+        secureOnlyStorage.write(AuthStorage.kAccessToken, 'secret-token'),
         throwsA(isA<PlatformException>()),
       );
 
       final prefs = await SharedPreferences.getInstance();
 
-      expect(
-        prefs.getString(AuthStorage.kAccessToken),
-        isNull,
-      );
+      expect(prefs.getString(AuthStorage.kAccessToken), isNull);
     },
   );
 }

@@ -8,6 +8,7 @@ import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/theme/app_theme.dart';
+import 'package:mangabaka_app/features/profile/services/auth/installation_session_guard.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:mangabaka_app/features/series/services/metadata_service.dart';
 import 'package:window_manager/window_manager.dart';
@@ -37,8 +38,11 @@ class AppBootstrap {
     setupServiceLocator();
 
     // Auth first: the metadata fetch and the initial library sync both read
-    // the session it restores.
-    await getIt<ProfileAuthService>().init();
+    // the session it restores. On iOS, establish that this is not a fresh
+    // installation before allowing retained Keychain state to be read.
+    await InstallationSessionGuard().restoreSessionIfSafe(
+      getIt<ProfileAuthService>().init,
+    );
     await getIt<MetadataService>().init();
 
     // Independent of each other, so they overlap.
