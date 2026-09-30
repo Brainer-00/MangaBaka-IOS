@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
-import 'package:mangabaka_app/core/utils/widget_utils.dart';
+import 'package:mangabaka_app/core/widgets/design/mb_cover.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 
 /// One seed in the Mix seed row: cover thumbnail, title, and a remove button.
@@ -35,7 +35,10 @@ class MixSeedChip extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _Thumbnail(url: seed.coverUrl),
+                _Thumbnail(
+                  url: seed.coverUrl,
+                  contentRating: seed.contentRating,
+                ),
                 const SizedBox(width: 10),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 120),
@@ -63,34 +66,35 @@ class MixSeedChip extends StatelessWidget {
 
 class _Thumbnail extends StatelessWidget {
   final String url;
+  final String contentRating;
 
-  const _Thumbnail({required this.url});
+  const _Thumbnail({required this.url, required this.contentRating});
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: SizedBox(
-        width: 36,
-        height: 50,
-        child: url.isNotEmpty
-            // Decoded at 80px rather than full size: the chip is 36px wide, and
-            // full-resolution covers in a horizontal row is real memory on a
-            // low-end device.
-            ? WidgetUtils.networkImage(
-                url: url,
-                fit: BoxFit.cover,
-                memCacheWidth: 80,
-              )
-            : Container(
-                color: AppConstants.tertiaryBackground,
-                child: Icon(
-                  Icons.book_rounded,
-                  color: AppConstants.accentColor,
-                  size: 18,
-                ),
+    return SizedBox(
+      width: 36,
+      height: 50,
+      child: url.isNotEmpty
+          // Decoded at 80px rather than full size: the chip is 36px wide, and
+          // full-resolution covers in a horizontal row is real memory on a
+          // low-end device.
+          ? MbCover(
+              url: url,
+              width: 36,
+              height: 50,
+              radius: 8,
+              memCacheWidth: 80,
+              contentRating: contentRating,
+            )
+          : Container(
+              color: AppConstants.tertiaryBackground,
+              child: Icon(
+                Icons.book_rounded,
+                color: AppConstants.accentColor,
+                size: 18,
               ),
-      ),
+            ),
     );
   }
 }

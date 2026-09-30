@@ -6,75 +6,49 @@ import 'package:mangabaka_app/features/series/models/autocomplete_series_result.
 class LibraryAutocompleteService {
   static const int maxResults = 6;
 
+  LibraryAutocompleteIndex buildIndex(List<LibraryEntry> entries) =>
+      LibraryAutocompleteIndex(entries);
+
   List<AutocompleteSeriesResult> search(
     String query,
     List<LibraryEntry> allEntries,
+  ) => searchIndexed(query, buildIndex(allEntries));
+
+  List<AutocompleteSeriesResult> searchIndexed(
+    String query,
+    LibraryAutocompleteIndex index,
   ) {
     if (query.trim().isEmpty) return [];
 
     final q = query.trim().toLowerCase();
 
-    // Score and sort: title-start matches rank higher than contains matches
-    final scored = <_ScoredMatch>[];
-
-    for (final entry in allEntries) {
-      final series = entry.series;
-      final titleLower = series.title.toLowerCase();
-      final nativeLower = series.nativeTitle.toLowerCase();
-      final romanizedLower = series.romanizedTitle.toLowerCase();
-      
-      int score = 0;
-      if (titleLower.startsWith(q)) {
-        score = 100; // Strongest match
-      } else if (nativeLower.startsWith(q) || romanizedLower.startsWith(q)) {
-        score = 90;
-      } else {
-        bool secondaryStarts = false;
-        for (var t in series.secondaryTitles) {
-          if (t.toLowerCase().startsWith(q)) {
-            secondaryStarts = true;
-            break;
-          }
-        }
-        if (secondaryStarts) {
-          score = 80;
-        } else if (titleLower.contains(q)) {
-          score = 50;
-        } else if (nativeLower.contains(q) || romanizedLower.contains(q)) {
-          score = 40;
-        } else {
-          bool secondaryContains = false;
-          for (var t in series.secondaryTitles) {
-            if (t.toLowerCase().contains(q)) {
-              secondaryContains = true;
-              break;
-            }
-          }
-          if (secondaryContains) {
-            score = 30;
-          }
+    // Keep only the best six in the same order as the old full sort.
+    final best = <_ScoredMatch>[];
+    for (final item in index.items) {
+      final score = _score(item, q);
+      if (score == 0) continue;
+      final match = _ScoredMatch(score: score, item: item);
+      var position = best.length;
+      for (var i = 0; i < best.length; i++) {
+        if (_compare(match, best[i]) < 0) {
+          position = i;
+          break;
         }
       }
-
-      if (score > 0) {
-        scored.add(_ScoredMatch(score: score, entry: entry));
+      if (position < maxResults) {
+        best.insert(position, match);
+        if (best.length > maxResults) best.removeLast();
       }
     }
 
-    // Secondary sort by title length (prefer shorter matches if scores are equal)
-    scored.sort((a, b) {
-      if (b.score != a.score) return b.score.compareTo(a.score);
-      return a.entry.series.title.length.compareTo(b.entry.series.title.length);
-    });
-    
-    final topMatches = scored.take(maxResults);
-    
-    return topMatches.map((match) {
-      final series = match.entry.series;
-      
+    return best.map((match) {
+      final series = match.item.entry.series;
+
       int? year;
       if (series.year.isNotEmpty) {
-        year = int.tryParse(series.year.length >= 4 ? series.year.substring(0, 4) : series.year);
+        year = int.tryParse(
+          series.year.length >= 4 ? series.year.substring(0, 4) : series.year,
+        );
       }
 
       final List<String> allTitles = [
@@ -92,13 +66,69 @@ class LibraryAutocompleteService {
         year: year,
         genres: series.genres.take(3).toList(),
         allTitles: allTitles,
+        contentRating: series.contentRating,
       );
     }).toList();
   }
+
+  int _score(IndexedLibraryEntry item, String query) {
+    if (item.title.startsWith(query)) {
+      return 100;
+    }
+    if (item.native.startsWith(query) || item.romanized.startsWith(query)) {
+      return 90;
+    }
+    if (item.secondary.any((title) => title.startsWith(query))) {
+      return 80;
+    }
+    if (item.title.contains(query)) {
+      return 50;
+    }
+    if (item.native.contains(query) || item.romanized.contains(query)) {
+      return 40;
+    }
+    if (item.secondary.any((title) => title.contains(query))) {
+      return 30;
+    }
+    return 0;
+  }
+
+  int _compare(_ScoredMatch a, _ScoredMatch b) {
+    final score = b.score.compareTo(a.score);
+    if (score != 0) return score;
+    return a.item.entry.series.title.length.compareTo(
+      b.item.entry.series.title.length,
+    );
+  }
+}
+
+class LibraryAutocompleteIndex {
+  final List<IndexedLibraryEntry> items;
+
+  const LibraryAutocompleteIndex.empty() : items = const [];
+
+  LibraryAutocompleteIndex(List<LibraryEntry> entries)
+    : items = List.unmodifiable(entries.map(IndexedLibraryEntry.new));
+}
+
+class IndexedLibraryEntry {
+  final LibraryEntry entry;
+  final String title;
+  final String native;
+  final String romanized;
+  final List<String> secondary;
+
+  IndexedLibraryEntry(this.entry)
+    : title = entry.series.title.toLowerCase(),
+      native = entry.series.nativeTitle.toLowerCase(),
+      romanized = entry.series.romanizedTitle.toLowerCase(),
+      secondary = List.unmodifiable(
+        entry.series.secondaryTitles.map((title) => title.toLowerCase()),
+      );
 }
 
 class _ScoredMatch {
   final int score;
-  final LibraryEntry entry;
-  _ScoredMatch({required this.score, required this.entry});
+  final IndexedLibraryEntry item;
+  _ScoredMatch({required this.score, required this.item});
 }

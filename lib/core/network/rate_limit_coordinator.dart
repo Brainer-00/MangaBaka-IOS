@@ -15,6 +15,7 @@ class RateLimitCoordinator {
   RateLimitCoordinator({
     RateLimitClock? clock,
     RateLimitDelay? delay,
+    this.retryAdmissionSpacing = const Duration(milliseconds: 25),
     this.fallbackDelay = const Duration(
       seconds: AppConstants.rateLimitRetryDelaySeconds,
     ),
@@ -25,9 +26,14 @@ class RateLimitCoordinator {
 
   final RateLimitClock _clock;
   final RateLimitDelay _delay;
+
+  /// Deterministic spacing after a real cooldown; this is a tunable policy,
+  /// not a claim about an optimal backend pacing value.
+  final Duration retryAdmissionSpacing;
   final Duration fallbackDelay;
 
   DateTime? _cooldownUntil;
+  DateTime? _nextRetryAdmissionAt;
 
   static DateTime _utcNow() => DateTime.now().toUtc();
 
@@ -94,11 +100,35 @@ class RateLimitCoordinator {
 
   /// Waits until the shared cooldown has elapsed, including extensions that
   /// may be recorded by another request while this one is waiting.
-  Future<void> waitForCooldown() async {
+  Future<bool> waitForCooldown() async {
+    var waited = false;
     while (true) {
       final remaining = remainingCooldown;
-      if (remaining <= Duration.zero) return;
+      if (remaining <= Duration.zero) return waited;
+      waited = true;
       await _delay(remaining);
+    }
+  }
+
+  /// Admits one safe request after the active cooldown, spreading a herd
+  /// without delaying traffic that never encountered rate limiting.
+  Future<void> waitForRetryAdmission() async {
+    while (true) {
+      final now = _clock().toUtc();
+      var target = now;
+      final cooldownUntil = _cooldownUntil;
+      if (cooldownUntil != null && cooldownUntil.isAfter(target)) {
+        target = cooldownUntil;
+      }
+      final nextAdmissionAt = _nextRetryAdmissionAt;
+      if (nextAdmissionAt != null && nextAdmissionAt.isAfter(target)) {
+        target = nextAdmissionAt;
+      }
+      _nextRetryAdmissionAt = target.add(retryAdmissionSpacing);
+
+      final delay = target.difference(now);
+      if (delay > Duration.zero) await _delay(delay);
+      if (!isCoolingDown) return;
     }
   }
 
@@ -117,7 +147,10 @@ class RateLimitCoordinator {
   }
 
   /// Test-only/state-owner utility for resetting an injected coordinator.
-  void clear() => _cooldownUntil = null;
+  void clear() {
+    _cooldownUntil = null;
+    _nextRetryAdmissionAt = null;
+  }
 }
 
 /// Minimal HTTP-date parser for the IMF-fixdate form used by Retry-After.

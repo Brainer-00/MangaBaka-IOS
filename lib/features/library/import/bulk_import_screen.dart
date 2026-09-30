@@ -7,6 +7,7 @@ import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
+import 'package:mangabaka_app/core/widgets/design/mb_cover.dart';
 import 'package:mangabaka_app/core/widgets/design/mb_screen_header.dart';
 import 'package:mangabaka_app/desktop/desktop_layout.dart';
 import 'package:mangabaka_app/desktop/screens/library/desktop_import_view.dart';
@@ -68,6 +69,8 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
       isInLibrary: (id) async =>
           await _library.database.libraryEntriesDao.getEntryBySeriesId(id) !=
           null,
+      existingSeriesIds:
+          _library.database.libraryEntriesDao.getExistingSeriesIds,
       addBatch: _library.createLibraryEntriesBatch,
       state: SettingsManager().addLibraryDefaultTab,
     );
@@ -112,7 +115,14 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
         dialogTitle: l10n.translate('import_open_file'),
       );
       if (file == null) return;
-      final contents = ImportFileReader.readText(await file.readAsBytes());
+      final declaredSize = file.lengthSync() ?? await file.length();
+      if (declaredSize == null) {
+        throw const ImportSourceException('import_file_failed');
+      }
+      final contents = await readBoundedImportFile(
+        declaredSize: declaredSize,
+        readBytes: file.readAsBytes,
+      );
       if (!mounted) return;
       setState(() {
         _fileName = file.name;
@@ -301,6 +311,8 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
           controller: _text,
           minLines: 10,
           maxLines: 16,
+          textAlign: TextAlign.left,
+          textAlignVertical: TextAlignVertical.top,
           style: AppTypography.sans(color: AppConstants.textColor),
           decoration: InputDecoration(
             hintText: l10n.translate('import_paste_hint'),
@@ -308,24 +320,34 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _paste,
-                icon: const Icon(Icons.content_paste_rounded, size: 18),
-                label: Text(l10n.translate('import_paste_clipboard')),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _openFile,
-                icon: const Icon(Icons.folder_open_rounded, size: 18),
-                label: Text(l10n.translate('import_open_file')),
-              ),
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final paste = OutlinedButton.icon(
+              onPressed: _paste,
+              icon: const Icon(Icons.content_paste_rounded, size: 18),
+              label: Text(l10n.translate('import_paste_clipboard')),
+            );
+            final openFile = OutlinedButton.icon(
+              onPressed: _openFile,
+              icon: const Icon(Icons.folder_open_rounded, size: 18),
+              label: Text(l10n.translate('import_open_file')),
+            );
+
+            if (constraints.maxWidth < 420) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [paste, const SizedBox(height: 8), openFile],
+              );
+            }
+
+            return Row(
+              children: [
+                Expanded(child: paste),
+                const SizedBox(width: 12),
+                Expanded(child: openFile),
+              ],
+            );
+          },
         ),
         const SizedBox(height: 8),
         OutlinedButton.icon(
@@ -555,10 +577,13 @@ class _RowTile extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(6),
                   child: match != null && match.coverUrl.isNotEmpty
-                      ? WidgetUtils.networkImage(
+                      ? MbCover(
                           url: match.coverUrl,
-                          fit: BoxFit.cover,
+                          width: 40,
+                          height: 58,
+                          radius: 6,
                           memCacheWidth: 120,
+                          contentRating: match.contentRating,
                         )
                       : Container(color: AppConstants.tertiaryBackground),
                 ),

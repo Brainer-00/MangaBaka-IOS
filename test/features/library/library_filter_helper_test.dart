@@ -98,5 +98,54 @@ void main() {
       );
       expect(helperNoMatch.getFilteredAndSorted(), isEmpty);
     });
+
+    test('derives tab partitions and counts from one filtered result', () {
+      final entries = [
+        mockEntry,
+        LibraryEntry(id: '2', state: 'completed', series: mockSeries),
+        LibraryEntry(id: '3', state: 'unknown', series: mockSeries),
+      ];
+      final helper = LibraryFilterHelper(
+        allEntries: entries,
+        query: '',
+        contentPreferences: ['safe'],
+      );
+
+      expect(helper.result.filtered, hasLength(3));
+      expect(helper.getByTab('reading'), hasLength(2));
+      expect(helper.getByTab('completed'), hasLength(1));
+      expect(helper.counts, {'reading': 1, 'completed': 1, 'unknown': 1});
+      expect(helper.getByTab('reading'), same(helper.getByTab('reading')));
+    });
+
+    test('preserves every supported sort mode without changing membership', () {
+      const sortModes = [
+        'random',
+        'name_asc',
+        'name_desc',
+        'popularity_desc',
+        'rating_desc',
+        'score_desc',
+        'popularity_asc',
+        'rating_asc',
+        'score_asc',
+        'last_updated',
+        'created_at',
+        'updated_at',
+        'chapters_desc',
+        'chapters_asc',
+        'unread_desc',
+        'unread_asc',
+      ];
+      for (final sortBy in sortModes) {
+        final helper = LibraryFilterHelper(
+          allEntries: [mockEntry],
+          query: '',
+          contentPreferences: ['safe'],
+          filters: SearchFilters(sortBy: sortBy),
+        );
+        expect(helper.getFilteredAndSorted(), hasLength(1), reason: sortBy);
+      }
+    });
   });
 }

@@ -14,6 +14,27 @@ const String _isIncompleteKey =
     '${AppConstants.prefixStorageKey}library_is_incomplete';
 
 mixin LibraryCrudMixin on LibraryServiceBase {
+  final Map<String, Future<void>> _entryMutationTails = {};
+
+  Future<T> _serializeEntryMutation<T>(
+    String seriesId,
+    Future<T> Function() mutation,
+  ) {
+    final previous = _entryMutationTails[seriesId] ?? Future<void>.value();
+    final operation = previous.then<T>((_) => mutation());
+    final tail = operation.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stackTrace) {},
+    );
+    _entryMutationTails[seriesId] = tail;
+
+    return operation.whenComplete(() {
+      if (identical(_entryMutationTails[seriesId], tail)) {
+        _entryMutationTails.remove(seriesId);
+      }
+    });
+  }
+
   // ── Shared HTTP helpers ───────────────────────────────────────────────────
 
   /// Standard headers for every library API request.
@@ -76,12 +97,18 @@ mixin LibraryCrudMixin on LibraryServiceBase {
 
   // ── CRUD operations ───────────────────────────────────────────────────────
 
-  Future<void> updateLibraryEntryState(String seriesId, String state) async {
+  Future<void> updateLibraryEntryState(String seriesId, String state) =>
+      _serializeEntryMutation(
+        seriesId,
+        () => _performStateUpdate(seriesId, state),
+      );
+
+  Future<void> _performStateUpdate(String seriesId, String state) async {
     logger.info('Updating library entry state');
     final token = await auth.getValidAccessToken();
     final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
     try {
-      final response = await http
+      final response = await httpClient
           .put(
             url,
             headers: _buildAuthHeaders(token),
@@ -122,7 +149,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     final token = await auth.getValidAccessToken();
     final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
     try {
-      final response = await http
+      final response = await httpClient
           .put(
             url,
             headers: _buildAuthHeaders(token),
@@ -158,20 +185,49 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     }
   }
 
-  /// Restores local progress to the values captured before an optimistic update.
+  /// Restores values captured before an optimistic update.
+  ///
+  /// Entry mutations that can affect lifecycle/state share one serialization
+  /// lane per series, so no newer overlapping write can interleave with this
+  /// rollback.
   Future<void> _rollbackProgress(
     String seriesId,
-    db.LibraryEntryWithSeries? snapshot,
-  ) async {
+    db.LibraryEntryWithSeries? snapshot, {
+    int? wroteChapter,
+    int? wroteVolume,
+    String? wroteState,
+  }) async {
     if (snapshot == null) return;
     await database.libraryEntriesDao.updateEntryProgress(
       seriesId,
-      progressChapter: snapshot.libraryEntry.progressChapter,
-      progressVolume: snapshot.libraryEntry.progressVolume,
+      progressChapter: wroteChapter == null
+          ? null
+          : snapshot.libraryEntry.progressChapter,
+      progressVolume: wroteVolume == null
+          ? null
+          : snapshot.libraryEntry.progressVolume,
+      state: wroteState == null ? null : snapshot.libraryEntry.state,
+      writeProgressChapter: wroteChapter != null,
+      writeProgressVolume: wroteVolume != null,
     );
   }
 
   Future<void> updateLibraryEntryProgress(
+    String seriesId, {
+    int? progressChapter,
+    int? progressVolume,
+  }) {
+    return _serializeEntryMutation(
+      seriesId,
+      () => _performProgressUpdate(
+        seriesId,
+        progressChapter: progressChapter,
+        progressVolume: progressVolume,
+      ),
+    );
+  }
+
+  Future<void> _performProgressUpdate(
     String seriesId, {
     int? progressChapter,
     int? progressVolume,
@@ -182,10 +238,17 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     final snapshot = await database.libraryEntriesDao.getEntryBySeriesId(
       seriesId,
     );
+    final shouldStartReading =
+        snapshot?.libraryEntry.state == 'plan_to_read' &&
+        ((progressChapter != null && progressChapter > 0) ||
+            (progressVolume != null && progressVolume > 0));
+    final nextState = shouldStartReading ? 'reading' : null;
+
     await database.libraryEntriesDao.updateEntryProgress(
       seriesId,
       progressChapter: progressChapter,
       progressVolume: progressVolume,
+      state: nextState,
     );
 
     try {
@@ -195,9 +258,10 @@ mixin LibraryCrudMixin on LibraryServiceBase {
       final body = <String, dynamic>{
         'progress_chapter': ?progressChapter,
         'progress_volume': ?progressVolume,
+        'state': ?nextState,
       };
 
-      final response = await http
+      final response = await httpClient
           .put(url, headers: _buildAuthHeaders(token), body: jsonEncode(body))
           .timeout(
             const Duration(seconds: AppConstants.networkTimeoutSeconds),
@@ -215,7 +279,6 @@ mixin LibraryCrudMixin on LibraryServiceBase {
         logger.severe(
           'Failed to update entry progress (HTTP ${response.statusCode})',
         );
-        await _rollbackProgress(seriesId, snapshot);
         throw ApiException(
           message: 'Failed to update entry progress',
           statusCode: response.statusCode,
@@ -227,17 +290,35 @@ mixin LibraryCrudMixin on LibraryServiceBase {
       logger.info('Successfully updated library entry progress on server');
     } catch (e, st) {
       logger.severe('Error updating entry progress (${e.runtimeType})');
-      await _rollbackProgress(seriesId, snapshot);
+      try {
+        await _rollbackProgress(
+          seriesId,
+          snapshot,
+          wroteChapter: progressChapter,
+          wroteVolume: progressVolume,
+          wroteState: nextState,
+        );
+      } catch (rollbackError) {
+        logger.severe(
+          'Progress rollback failed (${rollbackError.runtimeType})',
+        );
+      }
       _rethrowAsAppException(e, st, seriesId, 'update entry progress');
     }
   }
 
-  Future<void> createLibraryEntry(String seriesId, String state) async {
+  Future<void> createLibraryEntry(String seriesId, String state) =>
+      _serializeEntryMutation(
+        seriesId,
+        () => _performCreateLibraryEntry(seriesId, state),
+      );
+
+  Future<void> _performCreateLibraryEntry(String seriesId, String state) async {
     logger.info('Creating library entry');
     final token = await auth.getValidAccessToken();
     final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
     try {
-      final response = await http
+      final response = await httpClient
           .post(
             url,
             headers: _buildAuthHeaders(token),
@@ -304,7 +385,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     try {
       for (var i = 0; i < ids.length; i += batchLimit) {
         final chunk = ids.sublist(i, min(i + batchLimit, ids.length));
-        final response = await http
+        final response = await httpClient
             .post(
               url,
               headers: _buildAuthHeaders(token),
@@ -354,13 +435,16 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     return created;
   }
 
-  Future<void> deleteEntry(String seriesId) async {
+  Future<void> deleteEntry(String seriesId) =>
+      _serializeEntryMutation(seriesId, () => _performDeleteEntry(seriesId));
+
+  Future<void> _performDeleteEntry(String seriesId) async {
     logger.info('Deleting library entry');
     final token = await auth.getValidAccessToken();
     final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
     try {
       // Headers without Content-Type — DELETE has no body.
-      final response = await http
+      final response = await httpClient
           .delete(url, headers: _buildAuthHeaders(token, json: false))
           .timeout(
             const Duration(seconds: AppConstants.networkTimeoutSeconds),

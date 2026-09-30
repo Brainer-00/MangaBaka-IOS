@@ -50,7 +50,8 @@ class _LibrarySearchBarState extends State<LibrarySearchBar> {
   final LibraryAutocompleteService _autocomplete = LibraryAutocompleteService();
 
   StreamSubscription<List<LibraryEntry>>? _entriesSubscription;
-  List<LibraryEntry> _entries = const [];
+  LibraryAutocompleteIndex _autocompleteIndex =
+      const LibraryAutocompleteIndex.empty();
 
   @override
   void initState() {
@@ -75,7 +76,9 @@ class _LibrarySearchBarState extends State<LibrarySearchBar> {
   void _subscribe() {
     _entriesSubscription?.cancel();
     _entriesSubscription = widget.entriesStream?.listen((entries) {
-      if (mounted) _entries = entries;
+      if (mounted) {
+        _autocompleteIndex = _autocomplete.buildIndex(entries);
+      }
     });
   }
 
@@ -87,7 +90,7 @@ class _LibrarySearchBarState extends State<LibrarySearchBar> {
       onResults(const []);
       return;
     }
-    final results = _autocomplete.search(query, _entries);
+    final results = _autocomplete.searchIndexed(query, _autocompleteIndex);
     // The library matcher already scores prefixes, so re-ranking on them here
     // would fight its ordering; exact match and title length still apply.
     AutocompleteRanking.sort(results, query, preferPrefixMatches: false);

@@ -63,9 +63,9 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
   }
 
   void _openSeriesDetail(Series series) {
-    Navigator.of(context).push(
-      AppTransitions.slideRight(SeriesDetailScreen(series: series)),
-    );
+    Navigator.of(
+      context,
+    ).push(AppTransitions.slideRight(SeriesDetailScreen(series: series)));
   }
 
   Future<void> _addWithState(String state) async {
@@ -73,10 +73,7 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
     try {
       final success = await _controller.addToLibrary(state);
       if (success && mounted) {
-        AppSnackBar.show(
-          context,
-          l10n.translate('added_to_library'),
-        );
+        AppSnackBar.show(context, l10n.translate('added_to_library'));
       }
     } catch (_) {
       if (mounted) {
@@ -360,12 +357,13 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
   ) {
     final titleLang = SettingsManager().defaultTitleLanguage;
     final displayTitle = series.getDisplayTitle(titleLang);
-    final secondaryTitle = series.romanizedTitle.isNotEmpty &&
+    final secondaryTitle =
+        series.romanizedTitle.isNotEmpty &&
             series.romanizedTitle != displayTitle
         ? series.romanizedTitle
         : (series.nativeTitle.isNotEmpty && series.nativeTitle != displayTitle
-            ? series.nativeTitle
-            : null);
+              ? series.nativeTitle
+              : null);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -416,6 +414,7 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
                             url: series.coverUrl,
                             width: 200,
                             radius: 12,
+                            contentRating: series.contentRating,
                           ),
                         ),
                       ),
@@ -460,8 +459,9 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
                                 maxLines: 6,
                                 overflow: TextOverflow.ellipsis,
                                 style: AppTypography.sans(
-                                  color: AppConstants.textColor
-                                      .withValues(alpha: 0.85),
+                                  color: AppConstants.textColor.withValues(
+                                    alpha: 0.85,
+                                  ),
                                   fontSize: 14,
                                   height: 1.5,
                                 ),
@@ -528,6 +528,7 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
                       url: series.coverUrl,
                       width: 160,
                       radius: 12,
+                      contentRating: series.contentRating,
                     ),
                   ),
                 ),
@@ -678,14 +679,14 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
   }
 
   Widget _chip(String label, Color color) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.14),
-          borderRadius: BorderRadius.circular(AppConstants.pillRadius),
-        ),
-        child: Text(
-          label,
-          style: AppTypography.monoLabel(color: color, fontSize: 10.5),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.14),
+      borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+    ),
+    child: Text(
+      label,
+      style: AppTypography.monoLabel(color: color, fontSize: 10.5),
+    ),
+  );
 }

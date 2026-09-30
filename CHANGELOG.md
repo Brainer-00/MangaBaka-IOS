@@ -34,6 +34,10 @@ Initial MangaBaka iOS release.
 
 ### Fixed
 
+- Automatically move Plan to Read entries to Reading when chapter or volume progress begins, without rewriting other library states.
+- Make optimistic progress updates race-safe, restore progress and state together on failure, and keep progress dialogs open until an awaited update succeeds.
+- Improve the mobile Import List layout at phone widths and align multiline title entry to the top-left.
+- Reject declared import files larger than 16 MiB before reading them into memory while retaining internal source and decompression limits.
 - Added single-flight refresh protection so concurrent authenticated requests do not race rotating refresh tokens.
 - Added controlled one-time 401 recovery for authenticated GET requests without automatically replaying mutation requests.
 - Preserved recoverable sessions during transient refresh failures while expiring sessions for exact structured `invalid_grant` and `invalid_token` responses.

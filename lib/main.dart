@@ -11,6 +11,7 @@ import 'package:mangabaka_app/desktop/widgets/desktop_window_frame.dart';
 import 'package:mangabaka_app/features/navigation/screens/main_screen.dart';
 import 'package:mangabaka_app/features/navigation/screens/onboarding_screen.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
+import 'package:mangabaka_app/features/series/services/metadata_service.dart';
 import 'package:mangabaka_app/features/profile/widgets/login/browser_sign_in_prompt.dart';
 import 'package:mangabaka_app/features/updates/services/update_service.dart';
 import 'package:mangabaka_app/features/updates/widgets/update_dialog.dart';
@@ -38,6 +39,7 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
   bool? _lastShowTooltips;
 
   bool _updateCheckScheduled = false;
+  bool _metadataRefreshScheduled = false;
 
   @override
   void initState() {
@@ -50,6 +52,7 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
     if (isPastOnboarding) {
       _scheduleUpdateCheckAfterFirstFrame();
     }
+    _scheduleMetadataRefreshAfterFirstFrame();
   }
 
   ThemeData _themeFor(bool showTooltips) {
@@ -77,6 +80,14 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
     _updateCheckScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _checkForAppUpdate();
+    });
+  }
+
+  void _scheduleMetadataRefreshAfterFirstFrame() {
+    if (_metadataRefreshScheduled) return;
+    _metadataRefreshScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) getIt<MetadataService>().refreshInBackground();
     });
   }
 

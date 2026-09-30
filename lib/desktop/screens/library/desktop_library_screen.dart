@@ -23,7 +23,6 @@ import 'package:mangabaka_app/features/library/helpers/library_filter_helper.dar
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/library/models/library_sync_status.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
-import 'package:mangabaka_app/features/library/services/state_normalizer.dart';
 import 'package:mangabaka_app/features/library/widgets/library_grid_list.dart';
 import 'package:mangabaka_app/features/library/widgets/library_search_bar.dart';
 import 'package:mangabaka_app/features/library/widgets/library_status_banners.dart';
@@ -141,15 +140,7 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
 
   /// Counts per status, over the same filtered set the grid shows.
   Map<String, int> _counts(LibraryFilterHelper helper) {
-    final counts = <String, int>{};
-    for (final entry in helper.getFilteredAndSorted()) {
-      var state = StateNormalizer.normalize(entry.state);
-      if (!LibraryScreenConstants.knownStates.contains(state)) {
-        state = 'reading';
-      }
-      counts[state] = (counts[state] ?? 0) + 1;
-    }
-    return counts;
+    return helper.counts;
   }
 
   void _setQuery(String q) {

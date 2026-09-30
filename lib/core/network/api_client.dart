@@ -138,8 +138,15 @@ class ApiClient {
     try {
       final usesRateLimitPolicy = RateLimitCoordinator.appliesTo(url);
       var retries = 0;
+      var admissionRequired = false;
       while (true) {
-        if (usesRateLimitPolicy) await _rateLimits.waitForCooldown();
+        if (usesRateLimitPolicy) {
+          final waitedForCooldown = await _rateLimits.waitForCooldown();
+          if (waitedForCooldown || admissionRequired) {
+            await _rateLimits.waitForRetryAdmission();
+          }
+          admissionRequired = false;
+        }
 
         final response = await _client
             .get(url, headers: _headersFor(headers))
@@ -169,6 +176,7 @@ class ApiClient {
             );
           }
           retries++;
+          admissionRequired = true;
           _logger.warning('$operation rate limited; retrying after cooldown');
           continue;
         }

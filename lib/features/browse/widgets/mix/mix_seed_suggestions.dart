@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
-import 'package:mangabaka_app/core/utils/widget_utils.dart';
+import 'package:mangabaka_app/core/widgets/design/mb_cover.dart';
 import 'package:mangabaka_app/features/browse/controllers/mix_controller.dart';
 import 'package:mangabaka_app/features/series/models/autocomplete_series_result.dart';
 
@@ -131,10 +131,13 @@ class _SuggestionCard extends StatelessWidget {
                 height: double.infinity,
                 child: suggestion.thumbnailUrl.isEmpty
                     ? Container(color: AppConstants.tertiaryBackground)
-                    : WidgetUtils.networkImage(
+                    : MbCover(
                         url: suggestion.thumbnailUrl,
-                        fit: BoxFit.cover,
+                        width: 46,
+                        height: double.infinity,
+                        radius: 0,
                         memCacheWidth: 100,
+                        contentRating: suggestion.contentRating,
                       ),
               ),
             ),

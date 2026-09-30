@@ -90,7 +90,7 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen>
   SeriesService get seriesService => _seriesService;
 
   @override
-  Series get series => widget.series;
+  Series get series => fullSeries ?? widget.series;
 
   @override
   bool get isAdding => _isAdding;
@@ -127,9 +127,7 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen>
           _logger.info('Full series data fetch complete');
         })
         .catchError((Object e) {
-          _logger.severe(
-            'Full series data fetch failed (${e.runtimeType})',
-          );
+          _logger.severe('Full series data fetch failed (${e.runtimeType})');
         });
   }
 

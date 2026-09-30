@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/core/network/rate_limit_coordinator.dart';
@@ -156,5 +158,88 @@ void main() {
       );
       expect(coordinator.remainingCooldown, const Duration(seconds: 8));
     });
+
+    test(
+      'concurrent GET waiters resume as one deterministic retry herd',
+      () async {
+        final waiters = <Completer<void>>[];
+        final requestedDelays = <Duration>[];
+        final resumedAt = <DateTime>[];
+        var releasedAt = now;
+        final herd = RateLimitCoordinator(
+          clock: () => now,
+          delay: (duration) {
+            requestedDelays.add(duration);
+            final waiter = Completer<void>();
+            waiters.add(waiter);
+            return waiter.future;
+          },
+        );
+        herd.updateFromRetryAfter('10');
+
+        final waiting = [
+          for (var i = 0; i < 10; i++)
+            herd.waitForCooldown().then((_) => resumedAt.add(now)),
+        ];
+        await Future<void>.delayed(Duration.zero);
+
+        expect(requestedDelays, List.filled(10, const Duration(seconds: 10)));
+        releasedAt = now.add(const Duration(seconds: 10));
+        now = releasedAt;
+        for (final waiter in waiters) {
+          waiter.complete();
+        }
+        await Future.wait(waiting);
+
+        expect(releasedAt, DateTime.utc(2026, 9, 24, 12, 0, 10));
+        expect(resumedAt, List.filled(10, releasedAt));
+        expect(herd.isCoolingDown, isFalse);
+      },
+    );
+
+    for (final count in [10, 50]) {
+      test('$count retry admissions are deterministically spread', () async {
+        final spacing = const Duration(milliseconds: 25);
+        final admittedDelays = <Duration>[];
+        final herd = RateLimitCoordinator(
+          clock: () => now,
+          retryAdmissionSpacing: spacing,
+          delay: (duration) async {
+            admittedDelays.add(duration);
+            now = now.add(duration);
+          },
+        );
+        herd.updateFromRetryAfter('10');
+
+        await Future.wait([
+          for (var i = 0; i < count; i++) herd.waitForRetryAdmission(),
+        ]);
+
+        expect(admittedDelays.first, const Duration(seconds: 10));
+        expect(admittedDelays.skip(1), List.filled(count - 1, spacing));
+        expect(admittedDelays.length, count);
+        expect(herd.isCoolingDown, isFalse);
+      });
+    }
+
+    test(
+      'a later 429 extension remains a hard minimum for admission',
+      () async {
+        final delayRequests = <Duration>[];
+        final herd = RateLimitCoordinator(
+          clock: () => now,
+          delay: (duration) async {
+            delayRequests.add(duration);
+            now = now.add(duration);
+          },
+        );
+        herd.updateFromRetryAfter('5');
+        herd.updateFromRetryAfter('10');
+
+        await herd.waitForRetryAdmission();
+
+        expect(delayRequests, [const Duration(seconds: 10)]);
+      },
+    );
   });
 }

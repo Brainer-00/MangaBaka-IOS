@@ -91,16 +91,20 @@ class BulkImportController extends ChangeNotifier {
 
   final Future<List<Series>> Function(String title) _match;
   final Future<bool> Function(String seriesId) _isInLibrary;
+  final Future<Set<String>> Function(List<String> seriesIds)?
+  _existingSeriesIds;
   final Future<int> Function(List<String> seriesIds, String state) _addBatch;
 
   BulkImportController({
     required Future<List<Series>> Function(String title) match,
     required Future<bool> Function(String seriesId) isInLibrary,
+    Future<Set<String>> Function(List<String> seriesIds)? existingSeriesIds,
     required Future<int> Function(List<String> seriesIds, String state)
     addBatch,
     String state = 'plan_to_read',
   }) : _match = match,
        _isInLibrary = isInLibrary,
+       _existingSeriesIds = existingSeriesIds,
        _addBatch = addBatch,
        _state = state;
 
@@ -174,6 +178,7 @@ class BulkImportController extends ChangeNotifier {
     await Future.wait([
       for (var i = 0; i < min(_concurrency, rows.length); i++) worker(),
     ]);
+    await _classifyMatchedRows(rows);
     _matching = false;
     _notify();
   }
@@ -194,15 +199,57 @@ class BulkImportController extends ChangeNotifier {
         return;
       }
       row.candidates = found;
-      if (await _isInLibrary(found.first.id)) {
-        row.status = ImportRowStatus.inLibrary;
-      } else {
-        row.status = ImportRowStatus.matched;
-        row.selected = true;
-      }
     } catch (e) {
       _logger.warning('Import match failed (${e.runtimeType})');
       row.status = ImportRowStatus.failed;
+    }
+  }
+
+  Future<void> _classifyMatchedRows(List<ImportRow> rows) async {
+    final matchedRows = rows.where((row) => row.candidates.isNotEmpty).toList();
+    if (matchedRows.isEmpty) return;
+
+    try {
+      if (_existingSeriesIds == null) {
+        for (final row in matchedRows) {
+          try {
+            final inLibrary = await _isInLibrary(row.candidates.first.id);
+            row.status = inLibrary
+                ? ImportRowStatus.inLibrary
+                : ImportRowStatus.matched;
+            row.selected = !inLibrary;
+          } catch (e) {
+            _logger.warning(
+              'Import library membership check failed (${e.runtimeType})',
+            );
+            row.status = ImportRowStatus.failed;
+            row.selected = false;
+          }
+        }
+        return;
+      }
+
+      final existing = await _existingSeriesIds([
+        for (final row in matchedRows) row.candidates.first.id,
+      ]);
+
+      for (final row in matchedRows) {
+        if (existing.contains(row.candidates.first.id)) {
+          row.status = ImportRowStatus.inLibrary;
+          row.selected = false;
+        } else {
+          row.status = ImportRowStatus.matched;
+          row.selected = true;
+        }
+      }
+    } catch (e) {
+      _logger.warning(
+        'Bulk library membership lookup failed (${e.runtimeType})',
+      );
+      for (final row in matchedRows) {
+        row.status = ImportRowStatus.failed;
+        row.selected = false;
+      }
     }
   }
 

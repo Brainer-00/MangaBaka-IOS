@@ -19,7 +19,10 @@ import 'package:mangabaka_app/features/profile/screens/settings_screen.dart';
 /// discovery — personalised, then trending, then the long tail. Mirrors the
 /// sections of the web `/discover` page.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.homeService});
+
+  /// Optional for deterministic tests. Ownership transfers to this screen.
+  final HomeService? homeService;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -30,6 +33,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   late final HomeService _homeService;
   late final ProfileAuthService _auth;
+
+  Future<void>? _activeRailsLoad;
+  String? _activeRailsContext;
+  int _railsGeneration = 0;
+  int _trendingGeneration = 0;
 
   List<Series> _forYou = const [];
   List<Series> _trending = const [];
@@ -51,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _homeService = HomeService();
+    _homeService = widget.homeService ?? HomeService();
     _auth = getIt<ProfileAuthService>();
     _auth.addListener(_onAuthChanged);
     _loadRails();
@@ -60,7 +68,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _railsGeneration++;
+    _trendingGeneration++;
     _auth.removeListener(_onAuthChanged);
+    _homeService.dispose();
     super.dispose();
   }
 
@@ -69,58 +80,116 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadRails();
   }
 
-  Future<void> _loadRails() async {
-    if (mounted) {
-      setState(() {
-        _loadingRails = true;
-        _loadingTrending = true;
-      });
+  String get _authContext =>
+      '${_auth.isLoggedIn}:${_auth.cachedProfile?.id ?? ''}';
+
+  Future<void> _loadRails({bool force = false}) {
+    final context = _authContext;
+    final active = _activeRailsLoad;
+    if (!force && active != null && _activeRailsContext == context) {
+      return active;
     }
 
-    // The public rails always load; "For You" is gated on the readiness probe
-    // so a cold profile shows nothing rather than an empty rail.
-    final readiness = await _homeService.fetchForYouReadiness();
-    final wantsForYou = readiness?.isReady ?? false;
+    final generation = ++_railsGeneration;
+    final trendingGeneration = ++_trendingGeneration;
+    final trendingType = _trendingType;
+    final trendingWindow = _trendingWindow;
+    _activeRailsContext = context;
+    late final Future<void> load;
+    load =
+        _runRailsLoad(
+          generation,
+          trendingGeneration: trendingGeneration,
+          trendingType: trendingType,
+          trendingWindow: trendingWindow,
+        ).whenComplete(() {
+          if (identical(_activeRailsLoad, load)) {
+            _activeRailsLoad = null;
+            _activeRailsContext = null;
+          }
+        });
+    _activeRailsLoad = load;
+    return load;
+  }
 
-    final results = await Future.wait([
-      wantsForYou ? _homeService.fetchForYou() : Future.value(<Series>[]),
-      _homeService.fetchTrending(
-        type: _trendingType,
-        windowDays: _trendingWindow,
-      ),
-      _homeService.fetchRising(),
-      _homeService.fetchHiddenGems(),
-      _homeService.fetchNewReleases(),
-      _homeService.fetchTopGenreRails(),
-    ]);
-
+  Future<void> _runRailsLoad(
+    int generation, {
+    required int trendingGeneration,
+    required String? trendingType,
+    required int trendingWindow,
+  }) async {
     if (!mounted) return;
     setState(() {
-      _forYou = results[0] as List<Series>;
-      _trending = results[1] as List<Series>;
-      _rising = results[2] as List<Series>;
-      _hiddenGems = results[3] as List<Series>;
-      _newReleases = results[4] as List<Series>;
-      _genreRails = results[5] as List<TopGenreRail>;
-      _showForYou = wantsForYou;
-      _loadingRails = false;
-      _loadingTrending = false;
+      _loadingRails = true;
+      _loadingTrending = true;
     });
+
+    try {
+      // The public rails always load; "For You" is gated on the readiness probe
+      // so a cold profile shows nothing rather than an empty rail.
+      final readiness = await _homeService.fetchForYouReadiness();
+      final wantsForYou = readiness?.isReady ?? false;
+
+      final results = await Future.wait([
+        wantsForYou ? _homeService.fetchForYou() : Future.value(<Series>[]),
+        _homeService.fetchTrending(
+          type: trendingType,
+          windowDays: trendingWindow,
+        ),
+        _homeService.fetchRising(),
+        _homeService.fetchHiddenGems(),
+        _homeService.fetchNewReleases(),
+        _homeService.fetchTopGenreRails(),
+      ]);
+
+      if (!mounted || generation != _railsGeneration) return;
+      setState(() {
+        _forYou = results[0] as List<Series>;
+        _rising = results[2] as List<Series>;
+        _hiddenGems = results[3] as List<Series>;
+        _newReleases = results[4] as List<Series>;
+        _genreRails = results[5] as List<TopGenreRail>;
+        _showForYou = wantsForYou;
+        _loadingRails = false;
+        if (trendingGeneration == _trendingGeneration) {
+          _trending = results[1] as List<Series>;
+          _loadingTrending = false;
+        }
+      });
+    } catch (error) {
+      _logger.warning('Home rails load failed (${error.runtimeType})');
+      if (!mounted || generation != _railsGeneration) return;
+      setState(() {
+        _loadingRails = false;
+        if (trendingGeneration == _trendingGeneration) {
+          _loadingTrending = false;
+        }
+      });
+    }
   }
 
   /// Re-fetch only the Trending rail after a type / window change. The old
   /// results stay on screen (behind a skeleton) so the spotlight doesn't blink.
   Future<void> _reloadTrending() async {
+    final generation = ++_trendingGeneration;
+    final type = _trendingType;
+    final window = _trendingWindow;
     setState(() => _loadingTrending = true);
-    final list = await _homeService.fetchTrending(
-      type: _trendingType,
-      windowDays: _trendingWindow,
-    );
-    if (!mounted) return;
-    setState(() {
-      _trending = list;
-      _loadingTrending = false;
-    });
+    try {
+      final list = await _homeService.fetchTrending(
+        type: type,
+        windowDays: window,
+      );
+      if (!mounted || generation != _trendingGeneration) return;
+      setState(() {
+        _trending = list;
+        _loadingTrending = false;
+      });
+    } catch (error) {
+      _logger.warning('Trending reload failed (${error.runtimeType})');
+      if (!mounted || generation != _trendingGeneration) return;
+      setState(() => _loadingTrending = false);
+    }
   }
 
   void _openTrendingAll() {
@@ -173,7 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
           body: RefreshIndicator(
             color: AppConstants.accentColor,
             backgroundColor: AppConstants.secondaryBackground,
-            onRefresh: _loadRails,
+            onRefresh: () => _loadRails(force: true),
             child: WidgetUtils.responsiveConstraint(
               ListView(
                 padding: const EdgeInsets.only(top: 8, bottom: 24),

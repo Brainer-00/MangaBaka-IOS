@@ -1,13 +1,15 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
+import 'package:mangabaka_app/core/widgets/app_snack_bar.dart';
 
 class ProgressUpdateDialog extends StatefulWidget {
   final int initialValue;
   final String title;
   final String maxValue;
-  final Function(int) onUpdate;
+  final Future<void> Function(int) onUpdate;
 
   const ProgressUpdateDialog({
     super.key,
@@ -22,8 +24,9 @@ class ProgressUpdateDialog extends StatefulWidget {
 }
 
 class _ProgressUpdateDialogState extends State<ProgressUpdateDialog> {
-  late int _currentValue;
+  int? _currentValue;
   late TextEditingController _controller;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -39,17 +42,35 @@ class _ProgressUpdateDialogState extends State<ProgressUpdateDialog> {
   }
 
   void _updateValue(int newValue) {
-    if (newValue < 0) return;
+    if (newValue < 0 || _isSubmitting) return;
     setState(() {
       _currentValue = newValue;
-      _controller.text = _currentValue.toString();
+      _controller.text = newValue.toString();
     });
+  }
+
+  Future<void> _save() async {
+    final value = _currentValue;
+    if (_isSubmitting || value == null) return;
+    setState(() => _isSubmitting = true);
+    try {
+      await widget.onUpdate(value);
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      AppSnackBar.show(
+        context,
+        LocalizationService().translate('failed_to_update'),
+        isError: true,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = LocalizationService();
-    
+
     return Container(
       decoration: BoxDecoration(
         color: AppConstants.secondaryBackground,
@@ -104,7 +125,8 @@ class _ProgressUpdateDialogState extends State<ProgressUpdateDialog> {
                         fontSize: 18,
                       ),
                     ),
-                    if (widget.maxValue != 'null' && widget.maxValue.isNotEmpty) ...[
+                    if (widget.maxValue != 'null' &&
+                        widget.maxValue.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
                         '${l10n.translate('total')}: ${widget.maxValue}',
@@ -136,12 +158,14 @@ class _ProgressUpdateDialogState extends State<ProgressUpdateDialog> {
               children: [
                 _IconButton(
                   icon: Icons.remove,
-                  onPressed: () => _updateValue(_currentValue - 1),
+                  onPressed: () => _updateValue((_currentValue ?? 0) - 1),
                 ),
                 Expanded(
                   child: TextField(
                     controller: _controller,
+                    enabled: !_isSubmitting,
                     keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     textAlign: TextAlign.center,
                     style: AppTypography.display(
                       color: AppConstants.textColor,
@@ -153,15 +177,13 @@ class _ProgressUpdateDialogState extends State<ProgressUpdateDialog> {
                     ),
                     onChanged: (value) {
                       final parsed = int.tryParse(value);
-                      if (parsed != null) {
-                        setState(() => _currentValue = parsed);
-                      }
+                      setState(() => _currentValue = parsed);
                     },
                   ),
                 ),
                 _IconButton(
                   icon: Icons.add,
-                  onPressed: () => _updateValue(_currentValue + 1),
+                  onPressed: () => _updateValue((_currentValue ?? 0) + 1),
                 ),
               ],
             ),
@@ -171,9 +193,12 @@ class _ProgressUpdateDialogState extends State<ProgressUpdateDialog> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: _isSubmitting ? null : () => Navigator.pop(context),
                 style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                 ),
                 child: Text(
                   l10n.translate('cancel'),
@@ -185,23 +210,32 @@ class _ProgressUpdateDialogState extends State<ProgressUpdateDialog> {
               ),
               const SizedBox(width: 12),
               FilledButton(
-                onPressed: () {
-                  widget.onUpdate(_currentValue);
-                  Navigator.pop(context);
-                },
+                onPressed: _isSubmitting || _currentValue == null
+                    ? null
+                    : _save,
                 style: FilledButton.styleFrom(
                   backgroundColor: AppConstants.accentColor,
                   foregroundColor: AppConstants.onAccent,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.pillRadius,
+                    ),
                   ),
                   elevation: 0,
                 ),
-                child: Text(
-                  l10n.translate('save'),
-                  style: AppTypography.sans(fontWeight: FontWeight.bold),
-                ),
+                child: _isSubmitting
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(
+                        l10n.translate('save'),
+                        style: AppTypography.sans(fontWeight: FontWeight.bold),
+                      ),
               ),
             ],
           ),
