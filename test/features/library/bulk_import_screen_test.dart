@@ -1,6 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/database/database.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
@@ -68,5 +69,7 @@ void main() {
     final editor = tester.widget<TextField>(find.byType(TextField).first);
     expect(editor.textAlign, TextAlign.left);
     expect(editor.textAlignVertical, TextAlignVertical.top);
+    final border = editor.decoration!.border! as OutlineInputBorder;
+    expect(border.borderRadius, BorderRadius.circular(AppConstants.cardRadius));
   });
 }
