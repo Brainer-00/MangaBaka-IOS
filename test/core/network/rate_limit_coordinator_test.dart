@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/core/network/rate_limit_coordinator.dart';
@@ -156,5 +158,43 @@ void main() {
       );
       expect(coordinator.remainingCooldown, const Duration(seconds: 8));
     });
+
+    test(
+      'concurrent GET waiters resume as one deterministic retry herd',
+      () async {
+        final waiters = <Completer<void>>[];
+        final requestedDelays = <Duration>[];
+        final resumedAt = <DateTime>[];
+        var releasedAt = now;
+        final herd = RateLimitCoordinator(
+          clock: () => now,
+          delay: (duration) {
+            requestedDelays.add(duration);
+            final waiter = Completer<void>();
+            waiters.add(waiter);
+            return waiter.future;
+          },
+        );
+        herd.updateFromRetryAfter('10');
+
+        final waiting = [
+          for (var i = 0; i < 10; i++)
+            herd.waitForCooldown().then((_) => resumedAt.add(now)),
+        ];
+        await Future<void>.delayed(Duration.zero);
+
+        expect(requestedDelays, List.filled(10, const Duration(seconds: 10)));
+        releasedAt = now.add(const Duration(seconds: 10));
+        now = releasedAt;
+        for (final waiter in waiters) {
+          waiter.complete();
+        }
+        await Future.wait(waiting);
+
+        expect(releasedAt, DateTime.utc(2026, 9, 24, 12, 0, 10));
+        expect(resumedAt, List.filled(10, releasedAt));
+        expect(herd.isCoolingDown, isFalse);
+      },
+    );
   });
 }

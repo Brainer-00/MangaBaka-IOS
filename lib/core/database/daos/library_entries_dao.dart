@@ -23,8 +23,26 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
       );
     } catch (e) {
       _logger.severe('Failed to get entry by series ID (${e.runtimeType})');
-      throw exc.DatabaseException(message: 'Failed to get entry by series ID', originalError: e);
+      throw exc.DatabaseException(
+        message: 'Failed to get entry by series ID',
+        originalError: e,
+      );
     }
+  }
+
+  /// Returns the candidate series IDs already present locally without loading
+  /// full library or series rows.
+  Future<Set<String>> getExistingSeriesIds(Iterable<String> seriesIds) async {
+    final ids = seriesIds.toSet().toList();
+    if (ids.isEmpty) return <String>{};
+
+    final query = selectOnly(libraryEntriesTable)
+      ..addColumns([libraryEntriesTable.seriesId])
+      ..where(libraryEntriesTable.seriesId.isIn(ids));
+    final rows = await query
+        .map((row) => row.read(libraryEntriesTable.seriesId)!)
+        .get();
+    return rows.toSet();
   }
 
   Stream<LibraryEntryWithSeries?> watchEntryWithSeries(String seriesId) {
@@ -45,7 +63,10 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
       });
     } catch (e) {
       _logger.severe('Failed to watch entry with series (${e.runtimeType})');
-      throw exc.DatabaseException(message: 'Failed to watch entry with series', originalError: e);
+      throw exc.DatabaseException(
+        message: 'Failed to watch entry with series',
+        originalError: e,
+      );
     }
   }
 
@@ -69,8 +90,13 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
             .toList();
       });
     } catch (e) {
-      _logger.severe('Failed to watch all entries with series (${e.runtimeType})');
-      throw exc.DatabaseException(message: 'Failed to watch all entries with series', originalError: e);
+      _logger.severe(
+        'Failed to watch all entries with series (${e.runtimeType})',
+      );
+      throw exc.DatabaseException(
+        message: 'Failed to watch all entries with series',
+        originalError: e,
+      );
     }
   }
 
@@ -78,13 +104,15 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
     if (entries.isEmpty) return;
     try {
       await db.transaction(() async {
-        final uniqueSeriesIds =
-            entries.map((e) => e.series.id).toSet().toList();
+        final uniqueSeriesIds = entries
+            .map((e) => e.series.id)
+            .toSet()
+            .toList();
 
         // Delete any existing entries for these series to prevent duplicates
-        await (delete(db.libraryEntriesTable)
-              ..where((t) => t.seriesId.isIn(uniqueSeriesIds)))
-            .go();
+        await (delete(
+          db.libraryEntriesTable,
+        )..where((t) => t.seriesId.isIn(uniqueSeriesIds))).go();
 
         await db.batch((batch) {
           batch.insertAll(
@@ -107,7 +135,10 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
       });
     } catch (e) {
       _logger.severe('Failed to upsert library entries (${e.runtimeType})');
-      throw exc.DatabaseException(message: 'Failed to upsert library entries', originalError: e);
+      throw exc.DatabaseException(
+        message: 'Failed to upsert library entries',
+        originalError: e,
+      );
     }
   }
 
@@ -118,7 +149,10 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
           .write(LibraryEntriesTableCompanion(state: Value(newState)));
     } catch (e) {
       _logger.severe('Failed to update entry state (${e.runtimeType})');
-      throw exc.DatabaseException(message: 'Failed to update entry state', originalError: e);
+      throw exc.DatabaseException(
+        message: 'Failed to update entry state',
+        originalError: e,
+      );
     }
   }
 
@@ -129,7 +163,10 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
           .write(LibraryEntriesTableCompanion(rating: Value(newRating)));
     } catch (e) {
       _logger.severe('Failed to update entry rating (${e.runtimeType})');
-      throw exc.DatabaseException(message: 'Failed to update entry rating', originalError: e);
+      throw exc.DatabaseException(
+        message: 'Failed to update entry rating',
+        originalError: e,
+      );
     }
   }
 
@@ -171,7 +208,10 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
       )..where((tbl) => tbl.seriesId.equals(seriesId))).go();
     } catch (e) {
       _logger.severe('Failed to delete entry (${e.runtimeType})');
-      throw exc.DatabaseException(message: 'Failed to delete entry', originalError: e);
+      throw exc.DatabaseException(
+        message: 'Failed to delete entry',
+        originalError: e,
+      );
     }
   }
 
@@ -179,12 +219,13 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
     try {
       final validSet = validIds.toSet();
       // Only select IDs to save memory
-      final query = selectOnly(libraryEntriesTable)..addColumns([libraryEntriesTable.id]);
-      final allIds = await query.map((row) => row.read(libraryEntriesTable.id)!).get();
-      
-      final toDelete = allIds
-          .where((id) => !validSet.contains(id))
-          .toList();
+      final query = selectOnly(libraryEntriesTable)
+        ..addColumns([libraryEntriesTable.id]);
+      final allIds = await query
+          .map((row) => row.read(libraryEntriesTable.id)!)
+          .get();
+
+      final toDelete = allIds.where((id) => !validSet.contains(id)).toList();
 
       if (toDelete.isEmpty) return;
 
@@ -192,14 +233,17 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
         for (var i = 0; i < toDelete.length; i += 500) {
           final end = (i + 500 > toDelete.length) ? toDelete.length : i + 500;
           final chunk = toDelete.sublist(i, end);
-          await (delete(libraryEntriesTable)..where((t) => t.id.isIn(chunk)))
-              .go();
+          await (delete(
+            libraryEntriesTable,
+          )..where((t) => t.id.isIn(chunk))).go();
         }
       });
     } catch (e) {
       _logger.severe('Failed to delete stale entries (${e.runtimeType})');
       throw exc.DatabaseException(
-          message: 'Failed to delete stale entries', originalError: e);
+        message: 'Failed to delete stale entries',
+        originalError: e,
+      );
     }
   }
 
@@ -208,7 +252,10 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
       await delete(libraryEntriesTable).go();
     } catch (e) {
       _logger.severe('Failed to delete all entries (${e.runtimeType})');
-      throw exc.DatabaseException(message: 'Failed to delete all entries', originalError: e);
+      throw exc.DatabaseException(
+        message: 'Failed to delete all entries',
+        originalError: e,
+      );
     }
   }
 }

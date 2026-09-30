@@ -108,7 +108,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     final token = await auth.getValidAccessToken();
     final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
     try {
-      final response = await http
+      final response = await httpClient
           .put(
             url,
             headers: _buildAuthHeaders(token),
@@ -149,7 +149,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     final token = await auth.getValidAccessToken();
     final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
     try {
-      final response = await http
+      final response = await httpClient
           .put(
             url,
             headers: _buildAuthHeaders(token),
@@ -261,7 +261,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
         'state': ?nextState,
       };
 
-      final response = await http
+      final response = await httpClient
           .put(url, headers: _buildAuthHeaders(token), body: jsonEncode(body))
           .timeout(
             const Duration(seconds: AppConstants.networkTimeoutSeconds),
@@ -318,7 +318,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     final token = await auth.getValidAccessToken();
     final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
     try {
-      final response = await http
+      final response = await httpClient
           .post(
             url,
             headers: _buildAuthHeaders(token),
@@ -385,7 +385,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     try {
       for (var i = 0; i < ids.length; i += batchLimit) {
         final chunk = ids.sublist(i, min(i + batchLimit, ids.length));
-        final response = await http
+        final response = await httpClient
             .post(
               url,
               headers: _buildAuthHeaders(token),
@@ -444,7 +444,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
     try {
       // Headers without Content-Type — DELETE has no body.
-      final response = await http
+      final response = await httpClient
           .delete(url, headers: _buildAuthHeaders(token, json: false))
           .timeout(
             const Duration(seconds: AppConstants.networkTimeoutSeconds),

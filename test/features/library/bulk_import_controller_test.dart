@@ -45,34 +45,38 @@ void main() {
       );
     }
 
-    test('classifies each line and preselects only what can be added',
-        () async {
-      final c = build(
-        matches: {
-          'Frieren': [_series('1', 'Frieren')],
-          'Berserk': [_series('2', 'Berserk')],
-        },
-        inLibrary: {'2'},
-        failing: {'Broken'},
-      );
-      await c.start('Frieren\nBerserk\nNope\nBroken');
+    test(
+      'classifies each line and preselects only what can be added',
+      () async {
+        final c = build(
+          matches: {
+            'Frieren': [_series('1', 'Frieren')],
+            'Berserk': [_series('2', 'Berserk')],
+          },
+          inLibrary: {'2'},
+          failing: {'Broken'},
+        );
+        await c.start('Frieren\nBerserk\nNope\nBroken');
 
-      final byQuery = {for (final r in c.rows) r.query: r};
-      expect(byQuery['Frieren']!.status, ImportRowStatus.matched);
-      expect(byQuery['Frieren']!.selected, isTrue);
-      expect(byQuery['Berserk']!.status, ImportRowStatus.inLibrary);
-      expect(byQuery['Berserk']!.selected, isFalse);
-      expect(byQuery['Nope']!.status, ImportRowStatus.notFound);
-      expect(byQuery['Broken']!.status, ImportRowStatus.failed);
-      expect(c.selectedCount, 1);
-      expect(c.isMatching, isFalse);
-    });
+        final byQuery = {for (final r in c.rows) r.query: r};
+        expect(byQuery['Frieren']!.status, ImportRowStatus.matched);
+        expect(byQuery['Frieren']!.selected, isTrue);
+        expect(byQuery['Berserk']!.status, ImportRowStatus.inLibrary);
+        expect(byQuery['Berserk']!.selected, isFalse);
+        expect(byQuery['Nope']!.status, ImportRowStatus.notFound);
+        expect(byQuery['Broken']!.status, ImportRowStatus.failed);
+        expect(c.selectedCount, 1);
+        expect(c.isMatching, isFalse);
+      },
+    );
 
     test('adds only the selected rows, in the chosen state', () async {
-      final c = build(matches: {
-        'A': [_series('1', 'A')],
-        'B': [_series('2', 'B')],
-      });
+      final c = build(
+        matches: {
+          'A': [_series('1', 'A')],
+          'B': [_series('2', 'B')],
+        },
+      );
       await c.start('A\nB');
       c.setTargetState('reading');
       c.toggle(c.rows[1]);
@@ -86,11 +90,13 @@ void main() {
     });
 
     test('a row whose source named a state is added in that state', () async {
-      final c = build(matches: {
-        'A': [_series('1', 'A')],
-        'B': [_series('2', 'B')],
-        'C': [_series('3', 'C')],
-      });
+      final c = build(
+        matches: {
+          'A': [_series('1', 'A')],
+          'B': [_series('2', 'B')],
+          'C': [_series('3', 'C')],
+        },
+      );
       await c.start('title,status\nA,Completed\nB,\nC,Dropped');
       c.setTargetState('reading');
 
@@ -105,26 +111,32 @@ void main() {
       ]);
     });
 
-    test('ignoring the file statuses puts every row in the chosen state',
-        () async {
-      final c = build(matches: {
-        'A': [_series('1', 'A')],
-        'B': [_series('2', 'B')],
-      });
-      await c.start('title,status\nA,Completed\nB,Dropped', useStates: false);
-      c.setTargetState('paused');
+    test(
+      'ignoring the file statuses puts every row in the chosen state',
+      () async {
+        final c = build(
+          matches: {
+            'A': [_series('1', 'A')],
+            'B': [_series('2', 'B')],
+          },
+        );
+        await c.start('title,status\nA,Completed\nB,Dropped', useStates: false);
+        c.setTargetState('paused');
 
-      await c.addSelected();
+        await c.addSelected();
 
-      expect(batches, [
-        ['1', '2', 'paused'],
-      ]);
-    });
+        expect(batches, [
+          ['1', '2', 'paused'],
+        ]);
+      },
+    );
 
     test('reset returns to the input step', () async {
-      final c = build(matches: {
-        'A': [_series('1', 'A')],
-      });
+      final c = build(
+        matches: {
+          'A': [_series('1', 'A')],
+        },
+      );
       await c.start('A');
       expect(c.hasRows, isTrue);
 
@@ -148,6 +160,62 @@ void main() {
       expect(c.rows.single.match!.id, '9');
       expect(c.rows.single.status, ImportRowStatus.inLibrary);
       expect(c.rows.single.selected, isFalse);
+    });
+
+    test(
+      'uses one bounded membership lookup for many matched candidates',
+      () async {
+        var membershipCalls = 0;
+        final candidates = {
+          for (var i = 0; i < 200; i++) 'Title $i': [_series('$i', 'Title $i')],
+        };
+        final controller = BulkImportController(
+          match: (title) async => candidates[title] ?? const [],
+          isInLibrary: (_) async =>
+              fail('single membership lookup should not run'),
+          existingSeriesIds: (ids) async {
+            membershipCalls++;
+            expect(ids, hasLength(200));
+            return {'1', '99'};
+          },
+          addBatch: (_, _) async => 0,
+        );
+
+        await controller.start(
+          List.generate(200, (index) => 'Title $index').join('\n'),
+        );
+
+        expect(membershipCalls, 1);
+        expect(
+          controller.rows.where(
+            (row) => row.status == ImportRowStatus.inLibrary,
+          ),
+          hasLength(2),
+        );
+        expect(
+          controller.rows.where((row) => row.status == ImportRowStatus.matched),
+          hasLength(198),
+        );
+      },
+    );
+
+    test('empty matches do not perform a membership lookup', () async {
+      var membershipCalls = 0;
+      final controller = BulkImportController(
+        match: (_) async => const [],
+        isInLibrary: (_) async =>
+            fail('single membership lookup should not run'),
+        existingSeriesIds: (_) async {
+          membershipCalls++;
+          return {};
+        },
+        addBatch: (_, _) async => 0,
+      );
+
+      await controller.start('Missing');
+
+      expect(membershipCalls, 0);
+      expect(controller.rows.single.status, ImportRowStatus.notFound);
     });
   });
 }

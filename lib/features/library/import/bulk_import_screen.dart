@@ -69,6 +69,8 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
       isInLibrary: (id) async =>
           await _library.database.libraryEntriesDao.getEntryBySeriesId(id) !=
           null,
+      existingSeriesIds:
+          _library.database.libraryEntriesDao.getExistingSeriesIds,
       addBatch: _library.createLibraryEntriesBatch,
       state: SettingsManager().addLibraryDefaultTab,
     );

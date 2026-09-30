@@ -116,6 +116,28 @@ void main() {
     });
   });
 
+  group('LibraryEntriesDao membership lookup', () {
+    test(
+      'returns only existing candidate IDs in one projection query',
+      () async {
+        await db.customStatement(
+          "INSERT INTO series_table (id, title, cover_url, description) "
+          "VALUES ('s1', 'Series s1', '', '')",
+        );
+        await db.customStatement(
+          "INSERT INTO library_entries_table (id, series_id, state) "
+          "VALUES ('e1', 's1', 'reading')",
+        );
+
+        expect(
+          await db.libraryEntriesDao.getExistingSeriesIds(['s1', 'missing']),
+          {'s1'},
+        );
+        expect(await db.libraryEntriesDao.getExistingSeriesIds([]), isEmpty);
+      },
+    );
+  });
+
   // ─── LibrarySyncMixin ──────────────────────────────────────────────────────
 
   group('LibrarySyncMixin.isLibraryIncomplete', () {

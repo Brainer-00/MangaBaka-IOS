@@ -43,6 +43,19 @@ void main() {
   late LibraryService service;
   late MockProfileAuthService mockAuth;
 
+  Future<T> runWithServiceClient<T>(
+    Future<T> Function() operation,
+    http.Client Function() clientFactory,
+  ) {
+    final client = clientFactory();
+    service = LibraryService(
+      auth: mockAuth,
+      database: getIt<AppDatabase>(),
+      httpClient: client,
+    );
+    return operation();
+  }
+
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     await resetServiceLocator();
@@ -301,6 +314,44 @@ void main() {
       'DELETE': () => service.deleteEntry('1'),
     };
 
+    test('all mutation kinds use one injected client without replay', () async {
+      await seedEntry(state: 'reading');
+      var calls = 0;
+      var batchRequests = 0;
+      final client = MockClient((request) async {
+        calls++;
+        if (request.method == 'POST') {
+          if (request.url.path.endsWith('/batch')) {
+            batchRequests++;
+            expect(request.method, 'POST');
+            expect(request.headers['authorization'], 'Bearer access-old');
+            expect(request.headers['content-type'], 'application/json');
+            expect(jsonDecode(request.body), [
+              {'series_id': 1, 'state': 'reading'},
+            ]);
+            return http.Response('{"data":[]}', 200);
+          }
+          return http.Response('{}', 201);
+        }
+        if (request.method == 'GET') return http.Response('{"data":[]}', 200);
+        return http.Response('{}', 200);
+      });
+
+      await runWithServiceClient(() async {
+        await service.updateLibraryEntryState('1', 'paused');
+        await service.updateLibraryEntryRating('1', 8);
+        await service.updateLibraryEntryProgress('1', progressChapter: 1);
+        await service.createLibraryEntry('1', 'reading');
+        await service.createLibraryEntriesBatch(['1'], 'reading');
+        await service.deleteEntry('1');
+      }, () => client);
+
+      // The batch create also performs its documented sync GET. Every
+      // mutation itself still contributes exactly one request.
+      expect(calls, 8);
+      expect(batchRequests, 1);
+    });
+
     for (final operation in mutationOperations.entries) {
       test('${operation.key} is not replayed after 401', () async {
         mockAuth.rejectedTokens.clear();
@@ -311,7 +362,7 @@ void main() {
         });
 
         await expectLater(
-          http.runWithClient(operation.value, () => client),
+          runWithServiceClient(operation.value, () => client),
           throwsA(
             isA<AuthException>().having(
               (error) => error.code,
@@ -331,7 +382,7 @@ void main() {
       var calls = 0;
 
       await expectLater(
-        http.runWithClient(
+        runWithServiceClient(
           () => service.updateLibraryEntryState('1', 'reading'),
           () => MockClient((_) async {
             calls++;
@@ -368,7 +419,7 @@ void main() {
       var calls = 0;
 
       await expectLater(
-        http.runWithClient(
+        runWithServiceClient(
           () => service.updateLibraryEntryProgress('1', progressChapter: 3),
           () => MockClient((_) async {
             calls++;
@@ -401,7 +452,7 @@ void main() {
           return http.Response('{}', 200);
         });
 
-        await http.runWithClient(
+        await runWithServiceClient(
           () => service.updateLibraryEntryProgress('1', progressChapter: 1),
           () => client,
         );
@@ -423,7 +474,7 @@ void main() {
           return http.Response('{}', 200);
         });
 
-        await http.runWithClient(
+        await runWithServiceClient(
           () => service.updateLibraryEntryProgress('1', progressVolume: 1),
           () => client,
         );
@@ -443,7 +494,7 @@ void main() {
         return http.Response('{}', 200);
       });
 
-      await http.runWithClient(
+      await runWithServiceClient(
         () => service.updateLibraryEntryProgress('1', progressChapter: 0),
         () => client,
       );
@@ -468,7 +519,7 @@ void main() {
           return http.Response('{}', 200);
         });
 
-        await http.runWithClient(
+        await runWithServiceClient(
           () => service.updateLibraryEntryProgress('1', progressChapter: 1),
           () => client,
         );
@@ -483,7 +534,7 @@ void main() {
       final client = MockClient((_) async => http.Response('{}', 500));
 
       await expectLater(
-        http.runWithClient(
+        runWithServiceClient(
           () => service.updateLibraryEntryProgress('1', progressChapter: 1),
           () => client,
         ),
@@ -506,7 +557,7 @@ void main() {
       final client = MockClient((_) async => http.Response('{}', 500));
 
       await expectLater(
-        http.runWithClient(
+        runWithServiceClient(
           () => service.updateLibraryEntryProgress('1', progressChapter: 1),
           () => client,
         ),
@@ -534,7 +585,7 @@ void main() {
           return http.Response('{}', 200);
         });
 
-        await http.runWithClient(() async {
+        await runWithServiceClient(() async {
           final first = service.updateLibraryEntryProgress(
             '1',
             progressChapter: 6,
@@ -576,7 +627,7 @@ void main() {
           return http.Response('{}', 200);
         });
 
-        await http.runWithClient(() async {
+        await runWithServiceClient(() async {
           final chapter = service.updateLibraryEntryProgress(
             '1',
             progressChapter: 1,
@@ -622,7 +673,7 @@ void main() {
           return http.Response('{}', 200);
         });
 
-        await http.runWithClient(() async {
+        await runWithServiceClient(() async {
           final first = service.updateLibraryEntryProgress(
             '1',
             progressChapter: 1,
@@ -682,7 +733,7 @@ void main() {
         return http.Response('{}', 200);
       });
 
-      await http.runWithClient(() async {
+      await runWithServiceClient(() async {
         final first = service.updateLibraryEntryProgress(
           '1',
           progressChapter: 1,
@@ -716,7 +767,7 @@ void main() {
         return http.Response('{}', 200);
       });
 
-      await http.runWithClient(() async {
+      await runWithServiceClient(() async {
         final state = service.updateLibraryEntryState('1', 'paused');
         await firstRequestStarted.future;
         final progress = service.updateLibraryEntryProgress(
@@ -756,7 +807,7 @@ void main() {
         return http.Response('{}', 200);
       });
 
-      await http.runWithClient(() async {
+      await runWithServiceClient(() async {
         final progress = service.updateLibraryEntryProgress(
           '1',
           progressChapter: 1,
@@ -795,7 +846,7 @@ void main() {
         return http.Response('{}', 200);
       });
 
-      await http.runWithClient(() async {
+      await runWithServiceClient(() async {
         final progress = service.updateLibraryEntryProgress(
           '1',
           progressChapter: 1,
@@ -838,7 +889,7 @@ void main() {
           return http.Response('{"data":[]}', 200);
         });
 
-        await http.runWithClient(() async {
+        await runWithServiceClient(() async {
           final progress = service.updateLibraryEntryProgress(
             '1',
             progressChapter: 1,
@@ -872,7 +923,7 @@ void main() {
           return http.Response('{}', 200);
         });
 
-        await http.runWithClient(() async {
+        await runWithServiceClient(() async {
           final progress = service.updateLibraryEntryProgress(
             '1',
             progressChapter: 1,
@@ -909,7 +960,7 @@ void main() {
         return http.Response('{}', 200);
       });
 
-      await http.runWithClient(() async {
+      await runWithServiceClient(() async {
         final state = service.updateLibraryEntryState('1', 'paused');
         await firstRequestStarted.future;
         final progress = service.updateLibraryEntryProgress(

@@ -20,6 +20,7 @@ import 'package:mangabaka_app/core/network/rate_limit_coordinator.dart';
 
 abstract class LibraryServiceBase {
   db.AppDatabase get database;
+  http.Client get httpClient;
   ProfileAuthService get auth;
   dynamic get logger;
 
@@ -57,6 +58,9 @@ class LibraryService extends LibraryServiceBase
 
   @override
   db.AppDatabase get database => _db;
+
+  @override
+  http.Client get httpClient => _httpClient;
 
   @override
   ProfileAuthService get auth => _auth;

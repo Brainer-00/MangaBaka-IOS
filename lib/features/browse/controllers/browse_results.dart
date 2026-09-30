@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:mangabaka_app/features/browse/models/browse_type.dart';
 import 'package:mangabaka_app/features/browse/services/browse_search_gateway.dart';
 import 'package:mangabaka_app/features/browse/utils/staff_aggregator.dart';
@@ -13,13 +15,13 @@ import 'package:mangabaka_app/features/staff/models/staff.dart';
 /// *loading* — the controller owns that, along with deciding when a page is
 /// stale enough to drop.
 class BrowseResults {
-  List<Series> _series = [];
-  List<Publisher> _publishers = [];
+  final List<Series> _series = [];
+  final List<Publisher> _publishers = [];
   List<Staff> _staff = [];
 
-  List<Series> get series => _series;
-  List<Publisher> get publishers => _publishers;
-  List<Staff> get staff => _staff;
+  List<Series> get series => UnmodifiableListView(_series);
+  List<Publisher> get publishers => UnmodifiableListView(_publishers);
+  List<Staff> get staff => UnmodifiableListView(_staff);
 
   /// The page number to request next. 1 until a page has been taken.
   int _page = 1;
@@ -55,8 +57,8 @@ class BrowseResults {
   int loadedCount(BrowseType type) => forType(type).length;
 
   void clear() {
-    _series = [];
-    _publishers = [];
+    _series.clear();
+    _publishers.clear();
     _staff = [];
     _page = 1;
     _hasMore = true;
@@ -73,14 +75,14 @@ class BrowseResults {
   void markExhausted() => _hasMore = false;
 
   void addSeries(BrowsePage<Series> page) {
-    _series = [..._series, ...page.items];
+    _series.addAll(page.items);
     _total = page.total;
     _isTotalCapped = page.isTotalCapped;
     _hasMore = page.hasMore;
   }
 
   void addPublishers(BrowsePage<Publisher> page) {
-    _publishers = [..._publishers, ...page.items];
+    _publishers.addAll(page.items);
     _total = page.total;
     _hasMore = page.hasMore;
   }
