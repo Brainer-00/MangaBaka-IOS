@@ -1,21 +1,27 @@
 # MangaBaka iOS OAuth Architecture
 
-This document records the intended authentication architecture for MangaBaka iOS. It describes the native/public client model; it does not claim that the final production MangaBaka client registration is complete.
+This document describes the OAuth architecture implemented by MangaBaka iOS v1.0.0.
 
-## Native/Public OAuth client and flow
+## Native/public client
 
-MangaBaka iOS is designed as a **native/public OAuth client** using:
+MangaBaka iOS is a native/public OAuth client. A distributed application cannot keep an embedded client secret confidential, so no client secret is included in source code, build configuration, the application bundle, or the IPA.
 
-- OAuth 2.0 Authorization Code flow
-- PKCE with the `S256` code challenge method
-- system/browser authorization instead of collecting a username and password in the app
-- redirect URI `io.github.brainer00.mangabaka-ios://oauthredirect`
+The client ID identifies the public application. It is configured for the build but is not treated as a password.
 
-A client secret must not be embedded in this repository, application bundle, or IPA. A distributed native application cannot keep an embedded secret confidential.
+## Authorization flow
 
-## Intended scopes
+Authentication uses:
 
-The intended MangaBaka scopes are:
+- OAuth 2.0 Authorization Code flow;
+- PKCE with the `S256` code-challenge method;
+- the system browser/authorization session rather than an in-app username/password form; and
+- the exact redirect URI `io.github.brainer00.mangabaka-ios://oauthredirect`.
+
+The custom-scheme redirect is validated before an authorization code is accepted. OAuth state and PKCE verification bind the callback to the authorization request.
+
+## Scopes
+
+The current requested MangaBaka scopes are:
 
 - `openid`
 - `profile`
@@ -23,25 +29,49 @@ The intended MangaBaka scopes are:
 - `library.write`
 - `offline_access`
 
-Scope meanings and the application privacy impact are documented in [PRIVACY.md](../PRIVACY.md).
+Their user-facing purposes and privacy implications are described in [PRIVACY.md](../PRIVACY.md).
 
-## Token handling
+## Token storage
 
-OAuth access, refresh, and ID tokens are stored through `AuthStorage`, which uses secure platform storage through `flutter_secure_storage`. On iOS, this maps to Keychain-backed storage.
+`AuthStorage` stores access, refresh, and ID tokens, access-token expiration data, and cached MangaBaka profile state through `flutter_secure_storage`. On iOS, this is backed by Keychain.
 
-Application logging must not expose access tokens, refresh tokens, ID tokens, authorization codes, PKCE values, or OAuth `state` values. Diagnostic logging should preserve only the minimum sanitized context required for troubleshooting.
+Production authentication storage does not fall back to ordinary preferences. Storage failures are surfaced and fail closed where session or token restoration depends on them. An insecure preference fallback exists only behind an explicit testing option and is not enabled for normal application use.
 
-## Configuration
+## Installation-session guard
 
-The production OAuth client ID should be configured externally for the build environment. A client ID identifies the public client and is not treated as a password.
+iOS may retain Keychain entries when an app is uninstalled while removing ordinary application preferences. MangaBaka iOS therefore stores a dedicated installation sentinel outside Keychain.
 
-`.env` is a local/build configuration mechanism. It is **not** a secret-storage mechanism for a native client secret, and no client secret should be added to `.env`, source code, CI configuration, or a built IPA.
+At startup:
 
-## Known pre-release authentication work
+1. If the sentinel exists, normal session restoration proceeds.
+2. If the sentinel is absent and narrowly validated legacy-install evidence exists, the app records the sentinel and preserves the existing session during migration.
+3. If neither exists, the app treats the launch as a fresh iOS installation, clears retained MangaBaka authentication credentials and cached profile state, then records the new sentinel before session restoration can proceed.
+4. If cleanup or sentinel persistence fails, session restoration is blocked and the guard retries on a later launch.
 
-- MangaBaka OAuth application registration still needs to be finalized as a public/native application.
-- Refresh-token revocation and end-session behavior still need validation against the real registered client.
-- iOS AppAuth and authorization/cache behavior need a separate security review.
-- Physical-device sign-in, token refresh, logout, and reinstall tests are required.
+Normal relaunches and application updates preserve the sentinel and authenticated session.
 
-These are release-readiness tasks. They are not implemented or resolved by the documentation and Privacy & Legal UI changes that introduced this document.
+## Expiration and refresh
+
+The application stores access-token expiration information and refreshes access tokens when they are near expiry or expired and a refresh token is available. A successful refresh updates rotated tokens, preserves optional tokens that the provider does not replace, and updates or removes stored expiration data to match the response.
+
+Concurrent callers share one in-flight refresh operation. This single-flight protection avoids duplicate refresh requests and races when a provider rotates refresh tokens.
+
+Authenticated GET requests use controlled unauthorized recovery. After an HTTP 401, the client can force one shared refresh and retry the request once with the replacement access token. A second 401 is not replayed indefinitely, and mutation requests are not automatically replayed by this recovery path.
+
+Explicit structured OAuth errors `invalid_grant` and `invalid_token`, or a missing required refresh token, expire the local session. Generic or transient refresh failures do not use error-message substring matching and do not automatically destroy an otherwise recoverable session.
+
+## Logging boundaries
+
+Application logs must not persist access tokens, refresh tokens, ID tokens, authorization codes, client secrets, PKCE verifier/challenge values, OAuth state, sensitive URL query values, email addresses, local user-home paths, raw exceptions, or raw stack traces.
+
+Diagnostics retain only sanitized operational context such as the operation, HTTP status, page/count, or runtime error type where useful.
+
+## Logout
+
+Local logout clears MangaBaka authentication credentials and cached profile state from secure storage and clears the locally cached MangaBaka library.
+
+Current limitation: logout does **not** claim to revoke MangaBaka server-side OAuth tokens or perform a guaranteed server-side end-session action. Server-side revocation/end-session support may be evaluated separately after v1 without changing the local logout guarantee documented here.
+
+## Verification status
+
+The implemented flow has automated coverage for local logout and authentication-storage behavior, exact OAuth error classification, expiration and refresh behavior, single-flight concurrency, controlled 401 recovery, and the reinstall guard. Physical-device QA covered sign-in, relaunch session preservation, and a true uninstall/reinstall starting logged out.
