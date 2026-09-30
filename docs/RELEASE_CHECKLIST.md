@@ -10,6 +10,7 @@ This checklist records the verified release-candidate state and the small remain
 - [x] Version `1.0.0+15` is sourced from `pubspec.yaml` and generated into application version constants.
 - [x] The existing MangaBaka iOS logo/icon and sample title/cover fixture are intentionally retained.
 - [x] The supported and distributed focus is iPhone/iPad through unsigned IPA sideloading.
+- [x] Final physical-device findings were addressed in implementation with automated regression coverage for mobile import layout, progress-state transitions, progress update rollback/error handling, and import pre-read bounds.
 
 ### OAuth, storage, and device QA
 
@@ -46,11 +47,12 @@ This checklist records the verified release-candidate state and the small remain
 - [x] Align README, privacy, OAuth, terms, security, attribution, changelog, contribution, and checklist documentation with actual v1 behavior.
 - [x] Point the README at the canonical logo asset and remove only its byte-for-byte duplicate README copy.
 - [x] Remove the unused direct `meta` dependency through the Flutter resolver without unrelated dependency upgrades.
-- [ ] Review and merge the release-freeze pull request.
+- [x] Review and merge the documentation release-freeze pull request (#22).
+- [ ] Physically revalidate the corrected Import List and progress behavior using the final branch/CI IPA.
 - [ ] Create the exact version tag and allow the tag-driven workflow to publish the first GitHub release.
 - [ ] Verify the published release contains exactly the expected unsigned IPA, checksum, and release notes.
 
-The unchecked items are publication steps and do not indicate missing application functionality in the validated release candidate.
+The unchecked items are final physical-device revalidation and publication steps; they do not indicate missing application functionality in the automated release-candidate validation.
 
 ## Accepted/non-blocking limitations
 

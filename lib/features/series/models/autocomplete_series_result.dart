@@ -9,6 +9,7 @@ class AutocompleteSeriesResult {
   final int? year;
   final List<String> genres;
   final List<String> allTitles;
+  final String contentRating;
 
   const AutocompleteSeriesResult({
     required this.id,
@@ -18,6 +19,7 @@ class AutocompleteSeriesResult {
     this.year,
     this.genres = const [],
     this.allTitles = const [],
+    this.contentRating = '',
   });
 
   factory AutocompleteSeriesResult.fromJson(Map<String, dynamic> json) {
@@ -32,7 +34,7 @@ class AutocompleteSeriesResult {
           allTitlesList.add(t['title'].toString());
         }
       }
-      
+
       // Try to find an English one in the array, then any primary, then first
       String langOf(dynamic t) =>
           (t is Map ? t['language']?.toString() : null)?.toLowerCase() ?? '';
@@ -46,20 +48,22 @@ class AutocompleteSeriesResult {
             l.contains('romaji') ||
             traits.contains('romanized');
       }
+
       Map<String, dynamic>? pick(bool Function(dynamic) test) {
         for (final t in titles) {
           if (t is Map && test(t)) return t.cast<String, dynamic>();
         }
         return null;
       }
-      
-      final chosen = pick((t) => langOf(t) == 'en') ??
+
+      final chosen =
+          pick((t) => langOf(t) == 'en') ??
           pick(isRomanized) ??
           pick((t) => t is Map && t['is_primary'] == true) ??
           (titles.first is Map
               ? (titles.first as Map).cast<String, dynamic>()
               : null);
-              
+
       if (chosen != null) {
         displayTitle = chosen['title']?.toString() ?? '';
       }
@@ -80,11 +84,12 @@ class AutocompleteSeriesResult {
     }
     if (json['romanized_title'] != null) {
       final romanizedTitle = json['romanized_title'].toString();
-      if (romanizedTitle.isNotEmpty && !allTitlesList.contains(romanizedTitle)) {
+      if (romanizedTitle.isNotEmpty &&
+          !allTitlesList.contains(romanizedTitle)) {
         allTitlesList.add(romanizedTitle);
       }
     }
-    
+
     // Handle 'secondary_titles' map if present
     final secondaryTitles = json['secondary_titles'];
     if (secondaryTitles is Map) {
@@ -98,7 +103,7 @@ class AutocompleteSeriesResult {
         }
       });
     }
-    
+
     if (displayTitle.isEmpty) {
       displayTitle = json['title']?.toString() ?? 'Unknown Title';
     }
@@ -141,13 +146,19 @@ class AutocompleteSeriesResult {
     year ??= json['year'] is int ? json['year'] as int : null;
 
     return AutocompleteSeriesResult(
-      id: (json['id'] is int) ? json['id'] : int.tryParse(json['id']?.toString() ?? '') ?? 0,
+      id: (json['id'] is int)
+          ? json['id']
+          : int.tryParse(json['id']?.toString() ?? '') ?? 0,
       title: displayTitle,
       thumbnailUrl: thumbnail,
       type: json['type']?.toString() ?? '',
       year: year,
       genres: genresList,
-      allTitles: allTitlesList.where((t) => t.isNotEmpty).toSet().toList(), // Deduplicate
+      allTitles: allTitlesList
+          .where((t) => t.isNotEmpty)
+          .toSet()
+          .toList(), // Deduplicate
+      contentRating: json['content_rating']?.toString() ?? '',
     );
   }
 
@@ -160,6 +171,7 @@ class AutocompleteSeriesResult {
     int? year,
     List<String> genres = const [],
     List<String> allTitles = const [],
+    String contentRating = '',
   }) {
     return AutocompleteSeriesResult(
       id: id,
@@ -169,13 +181,16 @@ class AutocompleteSeriesResult {
       year: year,
       genres: genres,
       allTitles: allTitles,
+      contentRating: contentRating,
     );
   }
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is AutocompleteSeriesResult && runtimeType == other.runtimeType && id == other.id;
+      other is AutocompleteSeriesResult &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
 
   @override
   int get hashCode => id.hashCode;

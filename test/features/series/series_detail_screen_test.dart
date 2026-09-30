@@ -191,6 +191,44 @@ void main() {
     expect(find.text('Fetched Title'), findsAtLeast(1));
   });
 
+  testWidgets('progress dialog uses the freshest fetched series total', (
+    tester,
+  ) async {
+    final key = GlobalKey<SeriesDetailScreenState>();
+    final initial = Series.fromJson({
+      'id': '123',
+      'title': 'Test Manga',
+      'description': 'Initial description',
+      'total_chapters': '120',
+    });
+    mockSeriesService.seriesResponse = Series.fromJson({
+      'id': '123',
+      'title': 'Test Manga',
+      'description': 'Fresh description',
+      'total_chapters': '121',
+    });
+    final entry = LibraryEntry(
+      id: 'entry-123',
+      state: 'reading',
+      progressChapter: 2,
+      series: initial,
+    );
+    mockLibraryService.currentEntry = entry;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SeriesDetailScreen(key: key, series: initial),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(key.currentState!.series.totalChapters, '121');
+    key.currentState!.showUpdateProgressDialog(entry, isChapter: true);
+    await tester.pumpAndSettle();
+
+    expect(find.text('total: 121'), findsOneWidget);
+  });
+
   testWidgets('SeriesDetailScreen shows error banner on fetch failure', (
     WidgetTester tester,
   ) async {

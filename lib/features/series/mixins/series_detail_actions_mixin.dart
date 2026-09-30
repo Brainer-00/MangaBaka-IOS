@@ -58,14 +58,23 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
         child: ProgressUpdateDialog(
-          initialValue: (isChapter ? entry.progressChapter : entry.progressVolume) ?? 0,
-          title: isChapter ? l10n.translate('update_chapters') : l10n.translate('update_volumes'),
+          initialValue:
+              (isChapter ? entry.progressChapter : entry.progressVolume) ?? 0,
+          title: isChapter
+              ? l10n.translate('update_chapters')
+              : l10n.translate('update_volumes'),
           maxValue: isChapter ? series.totalChapters : series.finalVolume,
-          onUpdate: (value) {
+          onUpdate: (value) async {
             if (isChapter) {
-              libraryService.updateLibraryEntryProgress(series.id, progressChapter: value);
+              await libraryService.updateLibraryEntryProgress(
+                series.id,
+                progressChapter: value,
+              );
             } else {
-              libraryService.updateLibraryEntryProgress(series.id, progressVolume: value);
+              await libraryService.updateLibraryEntryProgress(
+                series.id,
+                progressVolume: value,
+              );
             }
           },
         ),

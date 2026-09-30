@@ -90,7 +90,7 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen>
   SeriesService get seriesService => _seriesService;
 
   @override
-  Series get series => widget.series;
+  Series get series => fullSeries ?? widget.series;
 
   @override
   bool get isAdding => _isAdding;

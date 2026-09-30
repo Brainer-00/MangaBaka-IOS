@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 
 /// A series cover at the design system's corner radius, with a consistent
@@ -16,6 +17,7 @@ class MbCover extends StatelessWidget {
   final double radius;
   final BoxFit fit;
   final int? memCacheWidth;
+  final String contentRating;
 
   const MbCover({
     super.key,
@@ -25,12 +27,13 @@ class MbCover extends StatelessWidget {
     this.radius = 14,
     this.fit = BoxFit.cover,
     this.memCacheWidth,
+    this.contentRating = '',
   });
 
   @override
   Widget build(BuildContext context) {
     final h = height ?? width * 1.5;
-    return ClipRRect(
+    Widget cover(bool blurred) => ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: Container(
         width: width,
@@ -42,8 +45,16 @@ class MbCover extends StatelessWidget {
           height: h,
           fit: fit,
           memCacheWidth: memCacheWidth,
+          blurred: blurred,
         ),
       ),
+    );
+
+    if (contentRating.isEmpty) return cover(false);
+    return ListenableBuilder(
+      listenable: SettingsManager(),
+      builder: (context, _) =>
+          cover(WidgetUtils.isRatingBlurred(contentRating)),
     );
   }
 }

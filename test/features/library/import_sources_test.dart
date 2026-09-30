@@ -58,6 +58,29 @@ Uint8List _gzipRepeatedByte(int byte, int count) {
 
 void main() {
   group('ImportFileReader', () {
+    test('declared oversized file is rejected before bytes are read', () async {
+      var readCalled = false;
+
+      await expectLater(
+        readBoundedImportFile(
+          declaredSize: ImportFileReader.maxSourceBytes + 1,
+          readBytes: () async {
+            readCalled = true;
+            return Uint8List(0);
+          },
+        ),
+        throwsA(
+          isA<ImportSourceException>().having(
+            (error) => error.key,
+            'key',
+            'import_file_failed',
+          ),
+        ),
+      );
+
+      expect(readCalled, isFalse);
+    });
+
     test('plain text passes through', () {
       expect(
         ImportFileReader.readText(Uint8List.fromList(utf8.encode('A\nB'))),

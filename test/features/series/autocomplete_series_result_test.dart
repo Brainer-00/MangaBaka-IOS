@@ -8,10 +8,12 @@ void main() {
         'id': 42,
         'title': 'Naruto',
         'type': 'manga',
+        'content_rating': 'suggestive',
       });
       expect(r.id, 42);
       expect(r.title, 'Naruto');
       expect(r.type, 'manga');
+      expect(r.contentRating, 'suggestive');
       expect(r.allTitles, contains('Naruto'));
     });
 
@@ -47,7 +49,9 @@ void main() {
 
       final onlyX350 = AutocompleteSeriesResult.fromJson({
         'id': 2,
-        'cover': {'x350': {'x1': 'med.png'}},
+        'cover': {
+          'x350': {'x1': 'med.png'},
+        },
       });
       expect(onlyX350.thumbnailUrl, 'med.png');
     });
@@ -77,7 +81,9 @@ void main() {
       final r = AutocompleteSeriesResult.fromJson({
         'id': 1,
         'title': 'X',
-        'titles': [{'title': 'X', 'language': 'en'}],
+        'titles': [
+          {'title': 'X', 'language': 'en'},
+        ],
       });
       expect(r.allTitles.where((t) => t == 'X').length, 1);
     });
@@ -87,17 +93,28 @@ void main() {
         'id': 1,
         'title': 'Legacy Title',
         'titles': [
-          {'title': 'Primary English Title', 'language': 'en', 'is_primary': true},
+          {
+            'title': 'Primary English Title',
+            'language': 'en',
+            'is_primary': true,
+          },
           {'title': 'Alternative Title', 'language': 'ja', 'is_primary': false},
         ],
       });
       expect(r.title, 'Primary English Title');
-      expect(r.allTitles, containsAll(['Primary English Title', 'Alternative Title']));
+      expect(
+        r.allTitles,
+        containsAll(['Primary English Title', 'Alternative Title']),
+      );
     });
 
     test('equality is based on id only', () {
       const a = AutocompleteSeriesResult(id: 1, title: 'A', thumbnailUrl: '');
-      const b = AutocompleteSeriesResult(id: 1, title: 'Different', thumbnailUrl: '');
+      const b = AutocompleteSeriesResult(
+        id: 1,
+        title: 'Different',
+        thumbnailUrl: '',
+      );
       const c = AutocompleteSeriesResult(id: 2, title: 'A', thumbnailUrl: '');
       expect(a, b);
       expect(a, isNot(c));
@@ -113,6 +130,7 @@ void main() {
         year: 2020,
         genres: ['x'],
         allTitles: ['Local'],
+        contentRating: 'erotica',
       );
       expect(r.id, 9);
       expect(r.title, 'Local');
@@ -121,6 +139,7 @@ void main() {
       expect(r.year, 2020);
       expect(r.genres, ['x']);
       expect(r.allTitles, ['Local']);
+      expect(r.contentRating, 'erotica');
     });
   });
 }

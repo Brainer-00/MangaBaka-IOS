@@ -100,6 +100,18 @@ abstract final class ImportFileReader {
   }
 }
 
+/// Rejects an oversized import before invoking the platform file read, while
+/// retaining [ImportFileReader.readText]'s internal bound as defense in depth.
+Future<String> readBoundedImportFile({
+  required int declaredSize,
+  required Future<Uint8List> Function() readBytes,
+}) async {
+  if (declaredSize > ImportFileReader.maxSourceBytes) {
+    throw const ImportSourceException('import_file_failed');
+  }
+  return ImportFileReader.readText(await readBytes());
+}
+
 final List<int> _gzipCrc32Table = List<int>.generate(256, (value) {
   var crc = value;
   for (var bit = 0; bit < 8; bit++) {

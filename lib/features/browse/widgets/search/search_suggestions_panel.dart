@@ -2,7 +2,7 @@ import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/features/series/models/autocomplete_series_result.dart';
-import 'package:mangabaka_app/core/utils/widget_utils.dart';
+import 'package:mangabaka_app/core/widgets/design/mb_cover.dart';
 
 class SearchSuggestionsPanel extends StatelessWidget {
   final List<AutocompleteSeriesResult> results;
@@ -92,17 +92,13 @@ class SearchSuggestionsPanel extends StatelessWidget {
           child: Row(
             children: [
               // Thumbnail
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: SizedBox(
-                  width: 36,
-                  height: 52,
-                  child: WidgetUtils.networkImage(
-                    url: result.thumbnailUrl,
-                    fit: BoxFit.cover,
-                    memCacheWidth: 80,
-                  ),
-                ),
+              MbCover(
+                url: result.thumbnailUrl,
+                width: 36,
+                height: 52,
+                radius: 6,
+                memCacheWidth: 80,
+                contentRating: result.contentRating,
               ),
               const SizedBox(width: 12),
               // Title + metadata

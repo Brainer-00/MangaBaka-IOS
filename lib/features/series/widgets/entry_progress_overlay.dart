@@ -228,15 +228,15 @@ class EntryProgressOverlay extends StatelessWidget {
             _isChapter ? 'update_chapters' : 'update_volumes',
           ),
           maxValue: _isChapter ? series.totalChapters : series.finalVolume,
-          onUpdate: (value) {
+          onUpdate: (value) async {
             final library = getIt<LibraryService>();
             if (_isChapter) {
-              library.updateLibraryEntryProgress(
+              await library.updateLibraryEntryProgress(
                 series.id,
                 progressChapter: value,
               );
             } else {
-              library.updateLibraryEntryProgress(
+              await library.updateLibraryEntryProgress(
                 series.id,
                 progressVolume: value,
               );
