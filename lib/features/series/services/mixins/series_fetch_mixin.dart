@@ -29,7 +29,7 @@ mixin SeriesFetchMixin {
   Map<String, Series> get cache => _cache;
 
   void precacheSeries(Series series) {
-    _cache[series.id] = series;
+    _store(series.id, series);
   }
 
   Future<Series> fetchSeries(String id) async {
@@ -81,7 +81,9 @@ mixin SeriesFetchMixin {
   }
 
   void _store(String id, Series series) {
-    if (_cache.length >= _maxCacheSize) {
+    // Replacing an existing id does not consume another slot. Preserve the
+    // map's current FIFO insertion order; this cache is intentionally not LRU.
+    if (!_cache.containsKey(id) && _cache.length >= _maxCacheSize) {
       _cache.remove(_cache.keys.first);
     }
     _cache[id] = series;
