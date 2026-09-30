@@ -2,23 +2,29 @@
 
 ## MangaBaka iOS project
 
-MangaBaka iOS is independently maintained by [Brainer-00](https://github.com/Brainer-00) and project contributors.
+MangaBaka iOS is independently maintained by [Brainer-00](https://github.com/Brainer-00) and project contributors. It is not an official MangaBaka release and is not affiliated with or endorsed by MangaBaka, Oazzies, or the original maintainers.
 
 ## Upstream application code
 
-MangaBaka iOS is derived from the open-source [MangaBaka App](https://github.com/Oazzies/MangaBaka-App), originally maintained by Oazzies and contributors.
+MangaBaka iOS is derived from the open-source [Oazzies/MangaBaka-App](https://github.com/Oazzies/MangaBaka-App), originally maintained by Oazzies and contributors.
 
-The upstream application and this derivative are distributed under the [Apache License 2.0](LICENSE). Upstream attribution is a permanent part of this project and should not be removed.
+The upstream application code and this repository's application code are distributed under the [Apache License 2.0](LICENSE), as applicable. Upstream attribution is a permanent part of this project and should not be removed.
 
-## MangaBaka service/data
+## MangaBaka service and data
 
-Data displayed by the client is retrieved from MangaBaka APIs. MangaBaka's current data/API licensing and attribution requirements are defined by MangaBaka at [mangabaka.org/data/api](https://mangabaka.org/data/api).
+Data displayed by the client is retrieved from MangaBaka APIs. MangaBaka's data/API licensing and attribution requirements are documented at [mangabaka.org/data/api](https://mangabaka.org/data/api).
 
-This repository does not claim ownership of MangaBaka's database. Third-party metadata surfaced through MangaBaka may remain subject to the original provider's licensing, attribution, and usage requirements.
+The software license for this repository does not grant ownership of or rights to MangaBaka's service/database data. MangaBaka data remains governed by MangaBaka's own data/API terms and policies.
+
+Third-party title metadata, cover artwork, marks, logos, and similar materials remain the property of their respective owners or providers and may be subject to separate licenses, attribution requirements, and usage terms. This project does not claim ownership of MangaBaka branding or third-party cover art.
+
+## Retained application fixture
+
+The retained sample manga title/cover material is used only as an application UI, test, or fixture asset. It is not hosted reading content, and the application does not provide manga chapters or scanlations. Rights in the title, cover artwork, and associated marks remain with their respective owners or providers.
 
 ## Fonts
 
-Bundled license notices are stored in [`assets/fonts/licenses/`](assets/fonts/licenses/):
+Bundled font and icon license notices are stored in [`assets/fonts/licenses/`](assets/fonts/licenses/):
 
 - Bakbak One — `BakbakOne-OFL-1.1.txt`
 - Outfit — `Outfit-OFL-1.1.txt`
@@ -26,10 +32,8 @@ Bundled license notices are stored in [`assets/fonts/licenses/`](assets/fonts/li
 
 ## Dependencies
 
-Flutter, Dart, and third-party packages used by the application remain under their respective licenses. MangaBaka iOS exposes Flutter's framework/package license information through its in-app **Open-Source Licenses** screen.
+Flutter, Dart, and third-party packages used by the application remain under their respective licenses. MangaBaka iOS exposes framework and package license information through its in-app **Open-Source Licenses** screen.
 
 ## Branding
 
-“MangaBaka,” MangaBaka branding, the upstream application's branding, and related marks belong to their respective owners. MangaBaka iOS is an independent project and does not claim official MangaBaka status.
-
-The current inherited application icon is not claimed as original artwork created for MangaBaka iOS. Replacing it with an original project icon remains pre-release work.
+“MangaBaka,” MangaBaka branding, the upstream application's branding, and other third-party marks belong to their respective owners. Retaining the existing application logo/icon does not assert ownership, authorization, sponsorship, or endorsement.

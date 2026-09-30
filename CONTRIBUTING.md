@@ -176,6 +176,11 @@ assets/lang/languages.json
 
 Translation changes should preserve the existing structure and keys.
 
+English is the source and fallback language. Translations may lag newer English
+strings, and missing keys intentionally fall back to English in the application.
+Contributors are welcome to update translations, but should preserve existing
+keys and file structure and avoid unrelated machine-generated rewrites.
+
 ## License
 
 MangaBaka iOS is distributed under the Apache License 2.0 in accordance with the license of the upstream MangaBaka App.
