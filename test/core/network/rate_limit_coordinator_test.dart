@@ -216,30 +216,30 @@ void main() {
         ]);
 
         expect(admittedDelays.first, const Duration(seconds: 10));
-        expect(
-          admittedDelays.skip(1),
-          List.filled(count - 1, spacing),
-        );
+        expect(admittedDelays.skip(1), List.filled(count - 1, spacing));
         expect(admittedDelays.length, count);
         expect(herd.isCoolingDown, isFalse);
       });
     }
 
-    test('a later 429 extension remains a hard minimum for admission', () async {
-      final delayRequests = <Duration>[];
-      final herd = RateLimitCoordinator(
-        clock: () => now,
-        delay: (duration) async {
-          delayRequests.add(duration);
-          now = now.add(duration);
-        },
-      );
-      herd.updateFromRetryAfter('5');
-      herd.updateFromRetryAfter('10');
+    test(
+      'a later 429 extension remains a hard minimum for admission',
+      () async {
+        final delayRequests = <Duration>[];
+        final herd = RateLimitCoordinator(
+          clock: () => now,
+          delay: (duration) async {
+            delayRequests.add(duration);
+            now = now.add(duration);
+          },
+        );
+        herd.updateFromRetryAfter('5');
+        herd.updateFromRetryAfter('10');
 
-      await herd.waitForRetryAdmission();
+        await herd.waitForRetryAdmission();
 
-      expect(delayRequests, [const Duration(seconds: 10)]);
-    });
+        expect(delayRequests, [const Duration(seconds: 10)]);
+      },
+    );
   });
 }

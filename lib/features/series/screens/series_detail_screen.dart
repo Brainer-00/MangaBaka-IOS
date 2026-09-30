@@ -127,9 +127,7 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen>
           _logger.info('Full series data fetch complete');
         })
         .catchError((Object e) {
-          _logger.severe(
-            'Full series data fetch failed (${e.runtimeType})',
-          );
+          _logger.severe('Full series data fetch failed (${e.runtimeType})');
         });
   }
 

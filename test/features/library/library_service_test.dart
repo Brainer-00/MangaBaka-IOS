@@ -217,9 +217,7 @@ void main() {
 
         for (final operation in operations) {
           var calls = 0;
-          final rateLimits = RateLimitCoordinator(
-            delay: (_) async {},
-          );
+          final rateLimits = RateLimitCoordinator(delay: (_) async {});
           service = LibraryService(
             auth: mockAuth,
             database: getIt<AppDatabase>(),

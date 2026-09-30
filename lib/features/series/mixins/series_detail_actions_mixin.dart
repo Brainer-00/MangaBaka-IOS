@@ -126,17 +126,23 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
                   onTap: () {
                     Navigator.pop(context);
                     final box = this.context.findRenderObject() as RenderBox?;
-                    SharePlus.instance.share(ShareParams(
-                      text: link,
-                      sharePositionOrigin: box != null
-                          ? box.localToGlobal(Offset.zero) & box.size
-                          : null,
-                    ));
+                    SharePlus.instance.share(
+                      ShareParams(
+                        text: link,
+                        sharePositionOrigin: box != null
+                            ? box.localToGlobal(Offset.zero) & box.size
+                            : null,
+                      ),
+                    );
                   },
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Divider(height: 1, thickness: 0.5, color: AppConstants.textColor.withValues(alpha: 0.1)),
+                  child: Divider(
+                    height: 1,
+                    thickness: 0.5,
+                    color: AppConstants.textColor.withValues(alpha: 0.1),
+                  ),
                 ),
                 _buildShareOption(
                   icon: Icons.copy_rounded,
@@ -195,10 +201,7 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
         backgroundColor: AppConstants.secondaryBackground,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppConstants.largeRadius),
-          side: BorderSide(
-            color: AppConstants.tertiaryBackground,
-            width: 1.5,
-          ),
+          side: BorderSide(color: AppConstants.tertiaryBackground, width: 1.5),
         ),
         titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
         contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -231,7 +234,11 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
         ),
         content: Text(
           l10n.translate('delete_confirmation'),
-          style: AppTypography.sans(color: AppConstants.textMutedColor, fontSize: 15, height: 1.4),
+          style: AppTypography.sans(
+            color: AppConstants.textMutedColor,
+            fontSize: 15,
+            height: 1.4,
+          ),
         ),
         actions: [
           TextButton(
@@ -286,7 +293,9 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
     Clipboard.setData(ClipboardData(text: text));
     AppSnackBar.show(
       context,
-      LocalizationService().translate('copied_to_clipboard').replaceAll('{text}', text),
+      LocalizationService()
+          .translate('copied_to_clipboard')
+          .replaceAll('{text}', text),
       duration: const Duration(seconds: 2),
     );
   }
@@ -295,7 +304,10 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
     if (isAdding) return;
     setState(() => isAdding = true);
     try {
-      await libraryService.createLibraryEntry(series.id, SettingsManager().addLibraryDefaultTab);
+      await libraryService.createLibraryEntry(
+        series.id,
+        SettingsManager().addLibraryDefaultTab,
+      );
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(

@@ -26,6 +26,7 @@ class RateLimitCoordinator {
 
   final RateLimitClock _clock;
   final RateLimitDelay _delay;
+
   /// Deterministic spacing after a real cooldown; this is a tunable policy,
   /// not a claim about an optimal backend pacing value.
   final Duration retryAdmissionSpacing;

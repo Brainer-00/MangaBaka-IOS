@@ -54,8 +54,10 @@ class EntryProgressOverlay extends StatelessWidget {
     ],
   );
 
-  static const EdgeInsets _badgePadding =
-      EdgeInsets.symmetric(horizontal: 8, vertical: 4);
+  static const EdgeInsets _badgePadding = EdgeInsets.symmetric(
+    horizontal: 8,
+    vertical: 4,
+  );
 
   static final BorderRadius _badgeRadius = BorderRadius.circular(20);
 
@@ -69,8 +71,7 @@ class EntryProgressOverlay extends StatelessWidget {
 
   int get _progress {
     if (progressOverride != null) return progressOverride!;
-    final value =
-        _isChapter ? entry?.progressChapter : entry?.progressVolume;
+    final value = _isChapter ? entry?.progressChapter : entry?.progressVolume;
     return value ?? 0;
   }
 

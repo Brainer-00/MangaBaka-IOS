@@ -30,11 +30,7 @@ void main() {
   }) => tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
-        body: MbCover(
-          url: _cover,
-          width: 100,
-          contentRating: contentRating,
-        ),
+        body: MbCover(url: _cover, width: 100, contentRating: contentRating),
       ),
     ),
   );
