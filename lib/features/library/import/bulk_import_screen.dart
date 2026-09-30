@@ -317,6 +317,20 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
           decoration: InputDecoration(
             hintText: l10n.translate('import_paste_hint'),
             contentPadding: const EdgeInsets.all(18),
+            // The global input theme is intentionally pill-shaped for compact
+            // fields. This tall editor needs the standard card geometry.
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppConstants.cardRadius),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppConstants.cardRadius),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppConstants.cardRadius),
+              borderSide: BorderSide.none,
+            ),
           ),
         ),
         const SizedBox(height: 12),

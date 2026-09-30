@@ -89,9 +89,25 @@ Series _series(String title) => Series(
 class _ControlledHomeService extends Fake implements HomeService {
   final readinessRequests = <Completer<ForYouReadiness?>>[];
   final trendingRequests = <_TrendingRequest>[];
+  final risingRequests = <Completer<List<Series>>>[];
+  final hiddenGemsRequests = <Completer<List<Series>>>[];
+  final newReleasesRequests = <Completer<List<Series>>>[];
+  final topGenreRailRequests = <Completer<List<TopGenreRail>>>[];
   final readyBatchLabels = <String>[];
   List<Series> immediateTrending = const [];
+  List<Series> immediateRising = const [];
+  List<Series> immediateHiddenGems = const [];
+  List<Series> immediateNewReleases = const [];
   bool holdTrending = false;
+  bool holdRising = false;
+  bool holdHiddenGems = false;
+  bool holdNewReleases = false;
+  bool holdTopGenreRails = false;
+  int trendingFetches = 0;
+  int risingFetches = 0;
+  int hiddenGemsFetches = 0;
+  int newReleasesFetches = 0;
+  int topGenreRailFetches = 0;
   int requestCount = 0;
   int _readyBatch = -1;
   int disposeCount = 0;
@@ -118,6 +134,7 @@ class _ControlledHomeService extends Fake implements HomeService {
     int limit = 20,
   }) async {
     requestCount++;
+    trendingFetches++;
     if (!holdTrending) return immediateTrending;
     final completer = Completer<List<Series>>();
     trendingRequests.add(
@@ -129,26 +146,42 @@ class _ControlledHomeService extends Fake implements HomeService {
   @override
   Future<List<Series>> fetchRising({int limit = 20, int windowDays = 7}) async {
     requestCount++;
-    return const [];
+    risingFetches++;
+    if (!holdRising) return immediateRising;
+    final completer = Completer<List<Series>>();
+    risingRequests.add(completer);
+    return completer.future;
   }
 
   @override
   Future<List<Series>> fetchHiddenGems({int limit = 20}) async {
     requestCount++;
-    return const [];
+    hiddenGemsFetches++;
+    if (!holdHiddenGems) return immediateHiddenGems;
+    final completer = Completer<List<Series>>();
+    hiddenGemsRequests.add(completer);
+    return completer.future;
   }
 
   @override
   Future<List<Series>> fetchNewReleases({int limit = 20}) async {
     requestCount++;
-    return const [];
+    newReleasesFetches++;
+    if (!holdNewReleases) return immediateNewReleases;
+    final completer = Completer<List<Series>>();
+    newReleasesRequests.add(completer);
+    return completer.future;
   }
 
   @override
   Future<List<TopGenreRail>> fetchTopGenreRails({int genres = 3}) async {
     // One top-genres request plus up to three top-in-genre requests.
     requestCount += 4;
-    return const [];
+    topGenreRailFetches++;
+    if (!holdTopGenreRails) return const [];
+    final completer = Completer<List<TopGenreRail>>();
+    topGenreRailRequests.add(completer);
+    return completer.future;
   }
 
   @override
@@ -249,7 +282,7 @@ void main() {
         auth.notifyAuthChanged();
         await tester.pump();
 
-        expect(actualRequests, 1);
+        expect(actualRequests, 9);
 
         heldReadiness.complete(
           http.Response(
@@ -287,7 +320,7 @@ void main() {
       home.readinessRequests[0].complete(_ready);
       await tester.pumpAndSettle();
 
-      expect(home.requestCount, 20);
+      expect(home.requestCount, 19);
       expect(find.text('New Result'), findsOneWidget);
       expect(find.text('Old Result'), findsNothing);
     });
@@ -354,6 +387,122 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('Too Late'), findsNothing);
     });
+
+    testWidgets('public rails start before For-You readiness completes', (
+      tester,
+    ) async {
+      home
+        ..holdRising = true
+        ..holdHiddenGems = true
+        ..holdNewReleases = true
+        ..holdTopGenreRails = true
+        ..holdTrending = true;
+      await tester.pumpWidget(MaterialApp(home: HomeScreen(homeService: home)));
+      await tester.pump();
+
+      expect(home.readinessRequests, hasLength(1));
+      expect(home.trendingFetches, 1);
+      expect(home.risingFetches, 1);
+      expect(home.hiddenGemsFetches, 1);
+      expect(home.newReleasesFetches, 1);
+      expect(home.topGenreRailFetches, 1);
+    });
+
+    testWidgets('held readiness does not display the For You rail', (
+      tester,
+    ) async {
+      await tester.pumpWidget(MaterialApp(home: HomeScreen(homeService: home)));
+      await tester.pump();
+
+      expect(home.readinessRequests.single.isCompleted, isFalse);
+      expect(find.text('FOR YOU'), findsNothing);
+    });
+
+    testWidgets(
+      'a fast public rail renders while readiness and another rail are pending',
+      (tester) async {
+        home
+          ..immediateTrending = [_series('Fast Trending')]
+          ..holdRising = true;
+        await tester.pumpWidget(
+          MaterialApp(home: HomeScreen(homeService: home)),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(home.readinessRequests.single.isCompleted, isFalse);
+        expect(home.risingRequests.single.isCompleted, isFalse);
+        expect(find.text('Fast Trending'), findsOneWidget);
+      },
+    );
+
+    testWidgets('top-genre latency does not hold public rail results', (
+      tester,
+    ) async {
+      home
+        ..immediateHiddenGems = [_series('Fast Hidden Gem')]
+        ..holdTopGenreRails = true;
+      await tester.pumpWidget(MaterialApp(home: HomeScreen(homeService: home)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(home.topGenreRailRequests.single.isCompleted, isFalse);
+      expect(find.text('Fast Hidden Gem'), findsOneWidget);
+    });
+
+    testWidgets('refresh keeps existing rail content while replacement loads', (
+      tester,
+    ) async {
+      home
+        ..immediateRising = [_series('Existing Rising')]
+        ..readyBatchLabels.add('For You');
+      await tester.pumpWidget(MaterialApp(home: HomeScreen(homeService: home)));
+      home.readinessRequests.single.complete(_ready);
+      await tester.pumpAndSettle();
+      expect(find.text('Existing Rising'), findsOneWidget);
+
+      home.holdRising = true;
+      final refresh = tester
+          .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+          .onRefresh();
+      await tester.pump();
+
+      expect(find.text('Existing Rising'), findsOneWidget);
+      expect(home.risingRequests.single.isCompleted, isFalse);
+
+      home.risingRequests.single.complete([_series('Replacement Rising')]);
+      home.readinessRequests[1].complete(_ready);
+      await refresh;
+      await tester.pumpAndSettle();
+      expect(find.text('Replacement Rising'), findsOneWidget);
+    });
+
+    testWidgets(
+      'stale public rail results cannot overwrite a newer generation',
+      (tester) async {
+        home.holdRising = true;
+        await tester.pumpWidget(
+          MaterialApp(home: HomeScreen(homeService: home)),
+        );
+        await tester.pump();
+        expect(home.risingRequests, hasLength(1));
+
+        auth.userId = 'user-b';
+        auth.notifyAuthChanged();
+        await tester.pump();
+        expect(home.risingRequests, hasLength(2));
+
+        home.risingRequests[1].complete([_series('Current Rising')]);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text('Current Rising'), findsOneWidget);
+
+        home.risingRequests[0].complete([_series('Stale Rising')]);
+        await tester.pumpAndSettle();
+        expect(find.text('Current Rising'), findsOneWidget);
+        expect(find.text('Stale Rising'), findsNothing);
+      },
+    );
 
     testWidgets('rapid Trending changes apply only request B', (tester) async {
       home

@@ -52,8 +52,10 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Trending window in days — 7 or 30.
   int _trendingWindow = 7;
 
-  bool _loadingRails = true;
   bool _loadingTrending = true;
+  bool _loadingRising = true;
+  bool _loadingHiddenGems = true;
+  bool _loadingNewReleases = true;
   bool _showForYou = false;
 
   @override
@@ -120,50 +122,114 @@ class _HomeScreenState extends State<HomeScreen> {
   }) async {
     if (!mounted) return;
     setState(() {
-      _loadingRails = true;
-      _loadingTrending = true;
+      // A refresh is signalled by RefreshIndicator. Keep useful rail content in
+      // place rather than replacing it with skeletons while its successor loads.
+      _loadingTrending = _trending.isEmpty;
+      _loadingRising = _rising.isEmpty;
+      _loadingHiddenGems = _hiddenGems.isEmpty;
+      _loadingNewReleases = _newReleases.isEmpty;
     });
 
-    try {
-      // The public rails always load; "For You" is gated on the readiness probe
-      // so a cold profile shows nothing rather than an empty rail.
-      final readiness = await _homeService.fetchForYouReadiness();
-      final wantsForYou = readiness?.isReady ?? false;
-
-      final results = await Future.wait([
-        wantsForYou ? _homeService.fetchForYou() : Future.value(<Series>[]),
-        _homeService.fetchTrending(
+    // Start independent work before waiting on the personalized readiness
+    // probe. Each result owns only its rail, so a slow endpoint cannot keep
+    // already-available public content behind a full-page skeleton.
+    final readiness = _homeService.fetchForYouReadiness();
+    await Future.wait([
+      _loadForYou(generation, readiness),
+      _loadRail(
+        operation: 'Trending',
+        request: _homeService.fetchTrending(
           type: trendingType,
           windowDays: trendingWindow,
         ),
-        _homeService.fetchRising(),
-        _homeService.fetchHiddenGems(),
-        _homeService.fetchNewReleases(),
-        _homeService.fetchTopGenreRails(),
-      ]);
+        isCurrent: () =>
+            _isCurrentRailsGeneration(generation) &&
+            trendingGeneration == _trendingGeneration,
+        apply: (series) => _trending = series,
+        clearLoading: () => _loadingTrending = false,
+      ),
+      _loadRail(
+        operation: 'Rising',
+        request: _homeService.fetchRising(),
+        isCurrent: () => _isCurrentRailsGeneration(generation),
+        apply: (series) => _rising = series,
+        clearLoading: () => _loadingRising = false,
+      ),
+      _loadRail(
+        operation: 'Hidden gems',
+        request: _homeService.fetchHiddenGems(),
+        isCurrent: () => _isCurrentRailsGeneration(generation),
+        apply: (series) => _hiddenGems = series,
+        clearLoading: () => _loadingHiddenGems = false,
+      ),
+      _loadRail(
+        operation: 'New releases',
+        request: _homeService.fetchNewReleases(),
+        isCurrent: () => _isCurrentRailsGeneration(generation),
+        apply: (series) => _newReleases = series,
+        clearLoading: () => _loadingNewReleases = false,
+      ),
+      _loadRail(
+        operation: 'Top genre rails',
+        request: _homeService.fetchTopGenreRails(),
+        isCurrent: () => _isCurrentRailsGeneration(generation),
+        apply: (rails) => _genreRails = rails,
+        clearLoading: () {},
+      ),
+    ]);
+  }
 
-      if (!mounted || generation != _railsGeneration) return;
+  bool _isCurrentRailsGeneration(int generation) =>
+      mounted && generation == _railsGeneration;
+
+  Future<void> _loadRail<T>({
+    required String operation,
+    required Future<T> request,
+    required bool Function() isCurrent,
+    required void Function(T value) apply,
+    required VoidCallback clearLoading,
+  }) async {
+    try {
+      final value = await request;
+      if (!isCurrent()) return;
       setState(() {
-        _forYou = results[0] as List<Series>;
-        _rising = results[2] as List<Series>;
-        _hiddenGems = results[3] as List<Series>;
-        _newReleases = results[4] as List<Series>;
-        _genreRails = results[5] as List<TopGenreRail>;
-        _showForYou = wantsForYou;
-        _loadingRails = false;
-        if (trendingGeneration == _trendingGeneration) {
-          _trending = results[1] as List<Series>;
-          _loadingTrending = false;
-        }
+        apply(value);
+        clearLoading();
       });
     } catch (error) {
-      _logger.warning('Home rails load failed (${error.runtimeType})');
-      if (!mounted || generation != _railsGeneration) return;
+      _logger.warning('Home $operation load failed (${error.runtimeType})');
+      if (!isCurrent()) return;
+      setState(clearLoading);
+    }
+  }
+
+  Future<void> _loadForYou(
+    int generation,
+    Future<ForYouReadiness?> readinessRequest,
+  ) async {
+    try {
+      // "For You" remains gated so cold profiles do not show an empty rail.
+      final readiness = await readinessRequest;
+      if (!_isCurrentRailsGeneration(generation)) return;
+      final wantsForYou = readiness?.isReady ?? false;
+      if (!wantsForYou) {
+        setState(() {
+          _showForYou = false;
+        });
+        return;
+      }
+
+      final series = await _homeService.fetchForYou();
+      if (!_isCurrentRailsGeneration(generation)) return;
       setState(() {
-        _loadingRails = false;
-        if (trendingGeneration == _trendingGeneration) {
-          _loadingTrending = false;
-        }
+        _forYou = series;
+        _showForYou = true;
+      });
+    } catch (error) {
+      _logger.warning('For-you load failed (${error.runtimeType})');
+      if (!_isCurrentRailsGeneration(generation)) return;
+      setState(() {
+        _showForYou = false;
       });
     }
   }
@@ -247,12 +313,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ListView(
                 padding: const EdgeInsets.only(top: 8, bottom: 24),
                 children: [
-                  if (_showForYou || _loadingRails)
-                    HomeRail(
-                      title: l10n.translate('for_you'),
-                      series: _forYou,
-                      loading: _loadingRails && _showForYou,
-                    ),
+                  if (_showForYou)
+                    HomeRail(title: l10n.translate('for_you'), series: _forYou),
                   for (final rail in _genreRails)
                     HomeRail(
                       title: l10n
@@ -281,17 +343,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   HomeRail(
                     title: l10n.translate('rising'),
                     series: _rising,
-                    loading: _loadingRails,
+                    loading: _loadingRising && _rising.isEmpty,
                   ),
                   HomeRail(
                     title: l10n.translate('hidden_gems'),
                     series: _hiddenGems,
-                    loading: _loadingRails,
+                    loading: _loadingHiddenGems && _hiddenGems.isEmpty,
                   ),
                   HomeRail(
                     title: l10n.translate('new_releases'),
                     series: _newReleases,
-                    loading: _loadingRails,
+                    loading: _loadingNewReleases && _newReleases.isEmpty,
                   ),
                 ],
               ),
