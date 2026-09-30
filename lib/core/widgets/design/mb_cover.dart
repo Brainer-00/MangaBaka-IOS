@@ -33,6 +33,16 @@ class MbCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final h = height ?? width * 1.5;
+    // CachedNetworkImage sizes decoded images in physical pixels. Most cover
+    // callers know only their logical layout width, so derive a bounded decode
+    // width from the active display when a surface has not supplied a more
+    // specific override. Explicit values remain authoritative for surfaces
+    // whose layout deliberately uses a different bound.
+    final decodedWidth =
+        memCacheWidth ??
+        (width.isFinite
+            ? (width * MediaQuery.devicePixelRatioOf(context)).round()
+            : null);
     Widget cover(bool blurred) => ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: Container(
@@ -44,7 +54,7 @@ class MbCover extends StatelessWidget {
           width: width,
           height: h,
           fit: fit,
-          memCacheWidth: memCacheWidth,
+          memCacheWidth: decodedWidth,
           blurred: blurred,
         ),
       ),
