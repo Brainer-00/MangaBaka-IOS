@@ -49,6 +49,9 @@ class LibraryService extends LibraryServiceBase
   final db.AppDatabase _db;
   final http.Client _httpClient;
 
+  @visibleForTesting
+  final LibraryWatchInstrumentation? watchInstrumentation;
+
   @override
   final RateLimitCoordinator rateLimitCoordinator;
 
@@ -107,6 +110,7 @@ class LibraryService extends LibraryServiceBase
     db.AppDatabase? database,
     http.Client? httpClient,
     RateLimitCoordinator? rateLimitCoordinator,
+    this.watchInstrumentation,
   }) : _auth = auth,
        _db = database ?? getIt<db.AppDatabase>(),
        _httpClient = httpClient ?? http.Client(),
@@ -128,18 +132,23 @@ class LibraryService extends LibraryServiceBase
   }
 
   Stream<List<api.LibraryEntry>> watchEntriesFromDb() {
-    return _db.libraryEntriesDao
+    final stream = _db.libraryEntriesDao
         .watchAllEntriesWithSeries()
-        .map(
-          (dbEntries) =>
-              dbEntries.map(DbToApiMapper.libraryEntryFromDb).toList(),
-        )
+        .map((dbEntries) {
+          watchInstrumentation?.queryExecutions++;
+          watchInstrumentation?.mappingPasses++;
+          return dbEntries.map(DbToApiMapper.libraryEntryFromDb).toList();
+        })
         .handleError((error, stackTrace) {
           _logger.severe(
             'Error watching entries from db (${error.runtimeType})',
           );
           return <api.LibraryEntry>[];
         }, test: (error) => true);
+    final instrumentation = watchInstrumentation;
+    return instrumentation == null
+        ? stream
+        : _SubscriptionCountingStream(stream, instrumentation);
   }
 
   Future<FetchPageResult> _fetchPage(
@@ -243,8 +252,10 @@ class LibraryService extends LibraryServiceBase
 
   Future<void> _saveEntries(List<api.LibraryEntry> entries) async {
     if (entries.isEmpty) return;
-    await _db.seriesDao.upsertSeries(entries.map((e) => e.series).toList());
-    await _db.libraryEntriesDao.upsertLibraryEntries(entries);
+    await _db.transaction(() async {
+      await _db.seriesDao.upsertSeries(entries.map((e) => e.series).toList());
+      await _db.libraryEntriesDao.upsertLibraryEntries(entries);
+    });
   }
 
   DateTime? _parseAsUtc(String dateStr) {
@@ -262,6 +273,36 @@ class LibraryService extends LibraryServiceBase
       }
     }
     return DateTime.tryParse(dateStr)?.toUtc();
+  }
+}
+
+@visibleForTesting
+class LibraryWatchInstrumentation {
+  int subscriptions = 0;
+  int queryExecutions = 0;
+  int mappingPasses = 0;
+}
+
+class _SubscriptionCountingStream<T> extends Stream<T> {
+  _SubscriptionCountingStream(this._source, this._instrumentation);
+
+  final Stream<T> _source;
+  final LibraryWatchInstrumentation _instrumentation;
+
+  @override
+  StreamSubscription<T> listen(
+    void Function(T event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) {
+    _instrumentation.subscriptions++;
+    return _source.listen(
+      onData,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    );
   }
 }
 

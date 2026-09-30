@@ -1,3 +1,5 @@
+// ignore_for_file: invalid_use_of_visible_for_testing_member
+
 import 'dart:async';
 
 import 'package:drift/native.dart';
@@ -39,6 +41,10 @@ void main() {
       final mappingWatch = Stopwatch()..start();
       final mapped = rows.map(DbToApiMapper.libraryEntryFromDb).toList();
       mappingWatch.stop();
+      final jsonDecodes = rows.fold<int>(
+        0,
+        (count, row) => count + _jsonDecodeFieldCount(row.series),
+      );
 
       final filterWatch = Stopwatch()..start();
       final filtered = LibraryFilterHelper(
@@ -78,6 +84,7 @@ void main() {
       autocompleteWatch.stop();
 
       expect(mapped, hasLength(size));
+      expect(jsonDecodes, size * 11);
       expect(filtered.every((entry) => entry.series.type == 'manga'), isTrue);
       expect(tabCounts.values.fold<int>(0, (sum, count) => sum + count), size);
       expect(
@@ -92,6 +99,7 @@ void main() {
         'LIBRARY_BENCH size=$size '
         'db_read_us=${readWatch.elapsedMicroseconds} '
         'db_to_model_us=${mappingWatch.elapsedMicroseconds} '
+        'json_decode_calls_expected=$jsonDecodes '
         'filter_sort_us=${filterWatch.elapsedMicroseconds} '
         'tab_partition_count_us=${tabWatch.elapsedMicroseconds} '
         'autocomplete_3_queries_us=${autocompleteWatch.elapsedMicroseconds} '
@@ -116,6 +124,7 @@ void main() {
       auth: ProfileAuthService(),
       database: db,
       httpClient: client,
+      watchInstrumentation: LibraryWatchInstrumentation(),
     );
     var emissions = 0;
     var mappingPasses = 0;
@@ -166,16 +175,59 @@ void main() {
     expect(progressEmissions, greaterThanOrEqualTo(1));
     expect(stateEmissions, greaterThanOrEqualTo(1));
     expect(batchEmissions, greaterThanOrEqualTo(1));
+    expect(batchEmissions, 1);
     expect(mappingPasses, emissions);
+    expect(service.watchInstrumentation?.subscriptions, 1);
+    expect(service.watchInstrumentation?.queryExecutions, emissions);
+    expect(service.watchInstrumentation?.mappingPasses, mappingPasses);
 
     // ignore: avoid_print
     print(
-      'LIBRARY_WATCH subscribers=1 '
+      'LIBRARY_WATCH subscribers=${service.watchInstrumentation?.subscriptions} '
+      'query_executions=${service.watchInstrumentation?.queryExecutions} '
       'progress_emissions=$progressEmissions progress_mapping_passes=$progressEmissions '
       'state_emissions=$stateEmissions state_mapping_passes=$stateEmissions '
       'sync_page_emissions=$batchEmissions sync_page_mapping_passes=$batchEmissions '
       'total_emissions=$emissions total_mapping_passes=$mappingPasses',
     );
+  });
+
+  test('each whole-library listener executes and maps independently', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final client = http.Client();
+    addTearDown(() async {
+      client.close();
+      await db.close();
+    });
+
+    final entries = List.generate(100, _entry);
+    await db.seriesDao.upsertSeries(entries.map((e) => e.series).toList());
+    await db.libraryEntriesDao.upsertLibraryEntries(entries);
+
+    final instrumentation = LibraryWatchInstrumentation();
+    final service = LibraryService(
+      auth: ProfileAuthService(),
+      database: db,
+      httpClient: client,
+      watchInstrumentation: instrumentation,
+    );
+    final stream = service.watchEntriesFromDb();
+    final first = Completer<void>();
+    final second = Completer<void>();
+    final firstSubscription = stream.listen((_) {
+      if (!first.isCompleted) first.complete();
+    });
+    final secondSubscription = stream.listen((_) {
+      if (!second.isCompleted) second.complete();
+    });
+    addTearDown(firstSubscription.cancel);
+    addTearDown(secondSubscription.cancel);
+
+    await Future.wait([first.future, second.future]);
+
+    expect(instrumentation.subscriptions, 2);
+    expect(instrumentation.queryExecutions, 2);
+    expect(instrumentation.mappingPasses, 2);
   });
 }
 
@@ -240,4 +292,20 @@ LibraryEntry _entry(int index) {
       },
     ),
   );
+}
+
+int _jsonDecodeFieldCount(SeriesTableData series) {
+  return [
+    series.secondaryTitles,
+    series.authors,
+    series.artists,
+    series.published,
+    series.anime,
+    series.links,
+    series.publishers,
+    series.genres,
+    series.tags,
+    series.relationships,
+    series.source,
+  ].where((value) => value != null && value.isNotEmpty).length;
 }
