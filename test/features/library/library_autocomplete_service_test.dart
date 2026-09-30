@@ -23,7 +23,9 @@ LibraryEntry _entry({
       'romanized_title': romanizedTitle,
       'secondary_titles': secondaryTitles.isEmpty
           ? {}
-          : {'en': secondaryTitles.map((t) => {'title': t}).toList()},
+          : {
+              'en': secondaryTitles.map((t) => {'title': t}).toList(),
+            },
       'cover': coverUrl.isEmpty
           ? null
           : {
@@ -47,7 +49,7 @@ LibraryEntry _entry({
       'genres': genres,
       'tags': [],
       'last_updated_at': '',
-    }
+    },
   });
 }
 
@@ -108,30 +110,36 @@ void main() {
     });
 
     test('caps to maxResults', () {
-      final entries = List.generate(20, (i) => _entry(id: '$i', title: 'Manga $i'));
+      final entries = List.generate(
+        20,
+        (i) => _entry(id: '$i', title: 'Manga $i'),
+      );
       final results = service.search('Manga', entries);
       expect(results, hasLength(LibraryAutocompleteService.maxResults));
     });
 
-    test('returned result includes derived fields (id parsed, year, genres trimmed)', () {
-      final entries = [
-        _entry(
-          id: '42',
-          title: 'Naruto',
-          year: '1999',
-          type: 'manga',
-          coverUrl: 'cover.png',
-          genres: ['action', 'shounen', 'adventure', 'fantasy'],
-        ),
-      ];
-      final results = service.search('Naruto', entries);
-      expect(results, hasLength(1));
-      expect(results.first.id, 42);
-      expect(results.first.year, 1999);
-      expect(results.first.type, 'manga');
-      expect(results.first.thumbnailUrl, 'cover.png');
-      expect(results.first.genres, ['action', 'shounen', 'adventure']);
-    });
+    test(
+      'returned result includes derived fields (id parsed, year, genres trimmed)',
+      () {
+        final entries = [
+          _entry(
+            id: '42',
+            title: 'Naruto',
+            year: '1999',
+            type: 'manga',
+            coverUrl: 'cover.png',
+            genres: ['action', 'shounen', 'adventure', 'fantasy'],
+          ),
+        ];
+        final results = service.search('Naruto', entries);
+        expect(results, hasLength(1));
+        expect(results.first.id, 42);
+        expect(results.first.year, 1999);
+        expect(results.first.type, 'manga');
+        expect(results.first.thumbnailUrl, 'cover.png');
+        expect(results.first.genres, ['action', 'shounen', 'adventure']);
+      },
+    );
 
     test('id falls back to 0 when not parseable', () {
       final entries = [_entry(id: 'abc', title: 'Naruto')];
@@ -139,13 +147,63 @@ void main() {
       expect(results.first.id, 0);
     });
 
-    test('substring match on secondary titles scores below containing primary match', () {
+    test(
+      'substring match on secondary titles scores below containing primary match',
+      () {
+        final entries = [
+          _entry(id: '1', title: 'Naruto Shippuden'),
+          _entry(id: '2', title: 'Different', secondaryTitles: ['Sub Naruto']),
+        ];
+        final results = service.search('Naruto', entries);
+        expect(results.first.title, 'Naruto Shippuden');
+      },
+    );
+
+    test('matches native, romanized, and secondary title prefixes', () {
       final entries = [
-        _entry(id: '1', title: 'Naruto Shippuden'),
-        _entry(id: '2', title: 'Different', secondaryTitles: ['Sub Naruto']),
+        _entry(id: '1', title: 'Primary', nativeTitle: 'Native Match'),
+        _entry(id: '2', title: 'Primary Two', romanizedTitle: 'Roman Match'),
+        _entry(
+          id: '3',
+          title: 'Primary Three',
+          secondaryTitles: ['Alias Match'],
+        ),
       ];
-      final results = service.search('Naruto', entries);
-      expect(results.first.title, 'Naruto Shippuden');
+
+      expect(service.search('native', entries).single.title, 'Primary');
+      expect(service.search('roman', entries).single.title, 'Primary Two');
+      expect(service.search('alias', entries).single.title, 'Primary Three');
+    });
+
+    test(
+      'bounded selection preserves deterministic top-six order at scale',
+      () {
+        final entries = List.generate(
+          1000,
+          (i) => _entry(id: '$i', title: 'Match $i'),
+        );
+
+        final results = service.search('match', entries);
+
+        expect(results, hasLength(LibraryAutocompleteService.maxResults));
+        expect(results.map((result) => result.title).toList(), [
+          'Match 0',
+          'Match 1',
+          'Match 2',
+          'Match 3',
+          'Match 4',
+          'Match 5',
+        ]);
+      },
+    );
+
+    test('a replacement snapshot does not retain old title normalization', () {
+      final oldIndex = service.buildIndex([_entry(id: '1', title: 'Old')]);
+      final newIndex = service.buildIndex([_entry(id: '2', title: 'New')]);
+
+      expect(service.searchIndexed('old', newIndex), isEmpty);
+      expect(service.searchIndexed('new', oldIndex), isEmpty);
+      expect(service.searchIndexed('new', newIndex).single.title, 'New');
     });
   });
 }

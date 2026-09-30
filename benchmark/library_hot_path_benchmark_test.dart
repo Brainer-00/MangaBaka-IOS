@@ -76,10 +76,13 @@ void main() {
       tabWatch.stop();
 
       final autocomplete = LibraryAutocompleteService();
+      final autocompleteIndex = autocomplete.buildIndex(mapped);
       final autocompleteWatch = Stopwatch()..start();
       final autocompleteCounts = <String, int>{};
       for (final query in const ['series 1', 'native 24', 'alias 4999']) {
-        autocompleteCounts[query] = autocomplete.search(query, mapped).length;
+        autocompleteCounts[query] = autocomplete
+            .searchIndexed(query, autocompleteIndex)
+            .length;
       }
       autocompleteWatch.stop();
 
@@ -103,6 +106,7 @@ void main() {
         'filter_sort_us=${filterWatch.elapsedMicroseconds} '
         'tab_partition_count_us=${tabWatch.elapsedMicroseconds} '
         'autocomplete_3_queries_us=${autocompleteWatch.elapsedMicroseconds} '
+        'autocomplete_normalizations=$size '
         'filtered=${filtered.length} autocomplete=$autocompleteCounts',
       );
     });
