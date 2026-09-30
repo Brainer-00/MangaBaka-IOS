@@ -204,6 +204,47 @@ void main() {
       expect(mockAuth.rejectedTokens, ['access-old']);
     });
 
+    test(
+      'mutation 429s never replay progress, state, create, or delete',
+      () async {
+        await seedEntry(state: 'reading');
+        final operations = <Future<void> Function()>[
+          () => service.updateLibraryEntryProgress('1', progressChapter: 1),
+          () => service.updateLibraryEntryState('1', 'paused'),
+          () => service.createLibraryEntry('1', 'reading'),
+          () => service.deleteEntry('1'),
+        ];
+
+        for (final operation in operations) {
+          var calls = 0;
+          final rateLimits = RateLimitCoordinator(
+            delay: (_) async {},
+          );
+          service = LibraryService(
+            auth: mockAuth,
+            database: getIt<AppDatabase>(),
+            rateLimitCoordinator: rateLimits,
+            httpClient: MockClient((_) async {
+              calls++;
+              return http.Response('{}', 429, headers: {'retry-after': '1'});
+            }),
+          );
+
+          await expectLater(
+            operation(),
+            throwsA(
+              isA<ApiException>().having(
+                (error) => error.code,
+                'code',
+                'RATE_LIMITED',
+              ),
+            ),
+          );
+          expect(calls, 1);
+        }
+      },
+    );
+
     test('fetchPage propagates session expiry from 401 recovery', () async {
       mockAuth.recoveryError = SessionExpiredException();
       service = LibraryService(

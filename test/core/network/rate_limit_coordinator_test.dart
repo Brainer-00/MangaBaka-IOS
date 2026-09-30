@@ -196,5 +196,50 @@ void main() {
         expect(herd.isCoolingDown, isFalse);
       },
     );
+
+    for (final count in [10, 50]) {
+      test('$count retry admissions are deterministically spread', () async {
+        final spacing = const Duration(milliseconds: 25);
+        final admittedDelays = <Duration>[];
+        final herd = RateLimitCoordinator(
+          clock: () => now,
+          retryAdmissionSpacing: spacing,
+          delay: (duration) async {
+            admittedDelays.add(duration);
+            now = now.add(duration);
+          },
+        );
+        herd.updateFromRetryAfter('10');
+
+        await Future.wait([
+          for (var i = 0; i < count; i++) herd.waitForRetryAdmission(),
+        ]);
+
+        expect(admittedDelays.first, const Duration(seconds: 10));
+        expect(
+          admittedDelays.skip(1),
+          List.filled(count - 1, spacing),
+        );
+        expect(admittedDelays.length, count);
+        expect(herd.isCoolingDown, isFalse);
+      });
+    }
+
+    test('a later 429 extension remains a hard minimum for admission', () async {
+      final delayRequests = <Duration>[];
+      final herd = RateLimitCoordinator(
+        clock: () => now,
+        delay: (duration) async {
+          delayRequests.add(duration);
+          now = now.add(duration);
+        },
+      );
+      herd.updateFromRetryAfter('5');
+      herd.updateFromRetryAfter('10');
+
+      await herd.waitForRetryAdmission();
+
+      expect(delayRequests, [const Duration(seconds: 10)]);
+    });
   });
 }

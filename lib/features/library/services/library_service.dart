@@ -178,8 +178,13 @@ class LibraryService extends LibraryServiceBase
     try {
       var currentToken = token;
       var unauthorizedRecoveryAttempted = false;
+      var admissionRequired = false;
       for (var retries = 0; ;) {
-        await rateLimitCoordinator.waitForCooldown();
+        final waitedForCooldown = await rateLimitCoordinator.waitForCooldown();
+        if (waitedForCooldown || admissionRequired) {
+          await rateLimitCoordinator.waitForRetryAdmission();
+        }
+        admissionRequired = false;
         final response = await _httpClient
             .get(
               uri,
@@ -209,6 +214,7 @@ class LibraryService extends LibraryServiceBase
             );
           }
           retries++;
+          admissionRequired = true;
           _logger.warning(
             'Rate limited while fetching library page $page; retrying after cooldown',
           );
