@@ -45,12 +45,13 @@ class MetadataService {
   Map<int, String> _tagNameById = const {};
 
   bool _isInitialized = false;
+  Future<void>? _activeRefresh;
 
   List<Map<String, dynamic>> get genres => _genresList;
   List<Map<String, dynamic>> get tags => _tagsList;
   bool get isInitialized => _isInitialized;
 
-  /// Loads the cached vocabularies, then refreshes them in the background.
+  /// Loads the cached vocabularies required before the first frame.
   ///
   /// Returns as soon as the cache is in memory: callers are gated on having
   /// *some* labels, not the freshest ones, and blocking startup on two network
@@ -63,14 +64,22 @@ class MetadataService {
     _isInitialized = true;
     _logger.info('MetadataService initialized (cached)');
 
-    unawaitedRefresh();
   }
 
-  /// Fires the background refresh without blocking the caller. Failures are
-  /// contained inside [fetchGenres]/[fetchTags] and only logged.
-  void unawaitedRefresh() {
-    Future.wait([fetchGenres(), fetchTags()])
-        .then((_) => _logger.info('MetadataService fresh data fetch complete'));
+  /// Refreshes metadata after the first frame. Concurrent callers share one
+  /// refresh so a rebuild cannot duplicate the two network requests.
+  Future<void> refreshInBackground() {
+    final active = _activeRefresh;
+    if (active != null) return active;
+
+    late final Future<void> refresh;
+    refresh = Future.wait([fetchGenres(), fetchTags()])
+        .then((_) => _logger.info('MetadataService fresh data fetch complete'))
+        .whenComplete(() {
+          if (identical(_activeRefresh, refresh)) _activeRefresh = null;
+        });
+    _activeRefresh = refresh;
+    return refresh;
   }
 
   Future<void> _loadCachedGenres() async {

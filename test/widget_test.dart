@@ -6,6 +6,7 @@ import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/features/navigation/screens/onboarding_screen.dart';
 import 'package:mangabaka_app/features/profile/models/mb_profile.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
+import 'package:mangabaka_app/features/series/services/metadata_service.dart';
 import 'package:mangabaka_app/features/updates/models/app_release.dart';
 import 'package:mangabaka_app/features/updates/services/update_service.dart';
 import 'package:mangabaka_app/main.dart';
@@ -51,9 +52,19 @@ class MockUpdateService extends Fake implements UpdateService {
   }
 }
 
+class MockMetadataService extends Fake implements MetadataService {
+  int refreshCalls = 0;
+
+  @override
+  Future<void> refreshInBackground() async {
+    refreshCalls++;
+  }
+}
+
 void main() {
   late MockProfileAuthService auth;
   late MockUpdateService updates;
+  late MockMetadataService metadata;
 
   setUp(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -77,6 +88,10 @@ void main() {
     updates = MockUpdateService();
     getIt.unregister<UpdateService>();
     getIt.registerSingleton<UpdateService>(updates);
+
+    metadata = MockMetadataService();
+    getIt.unregister<MetadataService>();
+    getIt.registerSingleton<MetadataService>(metadata);
   });
 
   testWidgets('App smoke test shows onboarding without an update check', (
@@ -88,6 +103,7 @@ void main() {
     expect(find.byType(OnboardingScreen), findsOneWidget);
     expect(updates.shouldPromptCalls, 0);
     expect(updates.checkForUpdateCalls, 0);
+    expect(metadata.refreshCalls, 1);
 
     // Completing onboarding during this launch must not retroactively schedule
     // the launch-only update check.
@@ -107,6 +123,7 @@ void main() {
 
     expect(updates.shouldPromptCalls, 1);
     expect(updates.checkForUpdateCalls, 1);
+    expect(metadata.refreshCalls, 1);
 
     await SettingsManager().setShowTooltips(false);
     auth.notifyForTesting();
@@ -114,5 +131,6 @@ void main() {
 
     expect(updates.shouldPromptCalls, 1);
     expect(updates.checkForUpdateCalls, 1);
+    expect(metadata.refreshCalls, 1);
   });
 }
