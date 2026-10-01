@@ -44,7 +44,9 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Series> _rising = const [];
   List<Series> _hiddenGems = const [];
   List<Series> _newReleases = const [];
-  List<TopGenreRail> _genreRails = const [];
+  List<TopGenre> _topGenres = const [];
+  final Map<int, List<Series>> _genreSeries = {};
+  final Set<int> _loadingGenreIds = {};
 
   /// API `type` filter for the Trending rail; null means every type.
   String? _trendingType;
@@ -56,7 +58,11 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loadingRising = true;
   bool _loadingHiddenGems = true;
   bool _loadingNewReleases = true;
+  bool _loadingForYou = false;
   bool _showForYou = false;
+  bool _structureEstablished = false;
+  bool _structureIsFallback = false;
+  String? _structureContext;
 
   @override
   void initState() {
@@ -104,6 +110,9 @@ class _HomeScreenState extends State<HomeScreen> {
           trendingGeneration: trendingGeneration,
           trendingType: trendingType,
           trendingWindow: trendingWindow,
+          preserveStructure:
+              _structureEstablished && _structureContext == context,
+          structureContext: context,
         ).whenComplete(() {
           if (identical(_activeRailsLoad, load)) {
             _activeRailsLoad = null;
@@ -119,6 +128,8 @@ class _HomeScreenState extends State<HomeScreen> {
     required int trendingGeneration,
     required String? trendingType,
     required int trendingWindow,
+    required bool preserveStructure,
+    required String structureContext,
   }) async {
     if (!mounted) return;
     setState(() {
@@ -128,14 +139,33 @@ class _HomeScreenState extends State<HomeScreen> {
       _loadingRising = _rising.isEmpty;
       _loadingHiddenGems = _hiddenGems.isEmpty;
       _loadingNewReleases = _newReleases.isEmpty;
+      if (!preserveStructure) {
+        _structureEstablished = false;
+        _structureContext = null;
+        _showForYou = false;
+        _loadingForYou = false;
+        _forYou = const [];
+        _topGenres = const [];
+        _genreSeries.clear();
+        _loadingGenreIds.clear();
+        _structureIsFallback = false;
+      }
     });
 
     // Start independent work before waiting on the personalized readiness
     // probe. Each result owns only its rail, so a slow endpoint cannot keep
     // already-available public content behind a full-page skeleton.
     final readiness = _homeService.fetchForYouReadiness();
+    final topGenres = _homeService.fetchTopGenres();
+    final structure = _establishStructure(
+      generation,
+      readiness: readiness,
+      topGenres: topGenres,
+      preserveStructure: preserveStructure,
+      structureContext: structureContext,
+    );
     await Future.wait([
-      _loadForYou(generation, readiness),
+      _loadForYou(generation, structure),
       _loadRail(
         operation: 'Trending',
         request: _homeService.fetchTrending(
@@ -169,13 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
         apply: (series) => _newReleases = series,
         clearLoading: () => _loadingNewReleases = false,
       ),
-      _loadRail(
-        operation: 'Top genre rails',
-        request: _homeService.fetchTopGenreRails(),
-        isCurrent: () => _isCurrentRailsGeneration(generation),
-        apply: (rails) => _genreRails = rails,
-        clearLoading: () {},
-      ),
+      _loadTopGenreContent(generation, structure),
     ]);
   }
 
@@ -203,35 +227,96 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<_HomeStructure?> _establishStructure(
+    int generation, {
+    required Future<ForYouReadiness?> readiness,
+    required Future<List<TopGenre>> topGenres,
+    required bool preserveStructure,
+    required String structureContext,
+  }) async {
+    try {
+      final results = await Future.wait([readiness, topGenres]);
+      if (!_isCurrentRailsGeneration(generation)) return null;
+
+      if (preserveStructure && !_structureIsFallback) {
+        return _HomeStructure(showForYou: _showForYou, genres: _topGenres);
+      }
+
+      final showForYou = (results[0] as ForYouReadiness?)?.isReady ?? false;
+      final genres = results[1] as List<TopGenre>;
+      setState(() {
+        _showForYou = showForYou;
+        _loadingForYou = showForYou;
+        _topGenres = genres;
+        _loadingGenreIds
+          ..clear()
+          ..addAll(genres.map((genre) => genre.tagId));
+        _structureEstablished = true;
+        _structureIsFallback = false;
+        _structureContext = structureContext;
+      });
+      return _HomeStructure(showForYou: showForYou, genres: genres);
+    } catch (error) {
+      _logger.warning('Home structure load failed (${error.runtimeType})');
+      if (!_isCurrentRailsGeneration(generation)) return null;
+
+      if (preserveStructure) {
+        return _HomeStructure(showForYou: _showForYou, genres: _topGenres);
+      }
+
+      setState(() {
+        _showForYou = false;
+        _loadingForYou = false;
+        _topGenres = const [];
+        _loadingGenreIds.clear();
+        _structureEstablished = true;
+        _structureIsFallback = true;
+        _structureContext = structureContext;
+      });
+      return const _HomeStructure(showForYou: false, genres: []);
+    }
+  }
+
   Future<void> _loadForYou(
     int generation,
-    Future<ForYouReadiness?> readinessRequest,
+    Future<_HomeStructure?> structureRequest,
   ) async {
     try {
-      // "For You" remains gated so cold profiles do not show an empty rail.
-      final readiness = await readinessRequest;
-      if (!_isCurrentRailsGeneration(generation)) return;
-      final wantsForYou = readiness?.isReady ?? false;
-      if (!wantsForYou) {
-        setState(() {
-          _showForYou = false;
-        });
-        return;
-      }
+      final structure = await structureRequest;
+      if (structure == null || !structure.showForYou) return;
 
       final series = await _homeService.fetchForYou();
       if (!_isCurrentRailsGeneration(generation)) return;
       setState(() {
         _forYou = series;
         _showForYou = true;
+        _loadingForYou = false;
       });
     } catch (error) {
       _logger.warning('For-you load failed (${error.runtimeType})');
       if (!_isCurrentRailsGeneration(generation)) return;
       setState(() {
-        _showForYou = false;
+        _loadingForYou = false;
       });
     }
+  }
+
+  Future<void> _loadTopGenreContent(
+    int generation,
+    Future<_HomeStructure?> structureRequest,
+  ) async {
+    final structure = await structureRequest;
+    if (structure == null) return;
+    await Future.wait([
+      for (final genre in structure.genres)
+        _loadRail(
+          operation: 'Top in ${genre.name}',
+          request: _homeService.fetchTopInGenre(genre.tagId),
+          isCurrent: () => _isCurrentRailsGeneration(generation),
+          apply: (series) => _genreSeries[genre.tagId] = series,
+          clearLoading: () => _loadingGenreIds.remove(genre.tagId),
+        ),
+    ]);
   }
 
   /// Re-fetch only the Trending rail after a type / window change. The old
@@ -291,6 +376,7 @@ class _HomeScreenState extends State<HomeScreen> {
       listenable: Listenable.merge([LocalizationService(), SettingsManager()]),
       builder: (context, _) {
         final l10n = LocalizationService();
+        final structureEstablished = _structureEstablished;
 
         return Scaffold(
           backgroundColor: AppConstants.primaryBackground,
@@ -313,54 +399,125 @@ class _HomeScreenState extends State<HomeScreen> {
               ListView(
                 padding: const EdgeInsets.only(top: 8, bottom: 24),
                 children: [
-                  if (_showForYou)
-                    HomeRail(title: l10n.translate('for_you'), series: _forYou),
-                  for (final rail in _genreRails)
-                    HomeRail(
-                      title: l10n
-                          .translate('top_in_genre')
-                          .replaceAll('{genre}', rail.genre.name),
-                      series: rail.series,
-                      onViewAll: () => _openGenreAll(rail.genre),
+                  if (!structureEstablished)
+                    const _HomeInitialShell(key: ValueKey('home-initial-shell'))
+                  else
+                    KeyedSubtree(
+                      key: const ValueKey('home-established-content'),
+                      child: Column(
+                        children: [
+                          if (_showForYou)
+                            HomeRail(
+                              key: const ValueKey('home-for-you-rail'),
+                              title: l10n.translate('for_you'),
+                              series: _forYou,
+                              loading: _loadingForYou && _forYou.isEmpty,
+                            ),
+                          for (final genre in _topGenres)
+                            HomeRail(
+                              key: ValueKey('home-top-genre-${genre.tagId}'),
+                              title: l10n
+                                  .translate('top_in_genre')
+                                  .replaceAll('{genre}', genre.name),
+                              series: _genreSeries[genre.tagId] ?? const [],
+                              loading:
+                                  _loadingGenreIds.contains(genre.tagId) &&
+                                  (_genreSeries[genre.tagId]?.isEmpty ?? true),
+                              onViewAll: () => _openGenreAll(genre),
+                            ),
+                          HomeTrendingSection(
+                            series: _trending,
+                            loading: _loadingTrending,
+                            selectedType: _trendingType,
+                            window: _trendingWindow,
+                            onTypeChanged: (type) {
+                              if (type == _trendingType) return;
+                              setState(() => _trendingType = type);
+                              _reloadTrending();
+                            },
+                            onWindowChanged: (days) {
+                              if (days == _trendingWindow) return;
+                              setState(() => _trendingWindow = days);
+                              _reloadTrending();
+                            },
+                            onViewAll: _openTrendingAll,
+                          ),
+                          HomeRail(
+                            title: l10n.translate('rising'),
+                            series: _rising,
+                            loading: _loadingRising && _rising.isEmpty,
+                          ),
+                          HomeRail(
+                            title: l10n.translate('hidden_gems'),
+                            series: _hiddenGems,
+                            loading: _loadingHiddenGems && _hiddenGems.isEmpty,
+                          ),
+                          HomeRail(
+                            title: l10n.translate('new_releases'),
+                            series: _newReleases,
+                            loading:
+                                _loadingNewReleases && _newReleases.isEmpty,
+                          ),
+                        ],
+                      ),
                     ),
-                  HomeTrendingSection(
-                    series: _trending,
-                    loading: _loadingTrending,
-                    selectedType: _trendingType,
-                    window: _trendingWindow,
-                    onTypeChanged: (type) {
-                      if (type == _trendingType) return;
-                      setState(() => _trendingType = type);
-                      _reloadTrending();
-                    },
-                    onWindowChanged: (days) {
-                      if (days == _trendingWindow) return;
-                      setState(() => _trendingWindow = days);
-                      _reloadTrending();
-                    },
-                    onViewAll: _openTrendingAll,
-                  ),
-                  HomeRail(
-                    title: l10n.translate('rising'),
-                    series: _rising,
-                    loading: _loadingRising && _rising.isEmpty,
-                  ),
-                  HomeRail(
-                    title: l10n.translate('hidden_gems'),
-                    series: _hiddenGems,
-                    loading: _loadingHiddenGems && _hiddenGems.isEmpty,
-                  ),
-                  HomeRail(
-                    title: l10n.translate('new_releases'),
-                    series: _newReleases,
-                    loading: _loadingNewReleases && _newReleases.isEmpty,
-                  ),
                 ],
               ),
             ),
           ),
         );
       },
+    );
+  }
+}
+
+class _HomeStructure {
+  const _HomeStructure({required this.showForYou, required this.genres});
+
+  final bool showForYou;
+  final List<TopGenre> genres;
+}
+
+class _HomeInitialShell extends StatelessWidget {
+  const _HomeInitialShell({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppConstants.horizontalPadding,
+        vertical: 24,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 148,
+            height: 18,
+            decoration: BoxDecoration(
+              color: AppConstants.tertiaryBackground,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 214,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: 3,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (_, _) => Container(
+                width: 118,
+                decoration: BoxDecoration(
+                  color: AppConstants.tertiaryBackground,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
