@@ -1,6 +1,6 @@
 # MangaBaka iOS v1.0.0 Release Checklist
 
-This checklist records the verified release-candidate state and the small remaining publication boundary for MangaBaka iOS v1.0.0. A checked item is supported by the repository, automated checks, GitHub configuration/audits, or recorded physical-device QA.
+This checklist records the completed release validation and publication state for MangaBaka iOS v1.0.0. A checked item is supported by the repository, automated checks, GitHub configuration/audits, the published release, or recorded physical-device QA.
 
 ## Verified for v1.0.0
 
@@ -51,10 +51,10 @@ This checklist records the verified release-candidate state and the small remain
 - [x] Review and merge the documentation release-freeze pull request (#22).
 - [x] Physically revalidate the corrected Import List, progress behavior, and polished Home launch behavior using the final branch/CI IPA.
 - [x] Perform the final pre-release repository audit covering repository contents, current-tree secret patterns, CI/release workflows, branch/tag rules, open issues/branches/PRs, version metadata, documentation, and the final validated iOS artifact.
-- [ ] Create the exact version tag and allow the tag-driven workflow to publish the first GitHub release.
-- [ ] Verify the published release contains exactly the expected unsigned IPA, checksum, and release notes.
+- [x] Create the exact `v1.0.0` version tag on the audited release commit and allow the tag-driven workflow to publish the first GitHub release.
+- [x] Verify the published `v1.0.0` release contains the expected unsigned IPA, SHA-256 checksum asset, and finalized release notes, with the release workflow completing successfully.
 
-The remaining unchecked items are publication and post-publication verification steps. Physical-device release-candidate validation is complete.
+All v1.0.0 release-freeze, physical-device, publication, and post-publication verification steps are complete.
 
 ## Accepted/non-blocking limitations
 
