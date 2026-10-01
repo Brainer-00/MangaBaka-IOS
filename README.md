@@ -30,11 +30,13 @@ MangaBaka is not a manga-reading or scanlation-hosting application. This client 
 
 ## About MangaBaka iOS
 
-MangaBaka iOS is an independently maintained open-source client for the MangaBaka tracking platform, focused on iPhone and iPad use, sideload distribution, iOS compatibility, and a native-feeling experience.
+MangaBaka iOS is an independently maintained open-source MangaBaka app for iPhone and iPad. It provides an iOS client for the MangaBaka tracking platform, with a focus on sideload distribution, iOS compatibility, and a native-feeling experience.
 
 The project was developed from the open-source [MangaBaka App](https://github.com/Oazzies/MangaBaka-App) codebase and continues to credit its upstream maintainers and contributors. This repository is maintained as its own project, with iOS-oriented release automation, documentation, privacy hardening, and compatibility work while staying aligned with upstream where practical.
 
-Repository: [Brainer-00/MangaBaka-IOS](https://github.com/Brainer-00/MangaBaka-IOS)
+Official MangaBaka website: [mangabaka.org](https://mangabaka.org/)  
+Repository: [Brainer-00/MangaBaka-IOS](https://github.com/Brainer-00/MangaBaka-IOS)  
+Community/support thread: [MangaBaka Discord](https://discord.com/channels/1345354242163998764/1555045381363081256)
 
 ## Features
 
@@ -77,9 +79,13 @@ The app is a native/public OAuth client using Authorization Code with PKCE `S256
 
 Also review the project [Terms of Use](TERMS.md) and [Attribution & Data Sources](ATTRIBUTION.md).
 
+## Community and feedback
+
+Found a bug, noticed something odd, or have an idea for MangaBaka iOS? You can [open an issue on GitHub](https://github.com/Brainer-00/MangaBaka-IOS/issues) or use the [MangaBaka Discord project thread](https://discord.com/channels/1345354242163998764/1555045381363081256) for feedback, questions, and suggestions.
+
 ## Security
 
-Please report vulnerabilities privately using the process in [SECURITY.md](SECURITY.md). Do not post tokens, credentials, sensitive logs, or vulnerability details in a public issue.
+Please report vulnerabilities privately using the process in [SECURITY.md](SECURITY.md). Do not post tokens, credentials, sensitive logs, or vulnerability details in a public issue or Discord thread.
 
 ## Development and contributing
 
