@@ -10,12 +10,12 @@ on:
       - '**/*.md'
       - '.github/readme-images/**'
 
+  # Analyze and test is a required main-branch status check, so every PR
+  # targeting main must create the check. Path-filtering a required workflow
+  # leaves documentation-only PRs permanently pending in GitHub.
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - '**/*.md'
-      - '.github/readme-images/**'
 
 permissions:
   contents: read
