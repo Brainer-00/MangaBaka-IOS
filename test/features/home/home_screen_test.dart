@@ -86,28 +86,48 @@ Series _series(String title) => Series(
   lastUpdated: '',
 );
 
+TopGenre _genre(int id, String name) =>
+    TopGenre(tagId: id, name: name, affinity: 1);
+
+Finder get _forYouRail => find.byKey(const ValueKey('home-for-you-rail'));
+
+Finder _topGenreRail(int tagId) =>
+    find.byKey(ValueKey('home-top-genre-$tagId'), skipOffstage: false);
+
+Finder _homeText(String text) => find.text(text, skipOffstage: false);
+
 class _ControlledHomeService extends Fake implements HomeService {
   final readinessRequests = <Completer<ForYouReadiness?>>[];
+  final forYouRequests = <Completer<List<Series>>>[];
   final trendingRequests = <_TrendingRequest>[];
   final risingRequests = <Completer<List<Series>>>[];
   final hiddenGemsRequests = <Completer<List<Series>>>[];
   final newReleasesRequests = <Completer<List<Series>>>[];
-  final topGenreRailRequests = <Completer<List<TopGenreRail>>>[];
+  final topGenreRequests = <Completer<List<TopGenre>>>[];
+  final topInGenreRequests = <_GenreRequest>[];
   final readyBatchLabels = <String>[];
   List<Series> immediateTrending = const [];
   List<Series> immediateRising = const [];
   List<Series> immediateHiddenGems = const [];
   List<Series> immediateNewReleases = const [];
+  List<TopGenre> immediateTopGenres = [
+    _genre(1, 'Action'),
+    _genre(2, 'Drama'),
+    _genre(3, 'Fantasy'),
+  ];
   bool holdTrending = false;
+  bool holdForYou = false;
   bool holdRising = false;
   bool holdHiddenGems = false;
   bool holdNewReleases = false;
-  bool holdTopGenreRails = false;
+  bool holdTopGenres = false;
+  bool holdTopInGenre = false;
   int trendingFetches = 0;
   int risingFetches = 0;
   int hiddenGemsFetches = 0;
   int newReleasesFetches = 0;
-  int topGenreRailFetches = 0;
+  int topGenreFetches = 0;
+  int topInGenreFetches = 0;
   int requestCount = 0;
   int _readyBatch = -1;
   int disposeCount = 0;
@@ -123,6 +143,11 @@ class _ControlledHomeService extends Fake implements HomeService {
   @override
   Future<List<Series>> fetchForYou({int limit = 20}) async {
     requestCount++;
+    if (holdForYou) {
+      final completer = Completer<List<Series>>();
+      forYouRequests.add(completer);
+      return completer.future;
+    }
     _readyBatch++;
     return [_series(readyBatchLabels[_readyBatch])];
   }
@@ -174,13 +199,22 @@ class _ControlledHomeService extends Fake implements HomeService {
   }
 
   @override
-  Future<List<TopGenreRail>> fetchTopGenreRails({int genres = 3}) async {
-    // One top-genres request plus up to three top-in-genre requests.
-    requestCount += 4;
-    topGenreRailFetches++;
-    if (!holdTopGenreRails) return const [];
-    final completer = Completer<List<TopGenreRail>>();
-    topGenreRailRequests.add(completer);
+  Future<List<TopGenre>> fetchTopGenres({int limit = 3}) async {
+    requestCount++;
+    topGenreFetches++;
+    if (!holdTopGenres) return immediateTopGenres;
+    final completer = Completer<List<TopGenre>>();
+    topGenreRequests.add(completer);
+    return completer.future;
+  }
+
+  @override
+  Future<List<Series>> fetchTopInGenre(int tagId, {int limit = 20}) async {
+    requestCount++;
+    topInGenreFetches++;
+    if (!holdTopInGenre) return const [];
+    final completer = Completer<List<Series>>();
+    topInGenreRequests.add(_GenreRequest(tagId: tagId, completer: completer));
     return completer.future;
   }
 
@@ -197,6 +231,13 @@ class _TrendingRequest {
 
   final String? type;
   final int window;
+  final Completer<List<Series>> completer;
+}
+
+class _GenreRequest {
+  const _GenreRequest({required this.tagId, required this.completer});
+
+  final int tagId;
   final Completer<List<Series>> completer;
 }
 
@@ -282,7 +323,9 @@ void main() {
         auth.notifyAuthChanged();
         await tester.pump();
 
-        expect(actualRequests, 9);
+        // The public rails, readiness, and genre metadata start together.
+        // Personalized and per-genre content waits only for structure.
+        expect(actualRequests, 6);
 
         heldReadiness.complete(
           http.Response(
@@ -320,7 +363,7 @@ void main() {
       home.readinessRequests[0].complete(_ready);
       await tester.pumpAndSettle();
 
-      expect(home.requestCount, 19);
+      expect(home.requestCount, 16);
       expect(find.text('New Result'), findsOneWidget);
       expect(find.text('Old Result'), findsNothing);
     });
@@ -361,15 +404,17 @@ void main() {
       await tester.pumpWidget(MaterialApp(home: HomeScreen(homeService: home)));
 
       home.readinessRequests.single.completeError(StateError('held failure'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump();
 
+      auth.userId = 'user-b';
       auth.notifyAuthChanged();
       await tester.pump();
       expect(home.readinessRequests, hasLength(2));
       home.readinessRequests[1].complete(_ready);
       await tester.pumpAndSettle();
 
-      expect(find.text('Recovered Result'), findsOneWidget);
+      expect(_homeText('Recovered Result'), findsOneWidget);
     });
 
     testWidgets('disposal owns the service and ignores a late completion', (
@@ -395,7 +440,7 @@ void main() {
         ..holdRising = true
         ..holdHiddenGems = true
         ..holdNewReleases = true
-        ..holdTopGenreRails = true
+        ..holdTopGenres = true
         ..holdTrending = true;
       await tester.pumpWidget(MaterialApp(home: HomeScreen(homeService: home)));
       await tester.pump();
@@ -405,7 +450,12 @@ void main() {
       expect(home.risingFetches, 1);
       expect(home.hiddenGemsFetches, 1);
       expect(home.newReleasesFetches, 1);
-      expect(home.topGenreRailFetches, 1);
+      expect(home.topGenreFetches, 1);
+      expect(find.byKey(const ValueKey('home-initial-shell')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('home-established-content')),
+        findsNothing,
+      );
     });
 
     testWidgets('held readiness does not display the For You rail', (
@@ -415,11 +465,237 @@ void main() {
       await tester.pump();
 
       expect(home.readinessRequests.single.isCompleted, isFalse);
-      expect(find.text('FOR YOU'), findsNothing);
+      expect(_forYouRail, findsNothing);
+    });
+
+    testWidgets('structure failure establishes a public-only fallback', (
+      tester,
+    ) async {
+      home.immediateRising = [_series('Public Rising')];
+      await tester.pumpWidget(MaterialApp(home: HomeScreen(homeService: home)));
+      await tester.pump();
+
+      home.readinessRequests.single.completeError(StateError('readiness'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('home-initial-shell')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('home-established-content')),
+        findsOneWidget,
+      );
+      expect(_forYouRail, findsNothing);
+      expect(_homeText('Public Rising'), findsOneWidget);
+    });
+
+    testWidgets('fallback refresh retries and upgrades the structure', (
+      tester,
+    ) async {
+      home.immediateRising = [_series('Public Rising')];
+      await tester.pumpWidget(MaterialApp(home: HomeScreen(homeService: home)));
+      await tester.pump();
+
+      home.readinessRequests.single.completeError(StateError('readiness'));
+      await tester.pump();
+      await tester.pump();
+      expect(_homeText('Public Rising'), findsOneWidget);
+      expect(find.byKey(const ValueKey('home-initial-shell')), findsNothing);
+
+      home
+        ..holdTopGenres = true
+        ..holdForYou = true
+        ..holdTopInGenre = true;
+      final refresh = tester
+          .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+          .onRefresh();
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('home-initial-shell')), findsNothing);
+      expect(_homeText('Public Rising'), findsOneWidget);
+      expect(home.readinessRequests, hasLength(2));
+      expect(home.topGenreRequests, hasLength(1));
+
+      home.readinessRequests[1].complete(_ready);
+      home.topGenreRequests.single.complete([_genre(7, 'Upgraded Genre')]);
+      await tester.pump();
+      await tester.pump();
+
+      expect(_forYouRail, findsOneWidget);
+      expect(_topGenreRail(7), findsOneWidget);
+      expect(home.forYouRequests, hasLength(1));
+      expect(home.topInGenreRequests, hasLength(1));
+
+      home.forYouRequests.single.complete([_series('Upgraded For You')]);
+      home.topInGenreRequests.single.completer.complete(const []);
+      await refresh;
+    });
+
+    testWidgets('auth context change clears previous For You content', (
+      tester,
+    ) async {
+      home.readyBatchLabels.add('Account A For You');
+      await tester.pumpWidget(MaterialApp(home: HomeScreen(homeService: home)));
+      home.readinessRequests.single.complete(_ready);
+      await tester.pumpAndSettle();
+      expect(_homeText('Account A For You'), findsOneWidget);
+
+      home.holdForYou = true;
+      auth.userId = 'user-b';
+      auth.notifyAuthChanged();
+      await tester.pump();
+      home.readinessRequests[1].complete(_ready);
+      await tester.pump();
+      await tester.pump();
+
+      expect(_homeText('Account A For You'), findsNothing);
+      expect(_forYouRail, findsOneWidget);
+      expect(home.forYouRequests, hasLength(1));
+
+      home.forYouRequests.single.complete([_series('Account B For You')]);
+      await tester.pump();
+      expect(_homeText('Account A For You'), findsNothing);
+      expect(_homeText('Account B For You'), findsOneWidget);
     });
 
     testWidgets(
-      'a fast public rail renders while readiness and another rail are pending',
+      'public content waits for the initial structure instead of shifting later',
+      (tester) async {
+        home
+          ..immediateRising = [_series('Fast Rising')]
+          ..holdTopGenres = true
+          ..readyBatchLabels.add('For You');
+        await tester.pumpWidget(
+          MaterialApp(home: HomeScreen(homeService: home)),
+        );
+        await tester.pump();
+
+        expect(
+          find.byKey(const ValueKey('home-initial-shell')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('home-established-content')),
+          findsNothing,
+        );
+        expect(find.text('Fast Rising'), findsNothing);
+        home.readinessRequests.single.complete(_ready);
+        home.topGenreRequests.single.complete([_genre(1, 'Action')]);
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const ValueKey('home-initial-shell')), findsNothing);
+        expect(
+          find.byKey(const ValueKey('home-established-content')),
+          findsOneWidget,
+        );
+        expect(_forYouRail, findsOneWidget);
+        expect(find.text('Fast Rising'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a fast public rail renders once structure is ready while another is pending',
+      (tester) async {
+        home
+          ..immediateHiddenGems = [_series('Fast Hidden Gem')]
+          ..holdRising = true
+          ..readyBatchLabels.add('For You');
+        await tester.pumpWidget(
+          MaterialApp(home: HomeScreen(homeService: home)),
+        );
+        home.readinessRequests.single.complete(_ready);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump();
+
+        expect(home.risingRequests.single.isCompleted, isFalse);
+        expect(_homeText('Fast Hidden Gem'), findsOneWidget);
+      },
+    );
+
+    testWidgets('not-ready readiness keeps For You absent', (tester) async {
+      await tester.pumpWidget(MaterialApp(home: HomeScreen(homeService: home)));
+      home.readinessRequests.single.complete(null);
+      await tester.pumpAndSettle();
+
+      expect(_forYouRail, findsNothing);
+    });
+
+    testWidgets(
+      'ready For You occupies its final location before its content resolves',
+      (tester) async {
+        home
+          ..holdForYou = true
+          ..holdTopInGenre = true;
+        await tester.pumpWidget(
+          MaterialApp(home: HomeScreen(homeService: home)),
+        );
+        home.readinessRequests.single.complete(_ready);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(home.forYouRequests, hasLength(1));
+        expect(_forYouRail, findsOneWidget);
+        expect(_topGenreRail(1), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'top genre names and positions establish before their series complete',
+      (tester) async {
+        home
+          ..holdTopInGenre = true
+          ..readyBatchLabels.add('For You');
+        await tester.pumpWidget(
+          MaterialApp(home: HomeScreen(homeService: home)),
+        );
+        home.readinessRequests.single.complete(_ready);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(home.topInGenreRequests, hasLength(3));
+        expect(home.topInGenreRequests.map((request) => request.tagId), [
+          1,
+          2,
+          3,
+        ]);
+        expect(_topGenreRail(1), findsOneWidget);
+        expect(_topGenreRail(2), findsOneWidget);
+      },
+    );
+
+    testWidgets('stale structure metadata cannot affect a newer generation', (
+      tester,
+    ) async {
+      home
+        ..holdTopGenres = true
+        ..holdTopInGenre = true
+        ..readyBatchLabels.add('Current For You');
+      await tester.pumpWidget(MaterialApp(home: HomeScreen(homeService: home)));
+      await tester.pump();
+
+      auth.userId = 'user-b';
+      auth.notifyAuthChanged();
+      await tester.pump();
+      expect(home.readinessRequests, hasLength(2));
+      expect(home.topGenreRequests, hasLength(2));
+
+      home.readinessRequests[1].complete(_ready);
+      home.topGenreRequests[1].complete([_genre(2, 'Current Genre')]);
+      await tester.pump();
+      await tester.pump();
+      expect(_topGenreRail(2), findsOneWidget);
+      expect(find.text('Current For You'), findsOneWidget);
+
+      home.readinessRequests[0].complete(_ready);
+      home.topGenreRequests[0].complete([_genre(1, 'Stale Genre')]);
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Stale Genre'), findsNothing);
+      expect(find.text('Current For You'), findsOneWidget);
+    });
+
+    testWidgets(
+      'public content remains in the structural shell while readiness is pending',
       (tester) async {
         home
           ..immediateTrending = [_series('Fast Trending')]
@@ -432,22 +708,26 @@ void main() {
 
         expect(home.readinessRequests.single.isCompleted, isFalse);
         expect(home.risingRequests.single.isCompleted, isFalse);
-        expect(find.text('Fast Trending'), findsOneWidget);
+        expect(find.text('Fast Trending'), findsNothing);
       },
     );
 
-    testWidgets('top-genre latency does not hold public rail results', (
+    testWidgets('top-genre content latency does not hold public rail results', (
       tester,
     ) async {
       home
         ..immediateHiddenGems = [_series('Fast Hidden Gem')]
-        ..holdTopGenreRails = true;
+        ..immediateTopGenres = [_genre(1, 'Action')]
+        ..holdTopInGenre = true
+        ..readyBatchLabels.add('Unused');
       await tester.pumpWidget(MaterialApp(home: HomeScreen(homeService: home)));
+      home.readinessRequests.single.complete(null);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
 
-      expect(home.topGenreRailRequests.single.isCompleted, isFalse);
-      expect(find.text('Fast Hidden Gem'), findsOneWidget);
+      expect(home.topInGenreRequests, hasLength(1));
+      expect(_homeText('Fast Hidden Gem'), findsOneWidget);
     });
 
     testWidgets('refresh keeps existing rail content while replacement loads', (
@@ -477,6 +757,35 @@ void main() {
       expect(find.text('Replacement Rising'), findsOneWidget);
     });
 
+    testWidgets('refresh preserves the established section structure', (
+      tester,
+    ) async {
+      home
+        ..holdTopInGenre = true
+        ..readyBatchLabels.addAll(['For You', 'Refreshed For You']);
+      await tester.pumpWidget(MaterialApp(home: HomeScreen(homeService: home)));
+      home.readinessRequests.single.complete(_ready);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(_topGenreRail(1), findsOneWidget);
+
+      home.immediateTopGenres = [_genre(99, 'Science')];
+      final refresh = tester
+          .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+          .onRefresh();
+      await tester.pump();
+
+      expect(_topGenreRail(1), findsOneWidget);
+      expect(_topGenreRail(99), findsNothing);
+
+      home.readinessRequests[1].complete(_ready);
+      await tester.pump();
+      for (final request in home.topInGenreRequests.skip(3)) {
+        request.completer.complete(const []);
+      }
+      await refresh;
+    });
+
     testWidgets(
       'stale public rail results cannot overwrite a newer generation',
       (tester) async {
@@ -492,6 +801,8 @@ void main() {
         await tester.pump();
         expect(home.risingRequests, hasLength(2));
 
+        home.readinessRequests[1].complete(null);
+        await tester.pump();
         home.risingRequests[1].complete([_series('Current Rising')]);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
