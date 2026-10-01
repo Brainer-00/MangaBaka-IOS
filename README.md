@@ -53,7 +53,7 @@ MangaBaka iOS does not host or provide manga chapters, scanlations, or other cop
 
 ## Current status
 
-The MangaBaka iOS v1.0.0 codebase has completed release-candidate validation, including the application, OAuth flow, unsigned IPA pipeline, and physical-device behavior.
+The MangaBaka iOS v1.0.0 codebase has completed release-candidate validation, including the application, OAuth flow, unsigned IPA pipeline, Home launch behavior, Import List layout, and progress handling on a physical iPhone.
 
 Changes included in v1.0.0 are listed in the [changelog](CHANGELOG.md). Release verification is tracked in the [release checklist](docs/RELEASE_CHECKLIST.md).
 

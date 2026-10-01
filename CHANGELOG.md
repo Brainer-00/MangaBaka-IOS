@@ -31,12 +31,14 @@ Initial MangaBaka iOS release.
 - Polished the native launch experience and removed the duplicate Flutter-rendered splash overlay so the first real Flutter frame follows the native splash.
 - Defaulted new installations to the Home experience while preserving an explicit saved start-page preference.
 - Updated release-facing documentation for the implemented account, storage, privacy, sideloading, and support boundaries.
+- Improved Home startup and refresh behavior with concurrent discovery requests, a stable first-load structure, progressive per-rail population, stale-generation protection, and retryable public-only fallback behavior.
+- Reduced hot-path work across library persistence, filtering and autocomplete, browse pagination, metadata refresh, cover-image decoding, HTTP connection reuse, and shared rate-limit recovery.
 
 ### Fixed
 
 - Automatically move Plan to Read entries to Reading when chapter or volume progress begins, without rewriting other library states.
 - Make optimistic progress updates race-safe, restore progress and state together on failure, and keep progress dialogs open until an awaited update succeeds.
-- Improve the mobile Import List layout at phone widths and align multiline title entry to the top-left.
+- Improve the mobile Import List layout at phone widths, align multiline title entry to the top-left, and keep the tall editor on normal card-radius geometry instead of the global pill shape.
 - Reject declared import files larger than 16 MiB before reading them into memory while retaining internal source and decompression limits.
 - Added single-flight refresh protection so concurrent authenticated requests do not race rotating refresh tokens.
 - Added controlled one-time 401 recovery for authenticated GET requests without automatically replaying mutation requests.

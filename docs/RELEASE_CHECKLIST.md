@@ -10,7 +10,7 @@ This checklist records the verified release-candidate state and the small remain
 - [x] Version `1.0.0+15` is sourced from `pubspec.yaml` and generated into application version constants.
 - [x] The existing MangaBaka iOS logo/icon and sample title/cover fixture are intentionally retained.
 - [x] The supported and distributed focus is iPhone/iPad through unsigned IPA sideloading.
-- [x] Final physical-device findings were addressed in implementation with automated regression coverage for mobile import layout, progress-state transitions, progress update rollback/error handling, and import pre-read bounds.
+- [x] Final physical-device findings were addressed in implementation with automated regression coverage for mobile import layout, progress-state transitions, progress update rollback/error handling, import pre-read bounds, and stable Home launch composition.
 
 ### OAuth, storage, and device QA
 
@@ -40,6 +40,7 @@ This checklist records the verified release-candidate state and the small remain
 - [x] iOS automation builds an unsigned IPA, validates its structure/identity, and generates and verifies a SHA-256 checksum.
 - [x] The `main` branch ruleset, required quality status, and `v*` release-tag protection are configured.
 - [x] Quality CI covers focused formatting, static analysis, and tests without publishing a release.
+- [x] The required `Analyze and test` check runs for every pull request targeting `main`, including documentation-only changes, so path filtering cannot strand a required status check.
 - [x] Tag-driven release automation separates publication from manual non-publishing workflow dispatch.
 
 ## Final release-freeze items
@@ -48,11 +49,12 @@ This checklist records the verified release-candidate state and the small remain
 - [x] Point the README at the canonical logo asset and remove only its byte-for-byte duplicate README copy.
 - [x] Remove the unused direct `meta` dependency through the Flutter resolver without unrelated dependency upgrades.
 - [x] Review and merge the documentation release-freeze pull request (#22).
-- [ ] Physically revalidate the corrected Import List and progress behavior using the final branch/CI IPA.
+- [x] Physically revalidate the corrected Import List, progress behavior, and polished Home launch behavior using the final branch/CI IPA.
+- [x] Perform the final pre-release repository audit covering repository contents, current-tree secret patterns, CI/release workflows, branch/tag rules, open issues/branches/PRs, version metadata, documentation, and the final validated iOS artifact.
 - [ ] Create the exact version tag and allow the tag-driven workflow to publish the first GitHub release.
 - [ ] Verify the published release contains exactly the expected unsigned IPA, checksum, and release notes.
 
-The unchecked items are final physical-device revalidation and publication steps; they do not indicate missing application functionality in the automated release-candidate validation.
+The remaining unchecked items are publication and post-publication verification steps. Physical-device release-candidate validation is complete.
 
 ## Accepted/non-blocking limitations
 
@@ -69,3 +71,4 @@ The unchecked items are final physical-device revalidation and publication steps
 - Expand translations incrementally while preserving English fallback behavior.
 - Reassess optional sideload catalog/integration work only if it can be maintained without weakening release validation.
 - Continue routine dependency, GitHub security-alert, physical-device, and upstream-compatibility reviews for future patch releases.
+- Revisit the currently open Dependabot updates for `get_it` (#23) and `window_manager` (#24) after the v1.0.0 release freeze rather than introducing dependency churn immediately before publication.
