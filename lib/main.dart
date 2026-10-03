@@ -6,6 +6,7 @@ import 'package:mangabaka_app/core/app_bootstrap.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
+import 'package:mangabaka_app/core/settings/settings_enums.dart';
 import 'package:mangabaka_app/core/theme/app_theme.dart';
 import 'package:mangabaka_app/desktop/widgets/desktop_window_frame.dart';
 import 'package:mangabaka_app/features/navigation/screens/main_screen.dart';
@@ -37,6 +38,7 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
   /// from the merged listenable, which fires for every setting there is.
   ThemeData? _cachedTheme;
   bool? _lastShowTooltips;
+  EirenYuAccentTheme? _lastAccentTheme;
 
   bool _updateCheckScheduled = false;
   bool _metadataRefreshScheduled = false;
@@ -55,12 +57,21 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
     _scheduleMetadataRefreshAfterFirstFrame();
   }
 
-  ThemeData _themeFor(bool showTooltips) {
-    if (_cachedTheme != null && _lastShowTooltips == showTooltips) {
+  ThemeData _themeFor(
+    bool showTooltips,
+    EirenYuAccentTheme accentTheme,
+  ) {
+    if (_cachedTheme != null &&
+        _lastShowTooltips == showTooltips &&
+        _lastAccentTheme == accentTheme) {
       return _cachedTheme!;
     }
     _lastShowTooltips = showTooltips;
-    return _cachedTheme = AppTheme.build(showTooltips: showTooltips);
+    _lastAccentTheme = accentTheme;
+    return _cachedTheme = AppTheme.build(
+      showTooltips: showTooltips,
+      accentTheme: accentTheme,
+    );
   }
 
   /// Checks GitHub for a newer release and, if found, shows the update dialog.
@@ -114,7 +125,7 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
             navigatorKey: AppConstants.navigatorKey,
             title: AppConstants.appName,
             debugShowCheckedModeBanner: false,
-            theme: _themeFor(settings.showTooltips),
+            theme: _themeFor(settings.showTooltips, settings.accentTheme),
             builder: (context, child) => DesktopWindowFrame(
               child: BrowserSignInPrompt(child: AppShortcuts(child: child!)),
             ),
