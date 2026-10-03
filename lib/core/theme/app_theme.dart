@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/settings/settings_enums.dart';
 
 /// The app's single dark theme — "Ink & Amber": near-black surfaces with one
 /// accent colour, used as the "on" state wherever a control has one.
@@ -34,7 +36,11 @@ class AppTheme {
   /// has no "off" for tooltips, so disabling them means switching every
   /// tooltip to manual triggering — a theme-level change, and the reason the
   /// caller caches the result and rebuilds it only when the setting changes.
-  static ThemeData build({required bool showTooltips}) {
+  static ThemeData build({
+    required bool showTooltips,
+    required EirenYuAccentTheme accentTheme,
+  }) {
+    final palette = EirenYuPalette.forTheme(accentTheme);
     final base = ThemeData.dark(useMaterial3: true);
     final textBase =
         Typography.material2021(platform: TargetPlatform.android).white;
@@ -42,14 +48,14 @@ class AppTheme {
     return base.copyWith(
       textTheme: AppTypography.textTheme(textBase),
       colorScheme: ColorScheme.fromSeed(
-        seedColor: AppConstants.primaryAccent,
+        seedColor: palette.accentSeed,
         brightness: Brightness.dark,
-        surface: AppConstants.primaryBackground,
-        primary: AppConstants.accentColor,
+        surface: EirenYuPalette.obsidian,
+        primary: palette.accent,
         error: AppConstants.errorColor,
       ),
-      scaffoldBackgroundColor: AppConstants.primaryBackground,
-      cardColor: AppConstants.secondaryBackground,
+      scaffoldBackgroundColor: EirenYuPalette.obsidian,
+      cardColor: EirenYuPalette.midnight,
       // Dividers are drawn deliberately where they are wanted; the implicit
       // ones Material adds inside tab bars and dialogs are noise here.
       dividerColor: Colors.transparent,
