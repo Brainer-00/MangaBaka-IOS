@@ -25,6 +25,7 @@ void main() {
       final manager = SettingsManager();
       await manager.init();
 
+      expect(manager.accentTheme, EirenYuAccentTheme.crimsonMoon);
       expect(manager.currentListStyle, AppListStyle.compactGrid);
       expect(manager.hideLibrarySeriesInBrowse, false);
       expect(manager.contentPreferences, ['safe', 'suggestive']);
@@ -35,6 +36,7 @@ void main() {
 
     test('loads values from SharedPreferences', () async {
       SharedPreferences.setMockInitialValues({
+        SettingsKeys.accentTheme: EirenYuAccentTheme.horizonBlue.index,
         SettingsKeys.listStylePref: AppListStyle.comfortable.index,
         SettingsKeys.hideLibrarySeriesInBrowse: true,
         SettingsKeys.contentPreferences: ['safe', 'suggestive', 'erotica'],
@@ -46,12 +48,27 @@ void main() {
       final manager = SettingsManager();
       await manager.init();
 
+      expect(manager.accentTheme, EirenYuAccentTheme.horizonBlue);
       expect(manager.currentListStyle, AppListStyle.comfortable);
       expect(manager.hideLibrarySeriesInBrowse, true);
       expect(manager.contentPreferences, contains('erotica'));
       expect(manager.showTooltips, false);
       expect(manager.compactGridTitleRows, 3);
       expect(manager.defaultStartPage, AppStartPage.news);
+    });
+
+    test('accent theme updates and persists', () async {
+      final manager = SettingsManager();
+      await manager.init();
+
+      await manager.setAccentTheme(EirenYuAccentTheme.twilightLavender);
+      expect(manager.accentTheme, EirenYuAccentTheme.twilightLavender);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getInt(SettingsKeys.accentTheme),
+        EirenYuAccentTheme.twilightLavender.index,
+      );
     });
 
     test('updates values and notifies listeners', () async {
