@@ -14,10 +14,6 @@ class EirenYuPalette {
   static const Color midnight = Color(0xFF14182D);
   static const Color moonlight = Color(0xFFEDEFF7);
 
-  static const Color mutedText = Color(0xFF9A9EAF);
-  static const Color border = Color(0xFF252A45);
-  static const Color elevatedSurface = Color(0xFF1B203A);
-
   static const EirenYuPalette crimsonMoon = EirenYuPalette(
     accent: Color(0xFFA82F4F),
     accentSeed: Color(0xFFA82F4F),
