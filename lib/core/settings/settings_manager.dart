@@ -24,6 +24,11 @@ class SettingsManager extends ChangeNotifier {
 
   // ─── Declarations ────────────────────────────────────────────────────────
 
+  final _accentTheme = EnumSetting(
+    SettingsKeys.accentTheme,
+    EirenYuAccentTheme.crimsonMoon,
+    EirenYuAccentTheme.values,
+  );
   final _currentListStyle = EnumSetting(
     SettingsKeys.listStylePref,
     AppListStyle.compactGrid,
@@ -151,6 +156,7 @@ class SettingsManager extends ChangeNotifier {
   /// Every declared setting, in no particular order — the list `init` and
   /// `resetForTesting` walk. Adding a setting above and here is all it takes.
   late final List<SettingValue<Object?>> _all = [
+    _accentTheme,
     _currentListStyle,
     _libraryListStyle,
     _browseListStyle,
@@ -213,6 +219,12 @@ class SettingsManager extends ChangeNotifier {
       // In-memory update succeeded; ignore disk persistence errors in background
     }
   }
+
+  // ─── Appearance ──────────────────────────────────────────────────────────
+
+  EirenYuAccentTheme get accentTheme => _accentTheme.value;
+  Future<void> setAccentTheme(EirenYuAccentTheme theme) =>
+      _apply(_accentTheme, theme);
 
   // ─── List styles ─────────────────────────────────────────────────────────
 
