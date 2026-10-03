@@ -43,6 +43,8 @@ extension AppListStyleExtension on AppListStyle {
   }
 }
 
+enum EirenYuAccentTheme { crimsonMoon, twilightLavender, horizonBlue }
+
 enum AppStartPage { home, library, browse, news, profile }
 
 enum RatingSliderStep { step1, step5, step10, step20, step25 }

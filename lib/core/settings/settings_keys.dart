@@ -1,6 +1,7 @@
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 
 class SettingsKeys {
+  static const String accentTheme = '${AppConstants.prefixStorageKey}accent_theme';
   static const String hideLibrarySeriesInBrowse = '${AppConstants.prefixStorageKey}hide_library_series';
   static const String contentPreferences = '${AppConstants.prefixStorageKey}content_prefs';
   static const String onboardingCompleted = '${AppConstants.prefixStorageKey}onboarding_completed';
