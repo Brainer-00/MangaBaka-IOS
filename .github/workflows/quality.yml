@@ -6,16 +6,20 @@ on:
   push:
     branches:
       - main
+      - develop/v2
     paths-ignore:
       - '**/*.md'
       - '.github/readme-images/**'
 
   # Analyze and test is a required main-branch status check, so every PR
-  # targeting main must create the check. Path-filtering a required workflow
-  # leaves documentation-only PRs permanently pending in GitHub.
+  # targeting main must create the check. The v2 integration branch is also
+  # covered so feature PRs can be validated before they reach main.
+  # Path-filtering a required workflow leaves documentation-only PRs
+  # permanently pending in GitHub.
   pull_request:
     branches:
       - main
+      - develop/v2
 
 permissions:
   contents: read
