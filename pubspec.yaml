@@ -35,7 +35,7 @@ dependencies:
   window_manager: ^0.4.3
   shimmer: ^4.0.0
   vector_math: ^2.2.0
-  device_info_plus: ^13.1.0
+  device_info_plus: ^13.3.0
   open_filex: ^4.7.0
   file_picker: ^13.1.0
 dev_dependencies:
