@@ -39,7 +39,8 @@ class BoolSetting extends SettingValue<bool> {
 
   @override
   void load(SharedPreferences prefs) {
-    _value = prefs.getBool(key) ?? defaultValue;
+    final stored = prefs.get(key);
+    _value = stored is bool ? stored : defaultValue;
   }
 
   @override
@@ -59,8 +60,8 @@ class IntSetting extends SettingValue<int> {
 
   @override
   void load(SharedPreferences prefs) {
-    final stored = prefs.getInt(key);
-    _value = stored == null ? defaultValue : _clamp(stored);
+    final stored = prefs.get(key);
+    _value = stored is int ? _clamp(stored) : defaultValue;
   }
 
   @override
@@ -78,7 +79,8 @@ class StringSetting extends SettingValue<String> {
 
   @override
   void load(SharedPreferences prefs) {
-    _value = prefs.getString(key) ?? defaultValue;
+    final stored = prefs.get(key);
+    _value = stored is String ? stored : defaultValue;
   }
 
   @override
@@ -137,8 +139,8 @@ class EnumSetting<T extends Enum> extends SettingValue<T> {
 
   @override
   void load(SharedPreferences prefs) {
-    final index = prefs.getInt(key);
-    if (index == null || index < 0 || index >= values.length) return;
+    final index = prefs.get(key);
+    if (index is! int || index < 0 || index >= values.length) return;
     _value = values[index];
   }
 

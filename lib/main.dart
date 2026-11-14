@@ -6,8 +6,9 @@ import 'package:mangabaka_app/core/app_bootstrap.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
-import 'package:mangabaka_app/core/settings/settings_enums.dart';
 import 'package:mangabaka_app/core/theme/app_theme.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_controller.dart';
 import 'package:mangabaka_app/desktop/widgets/desktop_window_frame.dart';
 import 'package:mangabaka_app/features/navigation/screens/main_screen.dart';
 import 'package:mangabaka_app/features/navigation/screens/onboarding_screen.dart';
@@ -33,12 +34,12 @@ class MangaBakaApp extends StatefulWidget {
 }
 
 class _MangaBakaAppState extends State<MangaBakaApp> {
+  final ThemeController _themes = ThemeController()..init();
+
   /// The theme is rebuilt only when [SettingsManager.showTooltips] changes —
   /// it is baked into the tooltip theme — rather than on every notification
   /// from the merged listenable, which fires for every setting there is.
-  ThemeData? _cachedTheme;
-  bool? _lastShowTooltips;
-  EirenYuAccentTheme? _lastAccentTheme;
+  final Map<Brightness, (MbPalette, bool, ThemeData)> _themeCache = {};
 
   bool _updateCheckScheduled = false;
   bool _metadataRefreshScheduled = false;
@@ -57,21 +58,20 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
     _scheduleMetadataRefreshAfterFirstFrame();
   }
 
-  ThemeData _themeFor(
-    bool showTooltips,
-    EirenYuAccentTheme accentTheme,
-  ) {
-    if (_cachedTheme != null &&
-        _lastShowTooltips == showTooltips &&
-        _lastAccentTheme == accentTheme) {
-      return _cachedTheme!;
+  ThemeData _themeFor(MbPalette palette, bool showTooltips) {
+    final cached = _themeCache[palette.brightness];
+    if (cached != null && cached.$1 == palette && cached.$2 == showTooltips) {
+      return cached.$3;
     }
-    _lastShowTooltips = showTooltips;
-    _lastAccentTheme = accentTheme;
-    return _cachedTheme = AppTheme.build(
-      showTooltips: showTooltips,
-      accentTheme: accentTheme,
-    );
+    final theme = AppTheme.build(showTooltips: showTooltips, palette: palette);
+    _themeCache[palette.brightness] = (palette, showTooltips, theme);
+    return theme;
+  }
+
+  @override
+  void dispose() {
+    _themes.dispose();
+    super.dispose();
   }
 
   /// Checks GitHub for a newer release and, if found, shows the update dialog.
@@ -107,6 +107,7 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
     return ListenableBuilder(
       listenable: Listenable.merge([
         SettingsManager(),
+        _themes,
         getIt<ProfileAuthService>(),
       ]),
       builder: (context, _) {
@@ -125,12 +126,14 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
             navigatorKey: AppConstants.navigatorKey,
             title: AppConstants.appName,
             debugShowCheckedModeBanner: false,
-            theme: _themeFor(settings.showTooltips, settings.accentTheme),
+            theme: _themeFor(_themes.lightPalette, settings.showTooltips),
+            darkTheme: _themeFor(_themes.darkPalette, settings.showTooltips),
+            themeMode: _themes.materialThemeMode,
             builder: (context, child) => DesktopWindowFrame(
               child: BrowserSignInPrompt(child: AppShortcuts(child: child!)),
             ),
             home: AnnotatedRegion<SystemUiOverlayStyle>(
-              value: AppTheme.systemOverlay,
+              value: AppTheme.overlayFor(_themes.current),
               child: isPastOnboarding ? MainScreen() : const OnboardingScreen(),
             ),
           ),

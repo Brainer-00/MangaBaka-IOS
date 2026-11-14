@@ -24,11 +24,10 @@ class SettingsManager extends ChangeNotifier {
 
   // ─── Declarations ────────────────────────────────────────────────────────
 
-  final _accentTheme = EnumSetting(
-    SettingsKeys.accentTheme,
-    EirenYuAccentTheme.crimsonMoon,
-    EirenYuAccentTheme.values,
-  );
+  final _themeMode = StringSetting(SettingsKeys.themeMode, 'dark');
+  final _darkThemeId = StringSetting(SettingsKeys.darkThemeId, 'eirenyu');
+  final _lightThemeId = StringSetting(SettingsKeys.lightThemeId, 'eirenyu');
+  final _accentOverride = IntSetting(SettingsKeys.accentOverride, 0);
   final _currentListStyle = EnumSetting(
     SettingsKeys.listStylePref,
     AppListStyle.compactGrid,
@@ -156,7 +155,10 @@ class SettingsManager extends ChangeNotifier {
   /// Every declared setting, in no particular order — the list `init` and
   /// `resetForTesting` walk. Adding a setting above and here is all it takes.
   late final List<SettingValue<Object?>> _all = [
-    _accentTheme,
+    _themeMode,
+    _darkThemeId,
+    _lightThemeId,
+    _accentOverride,
     _currentListStyle,
     _libraryListStyle,
     _browseListStyle,
@@ -197,6 +199,13 @@ class SettingsManager extends ChangeNotifier {
     for (final setting in _all) {
       setting.load(prefs);
     }
+    // PR #31 stored the brand accent as an enum index. Preserve valid
+    // selections only when no explicit v2 override exists.
+    if (!prefs.containsKey(SettingsKeys.accentOverride)) {
+      final legacy = prefs.get(SettingsKeys.legacyAccentTheme);
+      if (legacy == 1) _accentOverride.set(0xFF8B7CF6);
+      if (legacy == 2) _accentOverride.set(0xFF4CC9FF);
+    }
     notifyListeners();
   }
 
@@ -222,9 +231,21 @@ class SettingsManager extends ChangeNotifier {
 
   // ─── Appearance ──────────────────────────────────────────────────────────
 
-  EirenYuAccentTheme get accentTheme => _accentTheme.value;
-  Future<void> setAccentTheme(EirenYuAccentTheme theme) =>
-      _apply(_accentTheme, theme);
+  AppThemeMode get themeMode => AppThemeMode.values.firstWhere(
+    (mode) => mode.name == _themeMode.value,
+    orElse: () => AppThemeMode.dark,
+  );
+  Future<void> setThemeMode(AppThemeMode mode) => _apply(_themeMode, mode.name);
+
+  String get darkThemeId => _darkThemeId.value;
+  Future<void> setDarkThemeId(String id) => _apply(_darkThemeId, id);
+  String get lightThemeId => _lightThemeId.value;
+  Future<void> setLightThemeId(String id) => _apply(_lightThemeId, id);
+
+  int? get accentOverride =>
+      _accentOverride.value == 0 ? null : _accentOverride.value;
+  Future<void> setAccentOverride(int? argb) =>
+      _apply(_accentOverride, argb ?? 0);
 
   // ─── List styles ─────────────────────────────────────────────────────────
 
