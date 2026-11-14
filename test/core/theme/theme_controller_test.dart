@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mangabaka_app/core/settings/settings_enums.dart';
 import 'package:mangabaka_app/core/settings/settings_keys.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
+import 'package:mangabaka_app/core/theme/app_theme.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/theme_controller.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
@@ -161,6 +162,77 @@ void main() {
       greaterThanOrEqualTo(4.5),
     );
   });
+
+  test(
+    'Crimson Moon stays exact for fills and gets legible foreground ink',
+    () {
+      final palette = EirenYuPalette.dark;
+      expect(palette.accent, const Color(0xFFA82F4F));
+      expect(
+        MbPalette.contrastRatio(palette.onAccent, palette.accent),
+        greaterThanOrEqualTo(4.5),
+      );
+      expect(
+        MbPalette.contrastRatio(palette.accentForeground, palette.surface),
+        greaterThanOrEqualTo(4.5),
+      );
+      expect(palette.accentForeground, isNot(palette.accent));
+      for (final variant in [
+        EirenYuPalette.light,
+        ThemePresets.originalGreen,
+      ]) {
+        expect(
+          MbPalette.contrastRatio(variant.accentForeground, variant.surface),
+          greaterThanOrEqualTo(4.5),
+        );
+      }
+    },
+  );
+
+  test(
+    'shared accent roles meet contrast floors on their actual backgrounds',
+    () {
+      final representativePalettes = [
+        EirenYuPalette.dark,
+        EirenYuPalette.light,
+        ThemePresets.byId('nord')!.dark!,
+        ThemePresets.byId('nord')!.light!,
+      ];
+
+      for (final palette in representativePalettes) {
+        expect(
+          MbPalette.contrastRatio(
+            palette.progressIndicator,
+            palette.surfaceRaised,
+          ),
+          greaterThanOrEqualTo(3.0),
+          reason: '${palette.brightness} progress indicator',
+        );
+        expect(
+          MbPalette.contrastRatio(
+            palette.accentOn(palette.surfaceRaised),
+            palette.surfaceRaised,
+          ),
+          greaterThanOrEqualTo(4.5),
+          reason: '${palette.brightness} snackbar action',
+        );
+
+        final snackBar = AppTheme.build(
+          showTooltips: true,
+          palette: palette,
+        ).snackBarTheme;
+        expect(snackBar.backgroundColor, palette.surfaceRaised);
+        expect(
+          MbPalette.contrastRatio(
+            snackBar.actionTextColor!,
+            snackBar.backgroundColor!,
+          ),
+          greaterThanOrEqualTo(4.5),
+          reason: '${palette.brightness} rendered snackbar action',
+        );
+      }
+    },
+  );
 
   test('palette and ThemeExtension interpolate every semantic color', () {
     final palette = MbPalette.lerp(

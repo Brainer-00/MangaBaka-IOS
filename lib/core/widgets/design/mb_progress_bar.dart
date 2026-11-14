@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 
 /// Thin amber progress track, as used under the reference's "NOW" hero.
 class MbProgressBar extends StatelessWidget {
@@ -11,14 +11,15 @@ class MbProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final v = (value ?? 0).clamp(0.0, 1.0);
     return ClipRRect(
       borderRadius: BorderRadius.circular(height),
       child: LinearProgressIndicator(
         value: v,
         minHeight: height,
-        backgroundColor: AppConstants.tertiaryBackground,
-        valueColor: AlwaysStoppedAnimation(AppConstants.accentColor),
+        backgroundColor: colors.surfaceRaised,
+        valueColor: AlwaysStoppedAnimation(colors.progressIndicator),
       ),
     );
   }

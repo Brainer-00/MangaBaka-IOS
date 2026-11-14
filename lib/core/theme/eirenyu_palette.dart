@@ -25,6 +25,18 @@ class MbPalette {
   final Color accent, onAccent, text, textMuted;
   final Color star, success, warning, error, info;
 
+  /// Accent adapted for a particular background. The stored brand accent
+  /// remains unchanged for fills and persisted preferences.
+  Color accentOn(Color background, {double minimum = 4.5}) =>
+      ensureContrast(accent, background, minimum: minimum);
+
+  /// Accent used as small text or an icon on the base surface.
+  Color get accentForeground => accentOn(surface);
+
+  /// The active linear-progress indicator needs non-text contrast with its
+  /// raised track, rather than text contrast with the base surface.
+  Color get progressIndicator => accentOn(surfaceRaised, minimum: 3.0);
+
   MbPalette withAccent(Color color) {
     final adjusted = ensureContrast(color, surface, minimum: 3.0);
     return MbPalette(
@@ -65,8 +77,8 @@ class MbPalette {
         : white;
   }
 
-  /// Nudges an accent toward black or white only when it is too close to the
-  /// palette surface to read as a control or text foreground.
+  /// Nudges a foreground toward black or white only when it is too close to
+  /// its actual background to meet the requested contrast floor.
   static Color ensureContrast(
     Color color,
     Color background, {

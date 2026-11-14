@@ -85,7 +85,7 @@ class AppTheme {
       radioTheme: _radio(palette),
       sliderTheme: _slider(palette),
       progressIndicatorTheme: ProgressIndicatorThemeData(
-        color: palette.accent,
+        color: palette.progressIndicator,
         linearTrackColor: palette.surfaceRaised,
         circularTrackColor: Colors.transparent,
       ),
@@ -206,7 +206,7 @@ class AppTheme {
   static TextButtonThemeData _textButton(MbPalette palette) =>
       TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: palette.accent,
+          foregroundColor: palette.accentForeground,
           textStyle: AppTypography.display(fontSize: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppConstants.pillRadius),
@@ -294,7 +294,7 @@ class AppTheme {
   static SnackBarThemeData _snackBar(MbPalette palette) => SnackBarThemeData(
     backgroundColor: palette.surfaceRaised,
     contentTextStyle: AppTypography.sans(color: palette.text, fontSize: 14),
-    actionTextColor: palette.accent,
+    actionTextColor: palette.accentOn(palette.surfaceRaised),
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(AppConstants.denseRadius),

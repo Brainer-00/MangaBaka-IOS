@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/motion/app_motion.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 
 /// Uppercase pill — the design system's single selectable-chip shape.
 ///
@@ -16,7 +18,7 @@ class MbPill extends StatelessWidget {
   final IconData? icon;
 
   /// Shown as a small count/qualifier after the label (e.g. an active filter
-  /// count). Rendered in the same ink as the label at reduced opacity.
+  /// count). Its smaller type preserves hierarchy without reducing contrast.
   final String? trailingText;
 
   const MbPill({
@@ -31,7 +33,14 @@ class MbPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? AppConstants.onAccent : AppConstants.textColor;
+    final colors = context.colors;
+    final fill = selected ? colors.accent : colors.surfaceRaised;
+    final fg = selected ? colors.onAccent : colors.text;
+    final trailingFg = MbPalette.ensureContrast(
+      selected ? colors.onAccent : colors.textMuted,
+      fill,
+      minimum: 4.5,
+    );
 
     return MbTappable(
       onTap: onTap,
@@ -40,9 +49,7 @@ class MbPill extends StatelessWidget {
         duration: AppMotion.fast,
         curve: AppMotion.emphasized,
         decoration: BoxDecoration(
-          color: selected
-              ? AppConstants.accentColor
-              : AppConstants.tertiaryBackground,
+          color: fill,
           borderRadius: BorderRadius.circular(AppConstants.pillRadius),
         ),
         child: Padding(
@@ -64,10 +71,7 @@ class MbPill extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   trailingText!,
-                  style: AppTypography.display(
-                    color: fg.withValues(alpha: 0.6),
-                    fontSize: 13,
-                  ),
+                  style: AppTypography.display(color: trailingFg, fontSize: 12),
                 ),
               ],
             ],

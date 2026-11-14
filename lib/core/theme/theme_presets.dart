@@ -49,6 +49,14 @@ class ThemePresets {
     int accent, {
     int? surface,
     int? text,
+    int? surfaceRaised,
+    int? border,
+    int? textMuted,
+    int? star,
+    int? success,
+    int? warning,
+    int? error,
+    int? info,
   }) {
     final dark = brightness == Brightness.dark;
     final bg = Color(background);
@@ -58,17 +66,23 @@ class ThemePresets {
       brightness: brightness,
       background: bg,
       surface: Color(surface ?? (dark ? 0xFF272732 : 0xFFFFFFFF)),
-      surfaceRaised: Color.lerp(bg, fg, dark ? 0.15 : 0.07)!,
-      border: Color.lerp(bg, fg, dark ? 0.25 : 0.19)!,
+      surfaceRaised: surfaceRaised == null
+          ? Color.lerp(bg, fg, dark ? 0.15 : 0.07)!
+          : Color(surfaceRaised),
+      border: border == null
+          ? Color.lerp(bg, fg, dark ? 0.25 : 0.19)!
+          : Color(border),
       accent: Color(accent),
       onAccent: MbPalette.readableOn(Color(accent)),
       text: fg,
-      textMuted: Color.lerp(bg, fg, dark ? 0.70 : 0.66)!,
-      star: base.star,
-      success: base.success,
-      warning: base.warning,
-      error: base.error,
-      info: base.info,
+      textMuted: textMuted == null
+          ? Color.lerp(bg, fg, dark ? 0.70 : 0.66)!
+          : Color(textMuted),
+      star: star == null ? base.star : Color(star),
+      success: success == null ? base.success : Color(success),
+      warning: warning == null ? base.warning : Color(warning),
+      error: error == null ? base.error : Color(error),
+      info: info == null ? base.info : Color(info),
     );
   }
 
@@ -90,6 +104,10 @@ class ThemePresets {
         0xFF000000,
         0xFF5BBD74,
         surface: 0xFF0C0C0C,
+        surfaceRaised: 0xFF171717,
+        border: 0xFF222222,
+        text: 0xFFFFFFFF,
+        textMuted: 0xFF8E8E8E,
       ),
     ),
     ThemePreset(
@@ -105,12 +123,28 @@ class ThemePresets {
         0xFFCBA6F7,
         surface: 0xFF262637,
         text: 0xFFCDD6F4,
+        surfaceRaised: 0xFF313244,
+        border: 0xFF45475A,
+        textMuted: 0xFFA6ADC8,
+        star: 0xFFF9E2AF,
+        success: 0xFFA6E3A1,
+        warning: 0xFFFAB387,
+        error: 0xFFF38BA8,
+        info: 0xFF89B4FA,
       ),
       light: _derive(
         Brightness.light,
         0xFFEFF1F5,
         0xFF8839EF,
         text: 0xFF4C4F69,
+        surfaceRaised: 0xFFE6E9EF,
+        border: 0xFFCCD0DA,
+        textMuted: 0xFF6C6F85,
+        star: 0xFFDF8E1D,
+        success: 0xFF40A02B,
+        warning: 0xFFFE640B,
+        error: 0xFFD20F39,
+        info: 0xFF1E66F5,
       ),
     ),
     ThemePreset(
@@ -121,6 +155,14 @@ class ThemePresets {
         0xFFBD93F9,
         surface: 0xFF282A36,
         text: 0xFFF8F8F2,
+        surfaceRaised: 0xFF343746,
+        border: 0xFF44475A,
+        textMuted: 0xFFA0A7C8,
+        star: 0xFFF1FA8C,
+        success: 0xFF50FA7B,
+        warning: 0xFFFFB86C,
+        error: 0xFFFF5555,
+        info: 0xFF8BE9FD,
       ),
     ),
     ThemePreset(
@@ -131,6 +173,13 @@ class ThemePresets {
         0xFF88C0D0,
         surface: 0xFF3B4252,
         text: 0xFFECEFF4,
+        surfaceRaised: 0xFF434C5E,
+        border: 0xFF4C566A,
+        star: 0xFFEBCB8B,
+        success: 0xFFA3BE8C,
+        warning: 0xFFD08770,
+        error: 0xFFBF616A,
+        info: 0xFF81A1C1,
       ),
       light: _derive(
         Brightness.light,
@@ -138,6 +187,10 @@ class ThemePresets {
         0xFF5E81AC,
         surface: 0xFFF4F6F9,
         text: 0xFF2E3440,
+        surfaceRaised: 0xFFD8DEE9,
+        border: 0xFFC3CBD8,
+        textMuted: 0xFF4C566A,
+        error: 0xFFBF616A,
       ),
     ),
     ThemePreset(
