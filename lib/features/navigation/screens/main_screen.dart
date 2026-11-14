@@ -2,12 +2,12 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/mock_series_data.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:mangabaka_app/core/network/backend_health_banner.dart';
 import 'package:mangabaka_app/core/settings/settings_enums.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/widgets/design/mb_nav.dart';
 import 'package:mangabaka_app/desktop/desktop_layout.dart';
 import 'package:mangabaka_app/desktop/shell/desktop_shell.dart';
@@ -183,7 +183,7 @@ class MainScreenState extends State<MainScreen> {
 
   Widget _phoneLayout(LocalizationService l10n) {
     return Scaffold(
-      backgroundColor: AppConstants.primaryBackground,
+      backgroundColor: context.colors.background,
       body: _withHealthBanner(_flatContent()),
       bottomNavigationBar: _bottomNav(l10n),
     );
@@ -197,7 +197,7 @@ class MainScreenState extends State<MainScreen> {
     switch (position) {
       case LandscapeAppBarPosition.top:
         return Scaffold(
-          backgroundColor: AppConstants.primaryBackground,
+          backgroundColor: context.colors.background,
           appBar: MainTopNavBar(
             selectedIndex: _selectedIndex,
             onDestinationSelected: _onItemTapped,
@@ -212,7 +212,7 @@ class MainScreenState extends State<MainScreen> {
         // it already sits out of the way, so a nested navigator would only
         // cost the pushed route its full height.
         return Scaffold(
-          backgroundColor: AppConstants.primaryBackground,
+          backgroundColor: context.colors.background,
           body: _withHealthBanner(_flatContent()),
           bottomNavigationBar: _bottomNav(l10n),
         );
@@ -235,7 +235,7 @@ class MainScreenState extends State<MainScreen> {
     final content = Expanded(child: _withHealthBanner(_nestedContent()));
 
     return Scaffold(
-      backgroundColor: AppConstants.primaryBackground,
+      backgroundColor: context.colors.background,
       body: Row(
         children: side == NavRailSide.left
             ? [rail, const NavRailDivider(), content]

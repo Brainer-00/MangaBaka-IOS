@@ -2,8 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/motion/app_motion.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 
 /// Draws the reference's hand-cut amber starburst: a closed polygon whose
 /// radius alternates between an outer spike and an inner valley, with a small
@@ -71,10 +71,11 @@ class MbStarburstButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final enabled = onPressed != null;
     final color = enabled
-        ? AppConstants.accentColor
-        : AppConstants.accentColor.withValues(alpha: 0.35);
+        ? colors.accent
+        : colors.accent.withValues(alpha: 0.35);
 
     return Semantics(
       button: true,
@@ -97,14 +98,14 @@ class MbStarburstButton extends StatelessWidget {
                     label.toUpperCase(),
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.display(
-                      color: AppConstants.onAccent,
+                      color: colors.onAccent,
                       fontSize: 17,
                     ),
                   ),
                 ),
                 if (trailingIcon != null) ...[
                   const SizedBox(width: 10),
-                  Icon(trailingIcon, size: 19, color: AppConstants.onAccent),
+                  Icon(trailingIcon, size: 19, color: colors.onAccent),
                 ],
               ],
             ),
