@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/motion/app_motion.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 
 /// A single settings row.
 ///
@@ -30,6 +31,7 @@ class SettingsItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final radius = BorderRadius.vertical(
       top: isFirst ? Radius.circular(AppConstants.cardRadius) : Radius.zero,
       bottom: isLast ? Radius.circular(AppConstants.cardRadius) : Radius.zero,
@@ -41,7 +43,7 @@ class SettingsItem extends StatelessWidget {
         children: [
           SizedBox(
             width: 24,
-            child: Icon(icon, color: AppConstants.textMutedColor, size: 20),
+            child: Icon(icon, color: colors.textMuted, size: 20),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -51,7 +53,7 @@ class SettingsItem extends StatelessWidget {
                 Text(
                   title.toUpperCase(),
                   style: AppTypography.display(
-                    color: AppConstants.textColor,
+                    color: colors.text,
                     fontSize: 14,
                   ),
                 ),
@@ -60,7 +62,7 @@ class SettingsItem extends StatelessWidget {
                   Text(
                     subtitle!,
                     style: AppTypography.sans(
-                      color: AppConstants.textMutedColor,
+                      color: colors.textMuted,
                       fontSize: 13,
                       height: 1.35,
                     ),
@@ -73,7 +75,7 @@ class SettingsItem extends StatelessWidget {
           trailing ??
               Icon(
                 Icons.chevron_right_rounded,
-                color: AppConstants.textMutedColor,
+                color: colors.textMuted,
                 size: 22,
               ),
         ],

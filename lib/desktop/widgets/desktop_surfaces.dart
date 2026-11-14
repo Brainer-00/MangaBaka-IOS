@@ -3,6 +3,7 @@ import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/motion/app_motion.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/desktop/desktop_layout.dart';
 import 'package:mangabaka_app/desktop/widgets/desktop_dropdown.dart';
 export 'package:mangabaka_app/desktop/widgets/desktop_dropdown.dart';
@@ -40,11 +41,14 @@ class DesktopPageHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final resolvedPadding = padding.resolve(Directionality.of(context));
     final double additionalRight = DesktopLayout.isDesktopPlatform
-        ? (DesktopTokens.windowControlsClearance - resolvedPadding.right)
-            .clamp(0.0, double.infinity)
+        ? (DesktopTokens.windowControlsClearance - resolvedPadding.right).clamp(
+            0.0,
+            double.infinity,
+          )
         : 0.0;
-    final effectivePadding =
-        resolvedPadding.add(EdgeInsets.only(right: additionalRight));
+    final effectivePadding = resolvedPadding.add(
+      EdgeInsets.only(right: additionalRight),
+    );
 
     final titleWidget = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,7 +101,10 @@ class DesktopPageHeader extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    if (leading != null) ...[leading!, const SizedBox(width: 12)],
+                    if (leading != null) ...[
+                      leading!,
+                      const SizedBox(width: 12),
+                    ],
                     Expanded(child: titleWidget),
                   ],
                 ),
@@ -190,10 +197,7 @@ class DesktopSectionTitle extends StatelessWidget {
     );
 
     if (trailing == null) {
-      return Padding(
-        padding: padding,
-        child: titleWidget,
-      );
+      return Padding(padding: padding, child: titleWidget);
     }
 
     return Padding(
@@ -203,10 +207,7 @@ class DesktopSectionTitle extends StatelessWidget {
         crossAxisAlignment: WrapCrossAlignment.center,
         spacing: 12,
         runSpacing: 8,
-        children: [
-          titleWidget,
-          trailing!,
-        ],
+        children: [titleWidget, trailing!],
       ),
     );
   }
@@ -520,10 +521,7 @@ class DesktopMenuButton<T> extends StatelessWidget {
       icon: icon,
       items: [
         for (final (value, text) in items)
-          DesktopDropdownItem<T>(
-            value: value,
-            label: text,
-          ),
+          DesktopDropdownItem<T>(value: value, label: text),
       ],
       selected: selected,
       onSelected: onSelected,
@@ -594,8 +592,8 @@ class DesktopSidePanel extends StatelessWidget {
     return Container(
       width: width,
       decoration: BoxDecoration(
-        color: AppConstants.primaryBackground,
-        border: Border(right: BorderSide(color: AppConstants.borderColor)),
+        color: context.colors.background,
+        border: Border(right: BorderSide(color: context.colors.border)),
       ),
       child: child,
     );

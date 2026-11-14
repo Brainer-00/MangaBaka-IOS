@@ -8,6 +8,7 @@ import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:mangabaka_app/core/settings/settings_enums.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/widgets/app_snack_bar.dart';
 import 'package:mangabaka_app/core/widgets/design/github_logo.dart';
 import 'package:mangabaka_app/desktop/desktop_layout.dart';
@@ -19,6 +20,7 @@ import 'package:mangabaka_app/features/profile/screens/privacy_legal_screen.dart
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:mangabaka_app/features/profile/widgets/dialogs/general_settings_dialogs.dart';
 import 'package:mangabaka_app/features/profile/widgets/dialogs/logout_dialog.dart';
+import 'package:mangabaka_app/features/profile/widgets/settings/appearance_settings.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:mangabaka_app/core/utils/external_url_launcher.dart';
@@ -39,6 +41,7 @@ class DesktopSettingsScreen extends StatefulWidget {
 /// scrolls down to it, to an earlier one scrolls up.
 enum _Category {
   general,
+  appearance,
   lists,
   content,
   account,
@@ -101,6 +104,12 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
       AppConstants.textColor,
       'general',
       'general_settings_subtitle',
+    ),
+    _Category.appearance => (
+      Icons.palette_outlined,
+      AppConstants.accentColor,
+      'appearance',
+      'appearance_subtitle',
     ),
     _Category.lists => (
       Icons.grid_view_rounded,
@@ -166,6 +175,7 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
   Widget _nav(LocalizationService l10n) {
     final categories = [
       _Category.general,
+      _Category.appearance,
       _Category.lists,
       _Category.content,
       if (_auth.isLoggedIn) _Category.account,
@@ -181,7 +191,7 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
           child: Text(
             l10n.translate('settings').toUpperCase(),
             style: AppTypography.display(
-              color: AppConstants.textColor,
+              color: context.colors.text,
               fontSize: 30,
             ),
           ),
@@ -193,13 +203,13 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
           child: Text(
             l10n.translate('information').toUpperCase(),
             style: AppTypography.monoLabel(
-              color: AppConstants.textMutedColor,
+              color: context.colors.textMuted,
               fontSize: 11.5,
             ),
           ),
         ),
         _link(
-          leading: GithubLogo(size: 18, color: AppConstants.textColor),
+          leading: GithubLogo(size: 18, color: context.colors.text),
           label: l10n.translate('github'),
           external: true,
           onTap: () => ExternalUrlLauncher.launch(
@@ -212,7 +222,7 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
           leading: Icon(
             Icons.translate_rounded,
             size: 18,
-            color: AppConstants.textColor,
+            color: context.colors.text,
           ),
           label: l10n.translate('translation_credits'),
           selected: _selected == _Category.translationCredits,
@@ -231,7 +241,7 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.sans(
-                    color: AppConstants.textMutedColor,
+                    color: context.colors.textMuted,
                     fontSize: 12.5,
                   ),
                 ),
@@ -251,8 +261,8 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
       child: DesktopHoverSurface(
         onTap: () => _select(c),
         selected: selected,
-        selectedColor: AppConstants.tertiaryBackground,
-        hoverColor: AppConstants.secondaryBackground,
+        selectedColor: context.colors.surfaceRaised,
+        hoverColor: context.colors.surface,
         borderRadius: BorderRadius.circular(12),
         padding: const EdgeInsets.all(10),
         child: Row(
@@ -263,8 +273,8 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
                 icon,
                 size: 20,
                 color: selected
-                    ? AppConstants.accentColor
-                    : AppConstants.textMutedColor,
+                    ? context.colors.accentForeground
+                    : context.colors.textMuted,
               ),
             ),
             const SizedBox(width: 12),
@@ -277,7 +287,7 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.sans(
-                      color: AppConstants.textColor,
+                      color: context.colors.text,
                       fontSize: 14.5,
                       fontWeight: FontWeight.w600,
                     ),
@@ -287,7 +297,7 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.sans(
-                      color: AppConstants.textMutedColor,
+                      color: context.colors.textMuted,
                       fontSize: 12,
                     ),
                   ),
@@ -310,8 +320,8 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
     return DesktopHoverSurface(
       onTap: onTap,
       selected: selected,
-      selectedColor: AppConstants.tertiaryBackground,
-      hoverColor: AppConstants.secondaryBackground,
+      selectedColor: context.colors.surfaceRaised,
+      hoverColor: context.colors.surface,
       borderRadius: BorderRadius.circular(10),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       child: Row(
@@ -324,7 +334,7 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AppTypography.sans(
-                color: AppConstants.textColor,
+                color: context.colors.text,
                 fontSize: 13.5,
                 fontWeight: FontWeight.w500,
               ),
@@ -334,7 +344,7 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
             Icon(
               Icons.open_in_new_rounded,
               size: 15,
-              color: AppConstants.textMutedColor,
+              color: context.colors.textMuted,
             ),
         ],
       ),
@@ -444,7 +454,7 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
         Text(
           l10n.translate(titleKey).toUpperCase(),
           style: AppTypography.display(
-            color: AppConstants.textColor,
+            color: context.colors.text,
             fontSize: 26,
           ),
         ),
@@ -452,7 +462,7 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
         Text(
           l10n.translate(subtitleKey),
           style: AppTypography.sans(
-            color: AppConstants.textMutedColor,
+            color: context.colors.textMuted,
             fontSize: 14,
           ),
         ),
@@ -472,6 +482,7 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
   Widget _buildCategoryContent(_Category category, LocalizationService l10n) {
     return switch (category) {
       _Category.general => _buildGeneral(l10n),
+      _Category.appearance => const AppearanceSettings(),
       _Category.lists => DesktopListCustomization(l10n: l10n),
       _Category.content => _buildContent(l10n),
       _Category.account => _buildAccount(l10n),
