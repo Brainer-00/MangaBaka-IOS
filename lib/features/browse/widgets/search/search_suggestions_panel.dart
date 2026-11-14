@@ -1,5 +1,6 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/features/series/models/autocomplete_series_result.dart';
 import 'package:mangabaka_app/core/widgets/design/mb_cover.dart';
@@ -27,15 +28,15 @@ class SearchSuggestionsPanel extends StatelessWidget {
       curve: Curves.easeOutCubic,
       alignment: Alignment.topCenter,
       child: showSuggestions
-          ? _buildSuggestionsList()
+          ? _buildSuggestionsList(context)
           : const SizedBox.shrink(),
     );
   }
 
-  Widget _buildSuggestionsList() {
+  Widget _buildSuggestionsList(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppConstants.secondaryBackground,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(AppConstants.largeRadius),
         boxShadow: AppConstants.softShadow,
       ),
@@ -45,6 +46,7 @@ class SearchSuggestionsPanel extends StatelessWidget {
         children: List.generate(results.length, (index) {
           final result = results[index];
           return _buildResultTile(
+            context,
             result,
             index == selectedIndex,
             isFirst: index == 0,
@@ -56,6 +58,7 @@ class SearchSuggestionsPanel extends StatelessWidget {
   }
 
   Widget _buildResultTile(
+    BuildContext context,
     AutocompleteSeriesResult result,
     bool isSelected, {
     bool isFirst = false,
@@ -72,7 +75,7 @@ class SearchSuggestionsPanel extends StatelessWidget {
 
     return Material(
       color: isSelected
-          ? AppConstants.accentColor.withValues(alpha: 0.12)
+          ? context.colors.accent.withValues(alpha: 0.12)
           : Colors.transparent,
       borderRadius: borderRadius,
       child: InkWell(
@@ -80,7 +83,7 @@ class SearchSuggestionsPanel extends StatelessWidget {
         onHover: (hovering) {
           if (hovering) onResultHovered?.call(result);
         },
-        splashColor: AppConstants.accentColor.withValues(alpha: 0.08),
+        splashColor: context.colors.accent.withValues(alpha: 0.08),
         borderRadius: borderRadius,
         child: Padding(
           padding: EdgeInsets.only(
@@ -110,7 +113,7 @@ class SearchSuggestionsPanel extends StatelessWidget {
                     Text(
                       result.title,
                       style: AppTypography.sans(
-                        color: AppConstants.textColor,
+                        color: context.colors.text,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         height: 1.3,
@@ -122,14 +125,14 @@ class SearchSuggestionsPanel extends StatelessWidget {
                     Row(
                       children: [
                         if (result.type.isNotEmpty) ...[
-                          _buildTypeBadge(result.type),
+                          _buildTypeBadge(context, result.type),
                           const SizedBox(width: 6),
                         ],
                         if (result.year != null)
                           Text(
                             '${result.year}',
                             style: AppTypography.sans(
-                              color: AppConstants.textMutedColor,
+                              color: context.colors.textMuted,
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                             ),
@@ -139,9 +142,7 @@ class SearchSuggestionsPanel extends StatelessWidget {
                           Text(
                             '  ·  ${result.genres.take(2).map((g) => g.isNotEmpty ? g[0].toUpperCase() + g.substring(1) : g).join(', ')}',
                             style: AppTypography.sans(
-                              color: AppConstants.textMutedColor.withValues(
-                                alpha: 0.7,
-                              ),
+                              color: context.colors.textMuted,
                               fontSize: 11,
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -156,7 +157,7 @@ class SearchSuggestionsPanel extends StatelessWidget {
               Icon(
                 Icons.north_west_rounded,
                 size: 15,
-                color: AppConstants.textMutedColor.withValues(alpha: 0.35),
+                color: context.colors.textMuted,
               ),
             ],
           ),
@@ -165,7 +166,7 @@ class SearchSuggestionsPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildTypeBadge(String type) {
+  Widget _buildTypeBadge(BuildContext context, String type) {
     final colors = {
       'manga': const Color(0xFF4A90D9),
       'manhwa': const Color(0xFF7B68EE),
@@ -173,7 +174,7 @@ class SearchSuggestionsPanel extends StatelessWidget {
       'novel': const Color(0xFF50C878),
       'oel': const Color(0xFFFF6B6B),
     };
-    final color = colors[type.toLowerCase()] ?? AppConstants.textMutedColor;
+    final color = colors[type.toLowerCase()] ?? context.colors.textMuted;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

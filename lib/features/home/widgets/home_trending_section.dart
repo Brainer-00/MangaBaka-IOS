@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/motion/app_motion.dart';
@@ -71,7 +72,7 @@ class HomeTrendingSection extends StatelessWidget {
                 width: 1,
                 height: 18,
                 margin: const EdgeInsets.fromLTRB(2, 8, 10, 8),
-                color: AppConstants.borderColor,
+                color: context.colors.border,
               ),
               _Pill(
                 label: '7d',
@@ -120,17 +121,15 @@ class _Pill extends StatelessWidget {
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
-          color: selected
-              ? AppConstants.accentColor
-              : AppConstants.secondaryBackground,
+          color: selected ? context.colors.accent : context.colors.surface,
           borderRadius: BorderRadius.circular(AppConstants.pillRadius),
         ),
         child: Text(
           label,
           style: AppTypography.sans(
             color: selected
-                ? AppConstants.onAccent
-                : AppConstants.textMutedColor,
+                ? context.colors.onAccent
+                : context.colors.textMuted,
             fontSize: 12.5,
             fontWeight: FontWeight.w600,
           ),

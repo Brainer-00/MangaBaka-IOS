@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 import 'package:mangabaka_app/core/widgets/app_snack_bar.dart';
@@ -120,11 +121,7 @@ class BrowseScreenState extends State<BrowseScreen> {
         _controller.searchController.text,
       );
     }
-    AppSnackBar.show(
-      context,
-      message,
-      isError: true,
-    );
+    AppSnackBar.show(context, message, isError: true);
   }
 
   // ─── Navigation ──────────────────────────────────────────────────────────
@@ -210,7 +207,7 @@ class BrowseScreenState extends State<BrowseScreen> {
               _exitSearch();
             },
             child: Scaffold(
-              backgroundColor: AppConstants.primaryBackground,
+              backgroundColor: context.colors.background,
               appBar: searchInNavBar
                   ? null
                   : BrowseAppBar(
@@ -269,8 +266,9 @@ class BrowseScreenState extends State<BrowseScreen> {
             BrowseResultCount(
               total: _controller.totalResults,
               isCapped: _controller.isTotalCapped,
-              typeLabel: LocalizationService()
-                  .translate(_controller.currentType.name),
+              typeLabel: LocalizationService().translate(
+                _controller.currentType.name,
+              ),
             ),
           BrowseContent(
             searchResults: _controller.searchResults,
@@ -296,11 +294,8 @@ class BrowseScreenState extends State<BrowseScreen> {
       message: LocalizationService().translate('back_to_top'),
       child: FloatingActionButton(
         onPressed: _controller.scrollToTop,
-        backgroundColor: AppConstants.accentColor,
-        child: Icon(
-          Icons.arrow_upward,
-          color: AppConstants.primaryBackground,
-        ),
+        backgroundColor: context.colors.accent,
+        child: Icon(Icons.arrow_upward, color: context.colors.onAccent),
       ),
     );
   }
