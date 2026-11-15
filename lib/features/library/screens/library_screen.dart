@@ -4,6 +4,7 @@ import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:mangabaka_app/core/settings/settings_enums.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 import 'package:mangabaka_app/core/widgets/app_snack_bar.dart';
 import 'package:mangabaka_app/features/browse/models/search_filters.dart';
@@ -196,7 +197,7 @@ class LibraryScreenState extends State<LibraryScreen>
             _exitSearch();
           },
           child: Scaffold(
-            backgroundColor: LibraryScreenConstants.backgroundColor,
+            backgroundColor: context.colors.background,
             appBar: _buildAppBar(context),
             body: ValueListenableBuilder<LibrarySyncStatus>(
               valueListenable: _libraryService.syncStatus,

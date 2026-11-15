@@ -4,6 +4,8 @@ import 'package:mangabaka_app/features/library/models/library_sync_status.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:mangabaka_app/desktop/desktop_layout.dart';
@@ -60,17 +62,32 @@ class SyncProgressOverlay extends StatelessWidget {
   }) {
     final hasError = status.error != null;
     final l10n = LocalizationService();
+    final colors = context.colors;
+    final errorText = MbPalette.ensureContrast(
+      colors.error,
+      colors.surface,
+      minimum: 4.5,
+    );
+    final stopBackground = Color.alphaBlend(
+      colors.error.withValues(alpha: 0.12),
+      colors.surface,
+    );
+    final stopForeground = MbPalette.ensureContrast(
+      colors.error,
+      stopBackground,
+      minimum: 4.5,
+    );
 
     return Container(
       constraints: isDesktop ? const BoxConstraints(maxWidth: 380) : null,
       width: isDesktop ? null : double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: AppConstants.secondaryBackground,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(
           isDesktop ? 10 : AppConstants.largeRadius,
         ),
-        border: Border.all(color: AppConstants.borderColor),
+        border: Border.all(color: colors.border),
         boxShadow: isDesktop
             ? [
                 BoxShadow(
@@ -99,17 +116,15 @@ class SyncProgressOverlay extends StatelessWidget {
                         width: 42,
                         height: 42,
                         decoration: BoxDecoration(
-                          color: AppConstants.accentColor.withValues(
-                            alpha: 0.15,
-                          ),
+                          color: colors.accent.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         child: Center(
                           child: Icon(
                             hasError ? Icons.warning_amber_rounded : Icons.sync,
                             color: hasError
-                                ? AppConstants.errorColor
-                                : AppConstants.accentColor,
+                                ? errorText
+                                : colors.accentForeground,
                             size: 20,
                           ),
                         ),
@@ -121,7 +136,7 @@ class SyncProgressOverlay extends StatelessWidget {
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              AppConstants.accentColor,
+                              colors.progressIndicator,
                             ),
                           ),
                         ),
@@ -145,9 +160,7 @@ class SyncProgressOverlay extends StatelessWidget {
                                       status.currentEntries.toString(),
                                     ),
                           style: AppTypography.sans(
-                            color: hasError
-                                ? AppConstants.errorColor
-                                : AppConstants.textColor,
+                            color: hasError ? errorText : colors.text,
                             fontWeight: FontWeight.w700,
                             fontSize: 15,
                           ),
@@ -160,10 +173,12 @@ class SyncProgressOverlay extends StatelessWidget {
                               : l10n.translate('keep_app_open'),
                           style: AppTypography.sans(
                             color: hasError
-                                ? AppConstants.errorColor.withValues(
-                                    alpha: 0.85,
-                                  )
-                                : AppConstants.textMutedColor,
+                                ? errorText
+                                : MbPalette.ensureContrast(
+                                    colors.textMuted,
+                                    colors.surface,
+                                    minimum: 4.5,
+                                  ),
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
                           ),
@@ -190,7 +205,7 @@ class SyncProgressOverlay extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: AppConstants.errorColor.withValues(alpha: 0.12),
+                    color: stopBackground,
                     borderRadius: BorderRadius.circular(
                       AppConstants.pillRadius,
                     ),
@@ -201,28 +216,20 @@ class SyncProgressOverlay extends StatelessWidget {
                       Text(
                         l10n.translate('stop'),
                         style: AppTypography.sans(
-                          color: AppConstants.errorColor,
+                          color: stopForeground,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Icon(
-                        Icons.close,
-                        color: AppConstants.errorColor,
-                        size: 14,
-                      ),
+                      Icon(Icons.close, color: stopForeground, size: 14),
                     ],
                   ),
                 ),
               ),
             )
           else
-            Icon(
-              Icons.chevron_right,
-              color: AppConstants.textMutedColor.withValues(alpha: 0.5),
-              size: 20,
-            ),
+            Icon(Icons.chevron_right, color: colors.textMuted, size: 20),
         ],
       ),
     );
