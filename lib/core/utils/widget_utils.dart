@@ -46,12 +46,7 @@ class WidgetUtils {
   }) {
     if (url.isEmpty) {
       final iconSize = (width != null && width.isFinite) ? width : 24.0;
-      return errorWidget ??
-          Icon(
-            Icons.broken_image,
-            size: iconSize,
-            color: AppConstants.textMutedColor,
-          );
+      return errorWidget ?? _DefaultImageError(iconSize: iconSize);
     }
 
     final Widget image = url.startsWith('assets/')
@@ -62,12 +57,7 @@ class WidgetUtils {
             fit: fit,
             errorBuilder: (context, error, stackTrace) {
               final iconSize = (width != null && width.isFinite) ? width : 24.0;
-              return errorWidget ??
-                  Icon(
-                    Icons.broken_image,
-                    size: iconSize,
-                    color: AppConstants.textMutedColor,
-                  );
+              return errorWidget ?? _DefaultImageError(iconSize: iconSize);
             },
           )
         : CachedNetworkImage(
@@ -79,22 +69,14 @@ class WidgetUtils {
             memCacheWidth: memCacheWidth,
             memCacheHeight: memCacheHeight,
             placeholder: (context, url) =>
-                placeholder ??
-                Container(color: AppConstants.secondaryBackground),
+                placeholder ?? const _DefaultImagePlaceholder(),
             errorWidget: (context, url, error) {
-              // Surface the failing host + error so image outages (dead CDN,
-              // TLS handshake, cleartext block, rate limit) are diagnosable from
-              // the in-app log rather than a silent broken-image icon.
-              LoggingService.logger.warning(
-                'Image load failed (${error.runtimeType})',
-              );
               final iconSize = (width != null && width.isFinite) ? width : 24.0;
-              return errorWidget ??
-                  Icon(
-                    Icons.broken_image,
-                    size: iconSize,
-                    color: AppConstants.textMutedColor,
-                  );
+              return _NetworkImageFailure(
+                key: ValueKey('$url:${error.runtimeType}'),
+                errorType: error.runtimeType,
+                child: errorWidget ?? _DefaultImageError(iconSize: iconSize),
+              );
             },
             fadeOutDuration: const Duration(milliseconds: 300),
             fadeInDuration: const Duration(milliseconds: 300),
@@ -223,6 +205,72 @@ class WidgetUtils {
       },
     );
   }
+}
+
+/// Reads theme colors during its own build so cached image state can recolor
+/// without changing the image key or restarting the image request.
+class _DefaultImagePlaceholder extends StatelessWidget {
+  const _DefaultImagePlaceholder();
+
+  @override
+  Widget build(BuildContext context) =>
+      Container(color: context.colors.surfaceRaised);
+}
+
+class _DefaultImageError extends StatelessWidget {
+  const _DefaultImageError({required this.iconSize});
+
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      color: colors.surfaceRaised,
+      child: Center(
+        widthFactor: 1,
+        heightFactor: 1,
+        child: Icon(
+          Icons.broken_image,
+          size: iconSize,
+          color: MbPalette.ensureContrast(
+            colors.textMuted,
+            colors.surfaceRaised,
+            minimum: 4.5,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Logs once when this URL enters its failed state. Keeping the error visual in
+/// a child widget prevents a parent theme rebuild from repeating the log.
+class _NetworkImageFailure extends StatefulWidget {
+  const _NetworkImageFailure({
+    super.key,
+    required this.errorType,
+    required this.child,
+  });
+
+  final Type errorType;
+  final Widget child;
+
+  @override
+  State<_NetworkImageFailure> createState() => _NetworkImageFailureState();
+}
+
+class _NetworkImageFailureState extends State<_NetworkImageFailure> {
+  @override
+  void initState() {
+    super.initState();
+    // Surface the failing host + error so image outages (dead CDN, TLS
+    // handshake, cleartext block, rate limit) remain diagnosable in app logs.
+    LoggingService.logger.warning('Image load failed (${widget.errorType})');
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// A reactive tooltip that listens to [SettingsManager] to show or hide itself.

@@ -1,7 +1,6 @@
-﻿import 'package:mangabaka_app/features/series/widgets/unblur_warning.dart';
+import 'package:mangabaka_app/features/series/widgets/unblur_warning.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/features/series/models/series_cover.dart';
 import 'package:mangabaka_app/features/series/screens/full_screen_image_screen.dart';
 import 'package:mangabaka_app/features/series/widgets/series_section_header.dart';
@@ -9,6 +8,7 @@ import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 
 class SeriesCoversTab extends StatelessWidget {
   final List<SeriesCover>? covers;
@@ -24,6 +24,7 @@ class SeriesCoversTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     if (covers == null) {
       return Padding(
         padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -32,9 +33,17 @@ class SeriesCoversTab extends StatelessWidget {
     }
     final l10n = LocalizationService();
     if (covers == null || covers!.isEmpty) {
-      return Center(child: Padding(padding: const EdgeInsets.all(32.0), child: Text(l10n.translate('no_covers_available'))));
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Text(
+            l10n.translate('no_covers_available'),
+            style: AppTypography.sans(color: colors.textMuted),
+          ),
+        ),
+      );
     }
-    
+
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: Column(
@@ -54,9 +63,10 @@ class SeriesCoversTab extends StatelessWidget {
             itemCount: covers!.length,
             itemBuilder: (context, index) {
               final cover = covers![index];
-              final url = cover.url ?? cover.urlX350 ?? cover.urlX250 ?? cover.urlX150;
+              final url =
+                  cover.url ?? cover.urlX350 ?? cover.urlX250 ?? cover.urlX150;
               final title = _formatCoverTitle(cover);
-              
+
               return _HoverableCoverItem(
                 cover: cover,
                 allCovers: covers!,
@@ -77,7 +87,9 @@ class SeriesCoversTab extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SeriesSectionHeader(title: LocalizationService().translate('tab_covers')),
+        SeriesSectionHeader(
+          title: LocalizationService().translate('tab_covers'),
+        ),
         GridView.builder(
           shrinkWrap: true,
           padding: EdgeInsets.zero,
@@ -90,13 +102,18 @@ class SeriesCoversTab extends StatelessWidget {
           ),
           itemCount: 6,
           itemBuilder: (context, index) {
+            final colors = context.colors;
             return Container(
-              decoration: BoxDecoration(
-                color: AppConstants.tertiaryBackground,
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ).animate(onPlay: (controller) => controller.repeat())
-             .shimmer(duration: 1500.ms, color: AppConstants.tertiaryBackground);
+                  decoration: BoxDecoration(
+                    color: colors.surfaceRaised,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                )
+                .animate(onPlay: (controller) => controller.repeat())
+                .shimmer(
+                  duration: 1500.ms,
+                  color: Color.lerp(colors.surfaceRaised, colors.accent, 0.08)!,
+                );
           },
         ),
       ],
@@ -105,18 +122,30 @@ class SeriesCoversTab extends StatelessWidget {
 
   String _getLanguageBadge(String lang) {
     switch (lang.toLowerCase()) {
-      case 'en': return 'EN';
-      case 'ko': return 'KO';
-      case 'pt-br': return 'BR';
-      case 'es': return 'ES';
-      case 'ja': return 'JA';
-      case 'zh': return 'ZH';
-      case 'fr': return 'FR';
-      case 'de': return 'DE';
-      case 'it': return 'IT';
-      case 'ru': return 'RU';
-      case 'pt': return 'PT';
-      default: return lang.toUpperCase();
+      case 'en':
+        return 'EN';
+      case 'ko':
+        return 'KO';
+      case 'pt-br':
+        return 'BR';
+      case 'es':
+        return 'ES';
+      case 'ja':
+        return 'JA';
+      case 'zh':
+        return 'ZH';
+      case 'fr':
+        return 'FR';
+      case 'de':
+        return 'DE';
+      case 'it':
+        return 'IT';
+      case 'ru':
+        return 'RU';
+      case 'pt':
+        return 'PT';
+      default:
+        return lang.toUpperCase();
     }
   }
 
@@ -124,17 +153,31 @@ class SeriesCoversTab extends StatelessWidget {
     String typeStr;
     final type = cover.type ?? '';
     switch (type) {
-      case 'volume': typeStr = 'Front'; break;
-      case 'volume_back': typeStr = 'Back'; break;
-      case 'other': typeStr = 'Other'; break;
-      case 'magazine': typeStr = 'Magazine'; break;
-      case 'dust_jacket': typeStr = 'Dust Jacket'; break;
-      case 'obi': typeStr = 'Obi'; break;
-      case 'wrap_around': typeStr = 'Wrap Around'; break;
-      default: 
-        typeStr = type.isNotEmpty 
-          ? type[0].toUpperCase() + type.substring(1).replaceAll('_', ' ') 
-          : 'Cover';
+      case 'volume':
+        typeStr = 'Front';
+        break;
+      case 'volume_back':
+        typeStr = 'Back';
+        break;
+      case 'other':
+        typeStr = 'Other';
+        break;
+      case 'magazine':
+        typeStr = 'Magazine';
+        break;
+      case 'dust_jacket':
+        typeStr = 'Dust Jacket';
+        break;
+      case 'obi':
+        typeStr = 'Obi';
+        break;
+      case 'wrap_around':
+        typeStr = 'Wrap Around';
+        break;
+      default:
+        typeStr = type.isNotEmpty
+            ? type[0].toUpperCase() + type.substring(1).replaceAll('_', ' ')
+            : 'Cover';
     }
 
     final langBadge = _getLanguageBadge(cover.language ?? '');
@@ -143,7 +186,7 @@ class SeriesCoversTab extends StatelessWidget {
     if (type == 'volume' || type == 'volume_back') {
       title += ' (Volume)';
     }
-    
+
     final index = cover.index ?? '';
     if (index.isNotEmpty) {
       title += ' $index';
@@ -182,6 +225,7 @@ class _HoverableCoverItemState extends State<_HoverableCoverItem> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return MouseRegion(
       cursor: widget.url != null
           ? SystemMouseCursors.click
@@ -203,7 +247,7 @@ class _HoverableCoverItemState extends State<_HoverableCoverItem> {
                 .map((c) => c.url ?? c.urlX350 ?? c.urlX250 ?? c.urlX150)
                 .whereType<String>()
                 .toList();
-            
+
             final initialIndex = widget.allCovers.indexOf(widget.cover);
 
             Navigator.push(
@@ -230,7 +274,7 @@ class _HoverableCoverItemState extends State<_HoverableCoverItem> {
                   borderRadius: BorderRadius.circular(8),
                   border: _hovered && widget.url != null
                       ? Border.all(
-                          color: AppConstants.accentColor.withValues(alpha: 0.6),
+                          color: colors.accentOn(colors.background, minimum: 3),
                           width: 2,
                         )
                       : Border.all(color: Colors.transparent, width: 2),
@@ -243,8 +287,12 @@ class _HoverableCoverItemState extends State<_HoverableCoverItem> {
                           child: ListenableBuilder(
                             listenable: SettingsManager(),
                             builder: (context, _) {
-                              final isBlurred = widget.contentRating != null &&
-                                  SettingsManager().blurredContentRatings.contains(widget.contentRating!.toLowerCase());
+                              final isBlurred =
+                                  widget.contentRating != null &&
+                                  SettingsManager().blurredContentRatings
+                                      .contains(
+                                        widget.contentRating!.toLowerCase(),
+                                      );
                               return WidgetUtils.networkImage(
                                 url: widget.url!,
                                 fit: BoxFit.cover,
@@ -255,8 +303,11 @@ class _HoverableCoverItemState extends State<_HoverableCoverItem> {
                           ),
                         )
                       : Container(
-                          color: AppConstants.secondaryBackground,
-                          child: const Icon(Icons.broken_image),
+                          color: colors.surfaceRaised,
+                          child: Icon(
+                            Icons.broken_image,
+                            color: colors.textMuted,
+                          ),
                         ),
                 ),
               ),
@@ -267,10 +318,7 @@ class _HoverableCoverItemState extends State<_HoverableCoverItem> {
                 widget.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTypography.sans(
-                  color: AppConstants.textColor,
-                  fontSize: 12,
-                ),
+                style: AppTypography.sans(color: colors.text, fontSize: 12),
               ),
             ),
           ],
