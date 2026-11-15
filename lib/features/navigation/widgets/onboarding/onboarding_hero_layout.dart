@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/motion/app_motion.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 
 /// A shared centered hero layout used across onboarding pages.
 ///
@@ -46,7 +47,10 @@ class OnboardingHeroLayout extends StatelessWidget {
               child: Icon(
                 icon,
                 size: isShort ? 56 : 72,
-                color: AppConstants.accentColor,
+                color: context.colors.accentOn(
+                  context.colors.background,
+                  minimum: 3.0,
+                ),
               ),
             ),
             SizedBox(height: isShort ? 24 : 40),
@@ -57,7 +61,7 @@ class OnboardingHeroLayout extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: AppTypography.display(
                   fontSize: isShort ? 24 : titleFontSize,
-                  color: AppConstants.textColor,
+                  color: context.colors.text,
                   height: 1.1,
                 ),
               ),
@@ -71,7 +75,11 @@ class OnboardingHeroLayout extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: AppTypography.sans(
                     fontSize: isShort ? 14 : 16,
-                    color: AppConstants.textMutedColor,
+                    color: MbPalette.ensureContrast(
+                      context.colors.textMuted,
+                      context.colors.background,
+                      minimum: 4.5,
+                    ),
                     height: 1.5,
                   ),
                 ),

@@ -1,8 +1,9 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 
 /// Ordered content-rating options, from least to most explicit.
 const _kContentOptions = ['safe', 'suggestive', 'erotica', 'pornographic'];
@@ -50,7 +51,7 @@ class ContentPreferencesPage extends StatelessWidget {
                           .toUpperCase(),
                       style: AppTypography.display(
                         fontSize: 26,
-                        color: AppConstants.textColor,
+                        color: context.colors.text,
                         height: 1.1,
                       ),
                     ),
@@ -59,7 +60,11 @@ class ContentPreferencesPage extends StatelessWidget {
                       localization.translate('onboarding_content_subtitle'),
                       style: AppTypography.sans(
                         fontSize: 16,
-                        color: AppConstants.textMutedColor,
+                        color: MbPalette.ensureContrast(
+                          context.colors.textMuted,
+                          context.colors.background,
+                          minimum: 4.5,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -67,55 +72,82 @@ class ContentPreferencesPage extends StatelessWidget {
                 ),
               ),
               SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final option = _kContentOptions[index];
-                    final currentPrefs = SettingsManager().contentPreferences;
-                    final isSelected = currentPrefs.contains(option);
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final option = _kContentOptions[index];
+                  final currentPrefs = SettingsManager().contentPreferences;
+                  final isSelected = currentPrefs.contains(option);
+                  final colors = context.colors;
+                  final cardColor = isSelected
+                      ? Color.alphaBlend(
+                          colors.accent.withValues(alpha: 0.1),
+                          colors.background,
+                        )
+                      : colors.surface;
+                  final selectedAccent = colors.accentOn(
+                    cardColor,
+                    minimum: 3.0,
+                  );
 
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12.0),
-                      child: InkWell(
-                        onTap: () => _toggleOption(option, currentPrefs),
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                          decoration: BoxDecoration(
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12.0),
+                    child: InkWell(
+                      onTap: () => _toggleOption(option, currentPrefs),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: cardColor,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
                             color: isSelected
-                                ? AppConstants.accentColor.withValues(alpha: 0.1)
-                                : AppConstants.secondaryBackground,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppConstants.accentColor
-                                  : AppConstants.borderColor.withValues(alpha: 0.5),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  labels[option]!,
-                                  style: AppTypography.sans(
-                                    fontSize: 16,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                    color: isSelected ? AppConstants.accentColor : AppConstants.textColor,
+                                ? selectedAccent
+                                : MbPalette.ensureContrast(
+                                    colors.border,
+                                    colors.surface,
+                                    minimum: 3.0,
                                   ),
-                                ),
-                              ),
-                              Checkbox(
-                                value: isSelected,
-                                activeColor: AppConstants.accentColor,
-                                onChanged: (_) => _toggleOption(option, currentPrefs),
-                              ),
-                            ],
                           ),
                         ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                labels[option]!,
+                                style: AppTypography.sans(
+                                  fontSize: 16,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  color: isSelected
+                                      ? colors.accentOn(cardColor)
+                                      : colors.text,
+                                ),
+                              ),
+                            ),
+                            Checkbox(
+                              value: isSelected,
+                              activeColor: selectedAccent,
+                              checkColor: MbPalette.readableOn(selectedAccent),
+                              side: BorderSide(
+                                color: MbPalette.ensureContrast(
+                                  colors.border,
+                                  cardColor,
+                                  minimum: 3.0,
+                                ),
+                                width: 1.5,
+                              ),
+                              onChanged: (_) =>
+                                  _toggleOption(option, currentPrefs),
+                            ),
+                          ],
+                        ),
                       ),
-                    );
-                  },
-                  childCount: _kContentOptions.length,
-                ),
+                    ),
+                  );
+                }, childCount: _kContentOptions.length),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
