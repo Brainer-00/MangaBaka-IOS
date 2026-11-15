@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/widgets/app_snack_bar.dart';
 
 class ProgressUpdateDialog extends StatefulWidget {
@@ -70,10 +71,11 @@ class _ProgressUpdateDialogState extends State<ProgressUpdateDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = LocalizationService();
+    final colors = context.colors;
 
     return Container(
       decoration: BoxDecoration(
-        color: AppConstants.secondaryBackground,
+        color: colors.surface,
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(AppConstants.largeRadius),
         ),
@@ -84,162 +86,179 @@ class _ProgressUpdateDialogState extends State<ProgressUpdateDialog> {
         24,
         24 + MediaQuery.of(context).padding.bottom,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 32,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppConstants.tertiaryBackground,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 32,
+                height: 4,
                 decoration: BoxDecoration(
-                  color: AppConstants.accentColor.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
+                  color: colors.border,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                child: Icon(
-                  Icons.menu_book_rounded,
-                  color: AppConstants.accentColor,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.title.toUpperCase(),
-                      style: AppTypography.display(
-                        color: AppConstants.textColor,
-                        fontSize: 18,
-                      ),
-                    ),
-                    if (widget.maxValue != 'null' &&
-                        widget.maxValue.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        '${l10n.translate('total')}: ${widget.maxValue}',
-                        style: AppTypography.sans(
-                          color: AppConstants.textMutedColor,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppConstants.primaryBackground,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: AppConstants.tertiaryBackground,
-                width: 1.5,
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            const SizedBox(height: 24),
+            Row(
               children: [
-                _IconButton(
-                  icon: Icons.remove,
-                  onPressed: () => _updateValue((_currentValue ?? 0) - 1),
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    enabled: !_isSubmitting,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    textAlign: TextAlign.center,
-                    style: AppTypography.display(
-                      color: AppConstants.textColor,
-                      fontSize: 22,
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colors.accent.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.menu_book_rounded,
+                    color: colors.accentOn(
+                      Color.alphaBlend(
+                        colors.accent.withValues(alpha: 0.1),
+                        colors.surface,
+                      ),
                     ),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      isDense: true,
-                    ),
-                    onChanged: (value) {
-                      final parsed = int.tryParse(value);
-                      setState(() => _currentValue = parsed);
-                    },
+                    size: 24,
                   ),
                 ),
-                _IconButton(
-                  icon: Icons.add,
-                  onPressed: () => _updateValue((_currentValue ?? 0) + 1),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title.toUpperCase(),
+                        style: AppTypography.display(
+                          color: colors.text,
+                          fontSize: 18,
+                        ),
+                      ),
+                      if (widget.maxValue != 'null' &&
+                          widget.maxValue.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '${l10n.translate('total')}: ${widget.maxValue}',
+                          style: AppTypography.sans(
+                            color: colors.textMuted,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: _isSubmitting ? null : () => Navigator.pop(context),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                ),
-                child: Text(
-                  l10n.translate('cancel'),
-                  style: AppTypography.sans(
-                    color: AppConstants.textMutedColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: colors.background,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colors.border, width: 1.5),
               ),
-              const SizedBox(width: 12),
-              FilledButton(
-                onPressed: _isSubmitting || _currentValue == null
-                    ? null
-                    : _save,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppConstants.accentColor,
-                  foregroundColor: AppConstants.onAccent,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _IconButton(
+                    icon: Icons.remove,
+                    onPressed: () => _updateValue((_currentValue ?? 0) - 1),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
-                      AppConstants.pillRadius,
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      enabled: !_isSubmitting,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      textAlign: TextAlign.center,
+                      style: AppTypography.display(
+                        color: colors.text,
+                        fontSize: 22,
+                      ),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                      onChanged: (value) {
+                        final parsed = int.tryParse(value);
+                        setState(() => _currentValue = parsed);
+                      },
                     ),
                   ),
-                  elevation: 0,
-                ),
-                child: _isSubmitting
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(
-                        l10n.translate('save'),
-                        style: AppTypography.sans(fontWeight: FontWeight.bold),
-                      ),
+                  _IconButton(
+                    icon: Icons.add,
+                    onPressed: () => _updateValue((_currentValue ?? 0) + 1),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                  ),
+                  child: Text(
+                    l10n.translate('cancel'),
+                    style: AppTypography.sans(
+                      color: colors.textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                FilledButton(
+                  onPressed: _isSubmitting || _currentValue == null
+                      ? null
+                      : _save,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: colors.accent,
+                    foregroundColor: colors.onAccent,
+                    disabledBackgroundColor: _isSubmitting
+                        ? colors.accent
+                        : colors.surfaceRaised,
+                    disabledForegroundColor: _isSubmitting
+                        ? colors.onAccent
+                        : colors.textMuted,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.pillRadius,
+                      ),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: _isSubmitting
+                      ? SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: colors.onAccent,
+                          ),
+                        )
+                      : Text(
+                          l10n.translate('save'),
+                          style: AppTypography.sans(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -254,14 +273,14 @@ class _IconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppConstants.tertiaryBackground,
+      color: context.colors.surfaceRaised,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(12.0),
-          child: Icon(icon, color: AppConstants.textColor, size: 20),
+          child: Icon(icon, color: context.colors.text, size: 20),
         ),
       ),
     );

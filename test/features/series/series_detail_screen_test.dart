@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
+import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/theme/app_theme.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/theme_presets.dart';
@@ -11,6 +12,9 @@ import 'package:mangabaka_app/features/series/screens/series_detail_screen.dart'
 import 'package:mangabaka_app/features/series/widgets/app_bar/glass_control.dart';
 import 'package:mangabaka_app/features/series/widgets/app_bar/series_banner_background.dart';
 import 'package:mangabaka_app/features/series/widgets/series_hero.dart';
+import 'package:mangabaka_app/features/series/widgets/series_action_bar.dart';
+import 'package:mangabaka_app/features/series/widgets/series_detail_fab.dart';
+import 'package:mangabaka_app/features/series/widgets/series_quick_action_button.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/series/services/series_service.dart';
@@ -78,6 +82,8 @@ class MockLibraryService extends Fake implements LibraryService {
   LibraryEntry? currentEntry;
   bool createCalled = false;
   bool deleteCalled = false;
+  int? lastProgressChapter;
+  bool failProgress = false;
 
   @override
   Stream<LibraryEntry?> watchEntryFromDb(String id) {
@@ -104,6 +110,16 @@ class MockLibraryService extends Fake implements LibraryService {
     deleteCalled = true;
     currentEntry = null;
     _controller.add(null);
+  }
+
+  @override
+  Future<void> updateLibraryEntryProgress(
+    String seriesId, {
+    int? progressChapter,
+    int? progressVolume,
+  }) async {
+    lastProgressChapter = progressChapter;
+    if (failProgress) throw StateError('progress failed');
   }
 }
 
@@ -540,4 +556,160 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+
+  for (final entry in palettes.entries) {
+    testWidgets('${entry.key} tracking actions and FAB keep readable colors', (
+      tester,
+    ) async {
+      final colors = entry.value;
+      final series = Series.fromJson({
+        'id': '123',
+        'title': 'Test Manga',
+        'total_chapters': '12',
+      });
+      final libraryEntry = LibraryEntry(
+        id: '123',
+        state: 'reading',
+        rating: 40,
+        progressChapter: 2,
+        series: series,
+      );
+      mockAuthService.isLoggedIn = true;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.build(showTooltips: true, palette: colors),
+          home: Scaffold(
+            body: Column(
+              children: [
+                SeriesActionBar(
+                  series: series,
+                  entry: libraryEntry,
+                  onStateChanged: (_) {},
+                  onRatingChanged: (_) {},
+                  onUpdateChapter: () {},
+                  onUpdateVolume: () {},
+                  l10n: LocalizationService(),
+                ),
+                SeriesQuickActionButton(series: series, entry: libraryEntry),
+                const SeriesAddToLibraryButton(isAdding: true, onAdd: _noop),
+              ],
+            ),
+            floatingActionButton: SeriesDetailFAB(
+              entryStream: Stream.value(null),
+              isAdding: false,
+              onAdd: _noop,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final progressIcon = tester.widget<Icon>(
+        find.byIcon(Icons.menu_book_outlined),
+      );
+      expect(
+        MbPalette.contrastRatio(progressIcon.color!, colors.surface),
+        greaterThanOrEqualTo(3),
+      );
+      final plusOne = tester.widget<Text>(find.text('+1'));
+      expect(plusOne.style?.color, colors.onAccent);
+      expect(
+        MbPalette.contrastRatio(plusOne.style!.color!, colors.accent),
+        greaterThanOrEqualTo(4.5),
+      );
+      final fab = tester.widget<FloatingActionButton>(
+        find.byKey(const Key('add_to_library_fab')),
+      );
+      expect(fab.backgroundColor, colors.accent);
+      expect(fab.foregroundColor, colors.onAccent);
+      expect(
+        MbPalette.contrastRatio(fab.foregroundColor!, fab.backgroundColor!),
+        greaterThanOrEqualTo(4.5),
+      );
+      final wideSpinner = tester.widget<CircularProgressIndicator>(
+        find.descendant(
+          of: find.byKey(const Key('add_to_library_button')),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+      );
+      expect(
+        MbPalette.contrastRatio(wideSpinner.color!, colors.surfaceRaised),
+        greaterThanOrEqualTo(4.5),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.build(showTooltips: true, palette: colors),
+          home: Scaffold(
+            floatingActionButton: SeriesDetailFAB(
+              entryStream: Stream.value(null),
+              isAdding: true,
+              onAdd: _noop,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final loadingFab = tester.widget<FloatingActionButton>(
+        find.byKey(const Key('add_to_library_fab')),
+      );
+      expect(loadingFab.onPressed, isNull);
+      expect(loadingFab.backgroundColor, colors.surfaceRaised);
+      final fabSpinner = tester.widget<CircularProgressIndicator>(
+        find.descendant(
+          of: find.byKey(const Key('add_to_library_fab')),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+      );
+      expect(
+        MbPalette.contrastRatio(
+          fabSpinner.valueColor!.value!,
+          colors.surfaceRaised,
+        ),
+        greaterThanOrEqualTo(4.5),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('quick +1 keeps optimistic update and rolls back failure', (
+    tester,
+  ) async {
+    final series = Series.fromJson({
+      'id': '123',
+      'title': 'Test Manga',
+      'total_chapters': '12',
+    });
+    final entry = LibraryEntry(
+      id: '123',
+      state: 'reading',
+      progressChapter: 2,
+      series: series,
+    );
+    final observed = <int?>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.build(showTooltips: true, palette: EirenYuPalette.dark),
+        home: Scaffold(
+          body: SeriesQuickActionButton(
+            series: series,
+            entry: entry,
+            onOptimisticProgressChanged: observed.add,
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('+1'));
+    await tester.pump();
+    expect(mockLibraryService.lastProgressChapter, 3);
+    expect(find.text('3 / 12'), findsOneWidget);
+    expect(observed, [3]);
+    mockLibraryService.failProgress = true;
+    await tester.tap(find.text('+1'));
+    await tester.pumpAndSettle();
+    expect(mockLibraryService.lastProgressChapter, 4);
+    expect(find.text('2 / 12'), findsOneWidget);
+    expect(observed, [3, 4, null]);
+  });
 }
+
+void _noop() {}
