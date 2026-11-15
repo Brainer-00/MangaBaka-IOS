@@ -172,6 +172,7 @@ class DesktopCard extends StatelessWidget {
 /// Small caps label over a block of content, with optional trailing controls.
 class DesktopSectionTitle extends StatelessWidget {
   final String title;
+  final Color? color;
   final Widget? trailing;
   final double fontSize;
   final EdgeInsetsGeometry padding;
@@ -179,6 +180,7 @@ class DesktopSectionTitle extends StatelessWidget {
   const DesktopSectionTitle({
     super.key,
     required this.title,
+    this.color,
     this.trailing,
     this.fontSize = 18,
     this.padding = const EdgeInsets.only(bottom: 14),
@@ -191,7 +193,7 @@ class DesktopSectionTitle extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: AppTypography.display(
-        color: AppConstants.textColor,
+        color: color ?? AppConstants.textColor,
         fontSize: fontSize,
       ),
     );
@@ -337,6 +339,9 @@ class DesktopIconButton extends StatelessWidget {
 /// A pill-shaped labelled button — the desktop toolbar's secondary action.
 class DesktopPillButton extends StatelessWidget {
   final String label;
+  final Color? foregroundColor;
+  final Color? backgroundColor;
+  final Color? hoverColor;
   final IconData? icon;
   final VoidCallback? onPressed;
   final bool primary;
@@ -359,6 +364,9 @@ class DesktopPillButton extends StatelessWidget {
   const DesktopPillButton({
     super.key,
     required this.label,
+    this.foregroundColor,
+    this.backgroundColor,
+    this.hoverColor,
     this.icon,
     this.onPressed,
     this.primary = false,
@@ -369,24 +377,30 @@ class DesktopPillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = danger
-        ? AppConstants.errorColor
-        : primary
-        ? AppConstants.onAccent
-        : AppConstants.textColor;
+    final fg =
+        foregroundColor ??
+        (danger
+            ? AppConstants.errorColor
+            : primary
+            ? AppConstants.onAccent
+            : AppConstants.textColor);
     return DesktopHoverSurface(
       onTap: onPressed,
       tooltip: tooltip,
-      idleColor: danger
-          ? dangerColor
-          : primary
-          ? AppConstants.accentColor
-          : AppConstants.tertiaryBackground,
-      hoverColor: danger
-          ? dangerHoverColor
-          : primary
-          ? Color.lerp(AppConstants.accentColor, Colors.white, 0.15)
-          : AppConstants.borderColor,
+      idleColor:
+          backgroundColor ??
+          (danger
+              ? dangerColor
+              : primary
+              ? AppConstants.accentColor
+              : AppConstants.tertiaryBackground),
+      hoverColor:
+          hoverColor ??
+          (danger
+              ? dangerHoverColor
+              : primary
+              ? Color.lerp(AppConstants.accentColor, Colors.white, 0.15)
+              : AppConstants.borderColor),
       borderRadius: BorderRadius.circular(AppConstants.pillRadius),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
@@ -607,6 +621,9 @@ class DesktopSettingRow extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget control;
+  final Color? titleColor;
+  final Color? subtitleColor;
+  final Color? iconColor;
 
   const DesktopSettingRow({
     super.key,
@@ -614,6 +631,9 @@ class DesktopSettingRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.control,
+    this.titleColor,
+    this.subtitleColor,
+    this.iconColor,
   });
 
   @override
@@ -622,7 +642,11 @@ class DesktopSettingRow extends StatelessWidget {
       children: [
         SizedBox(
           width: 24,
-          child: Icon(icon, color: AppConstants.textMutedColor, size: 20),
+          child: Icon(
+            icon,
+            color: iconColor ?? AppConstants.textMutedColor,
+            size: 20,
+          ),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -632,7 +656,7 @@ class DesktopSettingRow extends StatelessWidget {
               Text(
                 title.toUpperCase(),
                 style: AppTypography.display(
-                  color: AppConstants.textColor,
+                  color: titleColor ?? AppConstants.textColor,
                   fontSize: 14,
                 ),
               ),
@@ -640,7 +664,7 @@ class DesktopSettingRow extends StatelessWidget {
               Text(
                 subtitle,
                 style: AppTypography.sans(
-                  color: AppConstants.textMutedColor,
+                  color: subtitleColor ?? AppConstants.textMutedColor,
                   fontSize: 12.5,
                 ),
               ),

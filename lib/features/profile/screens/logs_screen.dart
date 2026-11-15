@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:path_provider/path_provider.dart';
@@ -82,7 +84,7 @@ class _LogsScreenState extends State<LogsScreen> {
     return ElevatedButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: 18),
-      label: Text(label),
+      label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
       style: ElevatedButton.styleFrom(
         backgroundColor: backgroundColor,
         foregroundColor: foregroundColor,
@@ -98,26 +100,24 @@ class _LogsScreenState extends State<LogsScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = LocalizationService();
+    final colors = context.colors;
     return Scaffold(
-      backgroundColor: AppConstants.primaryBackground,
+      backgroundColor: colors.background,
       appBar: AppBar(
         centerTitle: true,
         title: Text(
           l10n.translate('logs').toUpperCase(),
-          style: AppTypography.display(
-            color: AppConstants.textColor,
-            fontSize: 20,
-          ),
+          style: AppTypography.display(color: colors.text, fontSize: 20),
         ),
         leading: IconButton(
-          icon: Icon(Icons.close, color: AppConstants.textColor),
+          icon: Icon(Icons.close, color: colors.text),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           WidgetUtils.tooltip(
             message: l10n.translate('clear_logs'),
             child: IconButton(
-              icon: Icon(Icons.delete_outline, color: AppConstants.textColor),
+              icon: Icon(Icons.delete_outline, color: colors.text),
               onPressed: _clearLogs,
             ),
           ),
@@ -135,7 +135,7 @@ class _LogsScreenState extends State<LogsScreen> {
                 margin: const EdgeInsets.symmetric(horizontal: 8),
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppConstants.secondaryBackground,
+                  color: colors.surface,
                   borderRadius: BorderRadius.circular(AppConstants.largeRadius),
                 ),
                 child: _logs.isEmpty
@@ -143,7 +143,11 @@ class _LogsScreenState extends State<LogsScreen> {
                         child: Text(
                           'No logs recorded yet',
                           style: AppTypography.sans(
-                            color: AppConstants.textMutedColor,
+                            color: MbPalette.ensureContrast(
+                              colors.textMuted,
+                              colors.surface,
+                              minimum: 4.5,
+                            ),
                           ),
                         ),
                       )
@@ -156,8 +160,10 @@ class _LogsScreenState extends State<LogsScreen> {
                             child: Text(
                               _logs[index],
                               style: TextStyle(
-                                color: AppConstants.textColor.withValues(
-                                  alpha: 0.8,
+                                color: MbPalette.ensureContrast(
+                                  colors.textMuted,
+                                  colors.surface,
+                                  minimum: 4.5,
                                 ),
                                 fontFamily: 'monospace',
                                 fontSize: 11,
@@ -177,8 +183,12 @@ class _LogsScreenState extends State<LogsScreen> {
                       label: l10n.translate('copy_logs'),
                       icon: Icons.copy,
                       onPressed: _logs.isEmpty ? null : _copyLogs,
-                      backgroundColor: AppConstants.tertiaryBackground,
-                      foregroundColor: AppConstants.textColor,
+                      backgroundColor: colors.surfaceRaised,
+                      foregroundColor: MbPalette.ensureContrast(
+                        colors.text,
+                        colors.surfaceRaised,
+                        minimum: 4.5,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -187,8 +197,8 @@ class _LogsScreenState extends State<LogsScreen> {
                       label: l10n.translate('save_logs'),
                       icon: Icons.share,
                       onPressed: _logs.isEmpty ? null : _saveLogs,
-                      backgroundColor: AppConstants.accentColor,
-                      foregroundColor: AppConstants.primaryBackground,
+                      backgroundColor: colors.accent,
+                      foregroundColor: colors.onAccent,
                     ),
                   ),
                 ],
@@ -208,24 +218,41 @@ class DiagnosticLogPrivacyNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final noticeBackground = Color.alphaBlend(
+      colors.info.withValues(alpha: 0.10),
+      colors.background,
+    );
     return Semantics(
       liveRegion: false,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: AppConstants.infoColor.withValues(alpha: 0.10),
+          color: colors.info.withValues(alpha: 0.10),
           borderRadius: BorderRadius.circular(AppConstants.denseRadius),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.info_outline, size: 18, color: AppConstants.infoColor),
+            Icon(
+              Icons.info_outline,
+              size: 18,
+              color: MbPalette.ensureContrast(
+                colors.info,
+                noticeBackground,
+                minimum: 3,
+              ),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 l10n.translate('log_share_warning'),
                 style: AppTypography.sans(
-                  color: AppConstants.textColor,
+                  color: MbPalette.ensureContrast(
+                    colors.text,
+                    noticeBackground,
+                    minimum: 4.5,
+                  ),
                   fontSize: 13,
                   height: 1.35,
                 ),
