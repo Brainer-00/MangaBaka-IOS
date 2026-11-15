@@ -1,4 +1,6 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mangabaka_app/features/news/models/news.dart';
@@ -34,9 +36,15 @@ class NewsListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = LocalizationService();
     final publishedDate = _formatDate(news.publishedAt);
+    final colors = context.colors;
+    final mutedOnCard = MbPalette.ensureContrast(
+      colors.textMuted,
+      colors.surface,
+      minimum: 4.5,
+    );
 
     return Card(
-      color: AppConstants.secondaryBackground,
+      color: colors.surface,
       elevation: 0,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       shape: RoundedRectangleBorder(
@@ -53,24 +61,32 @@ class NewsListItem extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppConstants.tertiaryBackground,
-                      borderRadius: BorderRadius.circular(
-                        AppConstants.pillRadius,
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
                       ),
-                    ),
-                    child: Text(
-                      news.source.toUpperCase(),
-                      style: AppTypography.sans(
-                        color: AppConstants.textColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0,
+                      decoration: BoxDecoration(
+                        color: colors.surfaceRaised,
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.pillRadius,
+                        ),
+                      ),
+                      child: Text(
+                        news.source.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.sans(
+                          color: MbPalette.ensureContrast(
+                            colors.text,
+                            colors.surfaceRaised,
+                            minimum: 4.5,
+                          ),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0,
+                        ),
                       ),
                     ),
                   ),
@@ -78,17 +94,13 @@ class NewsListItem extends StatelessWidget {
                   Text(
                     publishedDate,
                     style: AppTypography.sans(
-                      color: AppConstants.textMutedColor,
+                      color: mutedOnCard,
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Icon(
-                    Icons.open_in_new_rounded,
-                    size: 14,
-                    color: AppConstants.textMutedColor,
-                  ),
+                  Icon(Icons.open_in_new_rounded, size: 14, color: mutedOnCard),
                 ],
               ),
               const SizedBox(height: 12),
@@ -97,7 +109,7 @@ class NewsListItem extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.sans(
-                  color: AppConstants.textColor,
+                  color: colors.text,
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
                   height: 1.2,
@@ -108,7 +120,7 @@ class NewsListItem extends StatelessWidget {
                 Text(
                   '${l10n.translate('by_author')} ${news.author}',
                   style: AppTypography.sans(
-                    color: AppConstants.textMutedColor,
+                    color: mutedOnCard,
                     fontSize: 14,
                     height: 1.6,
                   ),
@@ -122,7 +134,7 @@ class NewsListItem extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.0,
-                    color: AppConstants.textMutedColor,
+                    color: mutedOnCard,
                   ),
                 ),
                 const SizedBox(height: 10),

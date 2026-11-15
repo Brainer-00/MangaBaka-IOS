@@ -1,4 +1,6 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
@@ -34,40 +36,44 @@ class ReferencedListItem extends StatelessWidget {
             ),
           );
         },
-      child: SizedBox(
-        width: compact ? 90 : 120,
-        child: Column(
-          children: [
-            AspectRatio(
-              aspectRatio: 2 / 3,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppConstants.denseRadius),
-                child: WidgetUtils.networkImage(
-                  url: series.coverUrl,
-                  blurred: WidgetUtils.isRatingBlurred(series.contentRating),
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  memCacheWidth: 240,
+        child: SizedBox(
+          width: compact ? 90 : 120,
+          child: Column(
+            children: [
+              AspectRatio(
+                aspectRatio: 2 / 3,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(AppConstants.denseRadius),
+                  child: WidgetUtils.networkImage(
+                    url: series.coverUrl,
+                    blurred: WidgetUtils.isRatingBlurred(series.contentRating),
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    memCacheWidth: 240,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              displayTitle,
-              style: AppTypography.sans(
-                fontSize: compact ? 10 : 11,
-                fontWeight: FontWeight.bold,
-                color: AppConstants.textMutedColor,
-                letterSpacing: 0.5,
+              const SizedBox(height: 6),
+              Text(
+                displayTitle,
+                style: AppTypography.sans(
+                  fontSize: compact ? 10 : 11,
+                  fontWeight: FontWeight.bold,
+                  color: MbPalette.ensureContrast(
+                    context.colors.textMuted,
+                    context.colors.surface,
+                    minimum: 4.5,
+                  ),
+                  letterSpacing: 0.5,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }

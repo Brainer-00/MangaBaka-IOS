@@ -6,6 +6,8 @@ import 'package:mangabaka_app/features/news/services/news_service.dart';
 import 'package:mangabaka_app/features/news/widgets/news_list_item.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
@@ -58,13 +60,17 @@ class _NewsScreenState extends State<NewsScreen> {
       _logger.info('Loaded ${cachedNews.length} news items from cache');
       setState(() {
         _newsList.addAll(cachedNews);
-        _currentPage = 2; // advance so an immediate scroll doesn't re-fetch page 1
+        _currentPage =
+            2; // advance so an immediate scroll doesn't re-fetch page 1
       });
     }
     _fetchNews(initial: true, isBackground: cachedNews.isNotEmpty);
   }
 
-  Future<void> _fetchNews({bool initial = false, bool isBackground = false}) async {
+  Future<void> _fetchNews({
+    bool initial = false,
+    bool isBackground = false,
+  }) async {
     if (_isLoading || _isBackgroundRefresh) return;
 
     _logger.info(
@@ -87,7 +93,9 @@ class _NewsScreenState extends State<NewsScreen> {
       );
       if (!mounted) return;
 
-      _logger.info('Received ${newNews.length} news items for page $pageToFetch');
+      _logger.info(
+        'Received ${newNews.length} news items for page $pageToFetch',
+      );
 
       setState(() {
         if (initial) {
@@ -140,10 +148,14 @@ class _NewsScreenState extends State<NewsScreen> {
   }
 
   void _checkPaginationTrigger() {
-    final nearBottom = _scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - AppConstants.scrollThresholdPx;
+    final nearBottom =
+        _scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent -
+            AppConstants.scrollThresholdPx;
     if (nearBottom && _hasMore && !_isLoading) {
-      _logger.fine('Scroll reached bottom, fetching more news (page $_currentPage)');
+      _logger.fine(
+        'Scroll reached bottom, fetching more news (page $_currentPage)',
+      );
       _fetchNews(initial: false);
     }
   }
@@ -162,10 +174,7 @@ class _NewsScreenState extends State<NewsScreen> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([
-        LocalizationService(),
-                SettingsManager(),
-      ]),
+      listenable: Listenable.merge([LocalizationService(), SettingsManager()]),
       builder: (context, _) {
         final l10n = LocalizationService();
         final settings = SettingsManager();
@@ -174,15 +183,19 @@ class _NewsScreenState extends State<NewsScreen> {
             MediaQuery.of(context).orientation == Orientation.landscape;
 
         // 2-column grid only makes sense in landscape on wider screens.
-        final isGrid = settings.newsListColumns > 1 && screenWidth > 400 && isLandscape;
+        final isGrid =
+            settings.newsListColumns > 1 && screenWidth > 400 && isLandscape;
 
         return Scaffold(
-          backgroundColor: AppConstants.primaryBackground,
+          backgroundColor: context.colors.background,
           appBar: _buildAppBar(l10n, settings, screenWidth, isLandscape),
           body: Actions(
             actions: <Type, Action<Intent>>{
               RefreshIntent: CallbackAction<RefreshIntent>(
-                onInvoke: (_) { _onRefresh(); return null; },
+                onInvoke: (_) {
+                  _onRefresh();
+                  return null;
+                },
               ),
             },
             child: WidgetUtils.responsiveConstraint(
@@ -206,10 +219,7 @@ class _NewsScreenState extends State<NewsScreen> {
       centerTitle: true,
       title: Text(
         l10n.translate('news').toUpperCase(),
-        style: AppTypography.display(
-          color: AppConstants.textColor,
-          fontSize: 20,
-        ),
+        style: AppTypography.display(color: context.colors.text, fontSize: 20),
       ),
       actions: [
         if (isLandscape)
@@ -220,10 +230,12 @@ class _NewsScreenState extends State<NewsScreen> {
                 settings.newsListColumns == 2
                     ? Icons.view_agenda_outlined
                     : Icons.grid_view_rounded,
-                color: AppConstants.textColor,
+                color: context.colors.text,
               ),
               onPressed: () {
-                settings.setNewsListColumns(settings.newsListColumns == 1 ? 2 : 1);
+                settings.setNewsListColumns(
+                  settings.newsListColumns == 1 ? 2 : 1,
+                );
               },
             ),
           ),
@@ -243,12 +255,22 @@ class _NewsScreenState extends State<NewsScreen> {
           _error != null
               ? '${l10n.translate('failed_to_load')}: $_error'
               : l10n.translate('no_results'),
-          style: AppTypography.sans(color: AppConstants.textMutedColor),
+          style: AppTypography.sans(
+            color: _error != null
+                ? MbPalette.ensureContrast(
+                    context.colors.error,
+                    context.colors.background,
+                    minimum: 4.5,
+                  )
+                : context.colors.textMuted,
+          ),
         ),
       );
     }
 
     return RefreshIndicator(
+      color: context.colors.progressIndicator,
+      backgroundColor: context.colors.surfaceRaised,
       onRefresh: _onRefresh,
       child: isGrid ? _buildGridView() : _buildListView(),
     );
@@ -292,9 +314,16 @@ class _NewsScreenState extends State<NewsScreen> {
             ],
           ),
           if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.all(24.0),
-              child: Center(child: CircularProgressIndicator()),
+            Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: context.colors.accentOn(
+                    context.colors.background,
+                    minimum: 3,
+                  ),
+                ),
+              ),
             ),
         ],
       ),
@@ -308,10 +337,15 @@ class _NewsScreenState extends State<NewsScreen> {
       itemCount: _newsList.length + (_isLoading ? 1 : 0),
       itemBuilder: (context, index) {
         if (index == _newsList.length) {
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(16.0),
-              child: CircularProgressIndicator(),
+              padding: const EdgeInsets.all(16.0),
+              child: CircularProgressIndicator(
+                color: context.colors.accentOn(
+                  context.colors.background,
+                  minimum: 3,
+                ),
+              ),
             ),
           );
         }
@@ -338,8 +372,9 @@ class _NewsScreenState extends State<NewsScreen> {
             curve: Curves.easeInOut,
           );
         },
-        backgroundColor: AppConstants.accentColor,
-        child: Icon(Icons.arrow_upward, color: AppConstants.primaryBackground),
+        backgroundColor: context.colors.accent,
+        foregroundColor: context.colors.onAccent,
+        child: Icon(Icons.arrow_upward, color: context.colors.onAccent),
       ),
     );
   }
