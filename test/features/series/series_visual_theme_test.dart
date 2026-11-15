@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mangabaka_app/core/theme/app_theme.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/theme_presets.dart';
+import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/features/browse/models/search_filters.dart';
 import 'package:mangabaka_app/features/series/controllers/series_filter_drawer_controller.dart';
@@ -21,6 +22,9 @@ import 'package:mangabaka_app/features/series/widgets/series_details_grid.dart';
 import 'package:mangabaka_app/features/series/widgets/series_hero_cover.dart';
 import 'package:mangabaka_app/features/series/widgets/mb_card.dart';
 import 'package:mangabaka_app/features/series/widgets/tags_placeholder.dart';
+import 'package:mangabaka_app/features/series/widgets/layouts/series_detail_mobile_layout.dart';
+import 'package:mangabaka_app/features/series/widgets/layouts/series_detail_wide_layout.dart';
+import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 
 class _SearchService implements SeriesSearchService {
   @override
@@ -146,6 +150,79 @@ void main() {
       55,
       'A long description remains expanded.',
     ).join(' '),
+  });
+
+  testWidgets('Series detail layout dividers follow live palette borders', (
+    tester,
+  ) async {
+    final palette = ValueNotifier<MbPalette>(EirenYuPalette.dark);
+    addTearDown(palette.dispose);
+    getIt.registerSingleton<ProfileAuthService>(ProfileAuthService());
+    addTearDown(resetServiceLocator);
+
+    Widget buildLayouts(MbPalette colors) => MaterialApp(
+      theme: AppTheme.build(showTooltips: true, palette: colors),
+      themeAnimationDuration: Duration.zero,
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: Column(
+            children: [
+              SeriesDetailMobileLayout(
+                series: seriesFixture(),
+                title: 'Theme fixture',
+                entry: null,
+                l10n: LocalizationService(),
+                isDataLoaded: true,
+                selectedTab: 'Covers',
+                onTabChanged: (_) {},
+                onStateChanged: (_) {},
+                onRatingChanged: (_) {},
+                onUpdateChapter: () {},
+                onUpdateVolume: () {},
+                onUpdateRating: () {},
+                buildTabContent: (_) => const SizedBox(height: 1),
+              ),
+              SeriesDetailWideLayout(
+                series: seriesFixture(),
+                title: 'Theme fixture',
+                entry: null,
+                l10n: LocalizationService(),
+                isDataLoaded: true,
+                selectedTab: 'Covers',
+                onTabChanged: (_) {},
+                onStateChanged: (_) {},
+                onRatingChanged: (_) {},
+                isAdding: false,
+                onAdd: () {},
+                onUpdateChapter: () {},
+                onUpdateVolume: () {},
+                onUpdateRating: () {},
+                buildTabContent:
+                    (_, {isWide = false, wideRightPaddingOnly = false}) =>
+                        const SizedBox(height: 1),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      ValueListenableBuilder<MbPalette>(
+        valueListenable: palette,
+        builder: (context, colors, _) => buildLayouts(colors),
+      ),
+    );
+    for (final divider in tester.widgetList<Divider>(find.byType(Divider))) {
+      expect(divider.color, EirenYuPalette.dark.border);
+    }
+
+    palette.value = EirenYuPalette.light;
+    await tester.pump();
+    for (final divider in tester.widgetList<Divider>(find.byType(Divider))) {
+      expect(divider.color, EirenYuPalette.light.border);
+    }
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('date dialog recolors live and closes from its action', (
