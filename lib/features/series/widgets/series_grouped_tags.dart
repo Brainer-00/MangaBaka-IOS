@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
-import 'package:mangabaka_app/features/browse/models/search_filters.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/features/series/models/tag_group.dart';
 import 'package:mangabaka_app/features/series/screens/series_detail_screen.dart';
@@ -52,12 +52,6 @@ class _SeriesGroupedTagsState extends State<SeriesGroupedTags> {
   List<TagGroup>? _groups;
   int _totalChips = 0;
 
-  /// Built chip groups, rebuilt only when the selection or the expanded state
-  /// actually changes — not on every parent rebuild.
-  List<Widget>? _cachedContent;
-  bool _cachedExpanded = false;
-  SearchFilters? _lastDrawerFilters;
-
   final GlobalKey _contentKey = GlobalKey();
   bool _needsShowMore = false;
   double _contentHeight = 0.0;
@@ -81,7 +75,6 @@ class _SeriesGroupedTagsState extends State<SeriesGroupedTags> {
     if (listEquals(widget.series.tags, oldWidget.series.tags)) return;
     _groups = null;
     _totalChips = 0;
-    _cachedContent = null;
     _needsShowMore = false;
     _contentHeight = 0.0;
     _scheduleResolve();
@@ -104,7 +97,6 @@ class _SeriesGroupedTagsState extends State<SeriesGroupedTags> {
           getIt<MetadataService>(),
         );
         _totalChips = widget.series.tags.length;
-        _cachedContent = null;
       });
       WidgetsBinding.instance.addPostFrameCallback((_) => _measureContent());
     });
@@ -143,23 +135,19 @@ class _SeriesGroupedTagsState extends State<SeriesGroupedTags> {
   void _handleTagLongPress(String tag) =>
       SeriesDetailScreen.of(context)?.handleTagLongPress(tag);
 
-  void _ensureContent() {
+  List<Widget> _buildContent() {
     final filters = SeriesDetailScreen.of(context)?.drawerFilters;
-    if (filters != _lastDrawerFilters || _cachedExpanded != _tagsExpanded) {
-      _cachedContent = null;
-      _lastDrawerFilters = filters;
-      _cachedExpanded = _tagsExpanded;
-    }
-    if (_cachedContent != null) return;
-
     final selectedTagIds = filters?.tag.toSet() ?? const <String>{};
     final groups = _tagsExpanded || _totalChips <= _collapsedChipBudget
         ? _groups!
         : TagGrouping.trimTo(_groups!, _collapsedChipBudget);
 
-    _cachedContent = [
+    // Cache resolved metadata in [_groups], but rebuild the lightweight widget
+    // tree so theme changes can reach tag labels without repeating lookups.
+    return [
       for (final group in groups)
         SeriesTagGroup(
+          key: ValueKey(group.header),
           header: group.header,
           subGroups: group.subGroups,
           selectedTagIds: selectedTagIds,
@@ -167,22 +155,22 @@ class _SeriesGroupedTagsState extends State<SeriesGroupedTags> {
           onTagLongPress: _handleTagLongPress,
           // Expanding a subgroup changes the height, so the overflow check has
           // to run again.
-          onToggle: () => WidgetsBinding.instance
-              .addPostFrameCallback((_) => _measureContent()),
+          onToggle: () => WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _measureContent(),
+          ),
         ),
     ];
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     if (widget.series.tags.isEmpty) return const SizedBox.shrink();
 
     // First pass: the page draws without paying for any tag work.
     if (_groups == null) {
       return _card(const TagsPlaceholder());
     }
-
-    _ensureContent();
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -192,10 +180,10 @@ class _SeriesGroupedTagsState extends State<SeriesGroupedTags> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _clippedContent(),
+              _clippedContent(colors),
               if (_hasMore) ...[
                 const SizedBox(height: 12),
-                Center(child: _showMoreButton()),
+                Center(child: _showMoreButton(colors)),
               ],
             ],
           ),
@@ -205,11 +193,11 @@ class _SeriesGroupedTagsState extends State<SeriesGroupedTags> {
   }
 
   Widget _card(Widget child) => Padding(
-        padding: const EdgeInsets.only(bottom: 24),
-        child: MbCard(label: widget.l10n.translate('tags'), child: child),
-      );
+    padding: const EdgeInsets.only(bottom: 24),
+    child: MbCard(label: widget.l10n.translate('tags'), child: child),
+  );
 
-  Widget _clippedContent() {
+  Widget _clippedContent(MbPalette colors) {
     final isClipped = _needsShowMore && !_tagsExpanded;
 
     return AnimatedSize(
@@ -230,12 +218,12 @@ class _SeriesGroupedTagsState extends State<SeriesGroupedTags> {
                 child: Column(
                   key: _contentKey,
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: _cachedContent!,
+                  children: _buildContent(),
                 ),
               ),
               // Fades the cut-off row out rather than slicing it, so the clip
               // reads as "there is more" instead of as a rendering fault.
-              if (isClipped) const _FadeOut(),
+              if (isClipped) _FadeOut(color: colors.surface),
             ],
           ),
         ),
@@ -243,7 +231,7 @@ class _SeriesGroupedTagsState extends State<SeriesGroupedTags> {
     );
   }
 
-  Widget _showMoreButton() {
+  Widget _showMoreButton(MbPalette colors) {
     return InkWell(
       onTap: () => setState(() => _tagsExpanded = !_tagsExpanded),
       borderRadius: BorderRadius.circular(8),
@@ -257,7 +245,7 @@ class _SeriesGroupedTagsState extends State<SeriesGroupedTags> {
                 _tagsExpanded ? 'show_less' : 'show_all_tags',
               ),
               style: AppTypography.sans(
-                color: AppConstants.accentColor,
+                color: colors.accentForeground,
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
                 letterSpacing: 0.5,
@@ -268,7 +256,7 @@ class _SeriesGroupedTagsState extends State<SeriesGroupedTags> {
               _tagsExpanded
                   ? Icons.keyboard_arrow_up
                   : Icons.keyboard_arrow_down,
-              color: AppConstants.accentColor,
+              color: colors.accentForeground,
               size: 20,
             ),
           ],
@@ -279,7 +267,9 @@ class _SeriesGroupedTagsState extends State<SeriesGroupedTags> {
 }
 
 class _FadeOut extends StatelessWidget {
-  const _FadeOut();
+  final Color color;
+
+  const _FadeOut({required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -293,10 +283,7 @@ class _FadeOut extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              AppConstants.secondaryBackground.withValues(alpha: 0),
-              AppConstants.secondaryBackground,
-            ],
+            colors: [color.withValues(alpha: 0), color],
           ),
         ),
       ),

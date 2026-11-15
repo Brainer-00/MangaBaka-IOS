@@ -15,6 +15,7 @@ import 'package:mangabaka_app/features/series/widgets/series_hero.dart';
 import 'package:mangabaka_app/features/series/widgets/series_action_bar.dart';
 import 'package:mangabaka_app/features/series/widgets/series_detail_fab.dart';
 import 'package:mangabaka_app/features/series/widgets/series_quick_action_button.dart';
+import 'package:mangabaka_app/features/series/widgets/chip.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/series/services/series_service.dart';
@@ -214,6 +215,56 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Fetched Title'), findsAtLeast(1));
   });
+
+  for (final paletteCase in <String, MbPalette>{
+    'EirenYu Dark': EirenYuPalette.dark,
+    'EirenYu Light': EirenYuPalette.light,
+    'Nord': ThemePresets.byId('nord')!.dark!,
+    'custom accent': EirenYuPalette.light.withAccent(const Color(0xFF808080)),
+  }.entries) {
+    final palette = paletteCase.value;
+    testWidgets('selected genre chip stays readable in ${paletteCase.key}', (
+      tester,
+    ) async {
+      final series = Series.fromJson({
+        'id': 'genre-series',
+        'title': 'Genre Fixture',
+        'genres': ['Fantasy'],
+      });
+      mockSeriesService.seriesResponse = series;
+      final screenKey = GlobalKey<SeriesDetailScreenState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.build(showTooltips: true, palette: palette),
+          home: SeriesDetailScreen(key: screenKey, series: series),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Fantasy'));
+      await tester.longPress(find.text('Fantasy'));
+      // Filter mode starts a repeating marching-ants animation, so settle the
+      // drawer transition explicitly rather than waiting for all frames.
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(screenKey.currentState!.drawerFilters!.genre, contains('Fantasy'));
+      final chip = tester.widget<ChipBase>(
+        find.ancestor(
+          of: find.text('Fantasy'),
+          matching: find.byType(ChipBase),
+        ),
+      );
+      expect(chip.backgroundColor, palette.accent);
+      final foreground = tester
+          .widget<Text>(find.text('Fantasy'))
+          .style!
+          .color!;
+      expect(
+        MbPalette.contrastRatio(foreground, palette.accent),
+        greaterThanOrEqualTo(4.5),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('progress dialog uses the freshest fetched series total', (
     tester,
