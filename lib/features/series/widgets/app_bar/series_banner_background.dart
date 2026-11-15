@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/features/series/widgets/series_hero.dart';
 import 'package:mangabaka_app/features/series/widgets/series_hero_cover.dart';
@@ -51,15 +51,13 @@ class SeriesBannerBackground extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Container(color: AppConstants.tertiaryBackground),
+          Container(color: context.colors.surfaceRaised),
           if (series.coverUrl.isNotEmpty) _blurredCover(),
-          Container(
-            color: AppConstants.primaryBackground.withValues(alpha: 0.2),
-          ),
+          Container(color: Colors.black.withValues(alpha: 0.2)),
           IgnorePointer(
             child: CustomPaint(
               painter: HatchPainter(
-                color: AppConstants.textColor.withValues(alpha: 0.04),
+                color: Colors.white.withValues(alpha: 0.04),
               ),
             ),
           ),
@@ -133,7 +131,7 @@ class _BottomFade extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final background = AppConstants.primaryBackground;
+    final background = context.colors.background;
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(

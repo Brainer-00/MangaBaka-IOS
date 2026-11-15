@@ -4,7 +4,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
+import 'package:mangabaka_app/core/theme/app_theme.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_presets.dart';
 import 'package:mangabaka_app/features/series/screens/series_detail_screen.dart';
+import 'package:mangabaka_app/features/series/widgets/app_bar/glass_control.dart';
+import 'package:mangabaka_app/features/series/widgets/app_bar/series_banner_background.dart';
+import 'package:mangabaka_app/features/series/widgets/series_hero.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/series/services/series_service.dart';
@@ -27,6 +33,7 @@ class MockSeriesService extends Fake implements SeriesService {
   Series? seriesResponse;
   Object? error;
   bool fetchSeriesCalled = false;
+  int fetchSeriesCalls = 0;
   bool fetchCoversCalled = false;
   bool delayFetch = false;
 
@@ -36,6 +43,7 @@ class MockSeriesService extends Fake implements SeriesService {
   @override
   Future<Series> fetchSeries(String id) async {
     fetchSeriesCalled = true;
+    fetchSeriesCalls++;
     if (delayFetch) await Future.delayed(const Duration(milliseconds: 100));
     if (error != null) throw error!;
     return seriesResponse ??
@@ -317,5 +325,219 @@ void main() {
     await tester.tap(coverTabFinder);
     await tester.pumpAndSettle();
     expect(mockSeriesService.fetchCoversCalled, isTrue);
+  });
+
+  final palettes = <String, MbPalette>{
+    'EirenYu Dark': EirenYuPalette.dark,
+    'EirenYu Light': EirenYuPalette.light,
+    'Nord': ThemePresets.byId('nord')!.dark!,
+    'custom accent': EirenYuPalette.dark.withAccent(const Color(0xFF808080)),
+  };
+
+  for (final entry in palettes.entries) {
+    testWidgets('${entry.key} detail chrome and banner follow the palette', (
+      tester,
+    ) async {
+      final palette = entry.value;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.build(showTooltips: true, palette: palette),
+          home: SeriesDetailScreen(series: testSeries),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<Scaffold>(find.byType(Scaffold).first).backgroundColor,
+        palette.background,
+      );
+      expect(
+        tester.widget<SliverAppBar>(find.byType(SliverAppBar)).backgroundColor,
+        palette.background,
+      );
+
+      final banner = find.byType(SeriesBannerBackground);
+      final bannerStack = tester.widget<Stack>(
+        find.descendant(of: banner, matching: find.byType(Stack)).first,
+      );
+      expect(
+        (bannerStack.children.first as Container).color,
+        palette.surfaceRaised,
+      );
+      final fallback = tester.widgetList<Container>(
+        find.descendant(of: banner, matching: find.byType(Container)),
+      );
+      final fade = fallback
+          .map((container) => container.decoration)
+          .whereType<BoxDecoration>()
+          .map((decoration) => decoration.gradient)
+          .whereType<LinearGradient>()
+          .firstWhere((gradient) => gradient.stops?.length == 4);
+      expect(fade.colors.last, palette.background);
+      final bannerTitle = tester.widget<Text>(
+        find.descendant(
+          of: find.byType(SeriesTitleBlock),
+          matching: find.text('FETCHED TITLE'),
+        ),
+      );
+      expect(bannerTitle.style?.color, palette.text);
+      expect(
+        MbPalette.contrastRatio(bannerTitle.style!.color!, palette.background),
+        greaterThanOrEqualTo(4.5),
+      );
+
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+      await tester.pumpAndSettle();
+      final collapsedTitle = tester
+          .widgetList<Text>(
+            find.descendant(
+              of: find.byType(SliverAppBar),
+              matching: find.byType(Text),
+            ),
+          )
+          .where((text) => text.data == 'Fetched Title')
+          .first;
+      expect(collapsedTitle.style?.color, palette.text);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      '${entry.key} glass controls stay readable over cover extremes',
+      (tester) async {
+        final palette = entry.value;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.build(showTooltips: true, palette: palette),
+            home: Scaffold(
+              body: GlassControl(
+                onTap: () {},
+                icon: Icons.arrow_back,
+                label: 'Back',
+              ),
+            ),
+          ),
+        );
+        final control = find.byType(GlassControl);
+        final glass = tester.widget<Container>(
+          find.descendant(of: control, matching: find.byType(Container)).first,
+        );
+        final fill = (glass.decoration! as BoxDecoration).color!;
+        final icon = tester.widget<Icon>(
+          find.descendant(of: control, matching: find.byType(Icon)),
+        );
+        final label = tester.widget<Text>(
+          find.descendant(of: control, matching: find.text('Back')),
+        );
+        expect(fill, palette.surface.withValues(alpha: 0.94));
+        expect(label.style?.color, icon.color);
+        for (final artwork in [Colors.black, Colors.white]) {
+          expect(
+            MbPalette.contrastRatio(
+              icon.color!,
+              Color.alphaBlend(fill, artwork),
+            ),
+            greaterThanOrEqualTo(4.5),
+          );
+        }
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.build(showTooltips: true, palette: palette),
+            home: Scaffold(
+              body: GlassControl(
+                onTap: () {},
+                icon: Icons.arrow_back,
+                label: 'Back',
+                showBg: false,
+              ),
+            ),
+          ),
+        );
+        final collapsedIcon = tester.widget<Icon>(
+          find.descendant(
+            of: find.byType(GlassControl),
+            matching: find.byType(Icon),
+          ),
+        );
+        expect(
+          MbPalette.contrastRatio(collapsedIcon.color!, palette.background),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'live palette switch keeps detail state, tab and scroll position',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() => tester.view.reset());
+      final palette = ValueNotifier<MbPalette>(EirenYuPalette.dark);
+      addTearDown(palette.dispose);
+      final key = GlobalKey<SeriesDetailScreenState>();
+      final detail = SeriesDetailScreen(key: key, series: testSeries);
+      await tester.pumpWidget(
+        ValueListenableBuilder<MbPalette>(
+          valueListenable: palette,
+          builder: (context, colors, _) => MaterialApp(
+            theme: AppTheme.build(showTooltips: true, palette: colors),
+            home: detail,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final state = key.currentState;
+      final fetches = mockSeriesService.fetchSeriesCalls;
+      final covers = find.text('COVERS');
+      await tester.ensureVisible(covers);
+      await tester.pumpAndSettle();
+      await tester.tap(covers);
+      await tester.pumpAndSettle();
+      expect(state!.selectedTab, 'Covers');
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -250));
+      await tester.pumpAndSettle();
+      final scroll = tester.state<ScrollableState>(
+        find
+            .descendant(
+              of: find.byType(CustomScrollView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      final offset = scroll.position.pixels;
+      expect(offset, greaterThan(0));
+
+      palette.value = EirenYuPalette.light;
+      await tester.pumpAndSettle();
+      expect(key.currentState, same(state));
+      expect(state.selectedTab, 'Covers');
+      expect(scroll.position.pixels, closeTo(offset, 1));
+      expect(mockSeriesService.fetchSeriesCalls, fetches);
+      expect(
+        tester.widget<Scaffold>(find.byType(Scaffold).first).backgroundColor,
+        EirenYuPalette.light.background,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('detail chrome fits short landscape without overflow', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(700, 320);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() => tester.view.reset());
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.build(
+          showTooltips: true,
+          palette: EirenYuPalette.light,
+        ),
+        home: SeriesDetailScreen(series: testSeries),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 }
