@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/widgets/app_snack_bar.dart';
@@ -229,7 +229,7 @@ class SettingsCategories {
               ),
               trailing: Icon(
                 Icons.open_in_new,
-                color: AppConstants.textMutedColor,
+                color: ctx.colors.textMuted,
                 size: 20,
               ),
               isFirst: true,

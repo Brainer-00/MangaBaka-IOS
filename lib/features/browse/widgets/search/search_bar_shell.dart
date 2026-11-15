@@ -143,6 +143,16 @@ class _SearchBarShellState extends State<SearchBarShell> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _text.ghostColor = MbPalette.ensureContrast(
+      context.colors.textMuted,
+      context.colors.surfaceRaised,
+      minimum: 4.5,
+    );
+  }
+
+  @override
   void dispose() {
     _hideOverlay();
     _text.removeListener(_onStateChanged);
