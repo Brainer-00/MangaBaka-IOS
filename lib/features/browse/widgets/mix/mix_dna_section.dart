@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/features/browse/models/mix_result.dart';
 import 'package:mangabaka_app/features/browse/widgets/mix/mix_section_header.dart';
 
@@ -51,7 +53,7 @@ class MixDnaSection extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppConstants.secondaryBackground,
+              color: context.colors.surface,
               borderRadius: BorderRadius.circular(AppConstants.cardRadius),
             ),
             child: Column(
@@ -67,13 +69,17 @@ class MixDnaSection extends StatelessWidget {
                   Divider(
                     height: 1,
                     thickness: 1,
-                    color: AppConstants.borderColor,
+                    color: context.colors.border,
                   ),
                   const SizedBox(height: 12),
                   Text(
                     'Additional DNA elements:',
                     style: AppTypography.sans(
-                      color: AppConstants.textMutedColor,
+                      color: MbPalette.ensureContrast(
+                        context.colors.textMuted,
+                        context.colors.surface,
+                        minimum: 4.5,
+                      ),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -106,6 +112,7 @@ class _DnaBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
@@ -117,7 +124,7 @@ class _DnaBar extends StatelessWidget {
               Text(
                 tag.name,
                 style: AppTypography.sans(
-                  color: AppConstants.textColor,
+                  color: colors.text,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
@@ -125,7 +132,7 @@ class _DnaBar extends StatelessWidget {
               Text(
                 '${(fraction * 100).round()}%',
                 style: AppTypography.sans(
-                  color: AppConstants.accentColor,
+                  color: colors.accentOn(colors.surface),
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
@@ -138,7 +145,7 @@ class _DnaBar extends StatelessWidget {
               Container(
                 height: 8,
                 decoration: BoxDecoration(
-                  color: AppConstants.tertiaryBackground,
+                  color: colors.surfaceRaised,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -149,7 +156,7 @@ class _DnaBar extends StatelessWidget {
                 child: Container(
                   height: 8,
                   decoration: BoxDecoration(
-                    color: AppConstants.accentColor,
+                    color: colors.progressIndicator,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -172,13 +179,17 @@ class _DnaChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppConstants.tertiaryBackground,
+        color: context.colors.surfaceRaised,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         name,
         style: AppTypography.sans(
-          color: AppConstants.textColor.withValues(alpha: 0.8),
+          color: MbPalette.ensureContrast(
+            context.colors.textMuted,
+            context.colors.surfaceRaised,
+            minimum: 4.5,
+          ),
           fontSize: 11,
           fontWeight: FontWeight.w500,
         ),
