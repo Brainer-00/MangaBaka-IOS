@@ -1,5 +1,7 @@
 import 'package:mangabaka_app/core/motion/app_motion.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 
@@ -21,10 +23,10 @@ class SelectionBottomSheet {
       builder: (BuildContext dialogContext) {
         return Container(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.8,
+            maxHeight: MediaQuery.of(dialogContext).size.height * 0.8,
           ),
           decoration: BoxDecoration(
-            color: AppConstants.secondaryBackground,
+            color: dialogContext.colors.surface,
             borderRadius: BorderRadius.vertical(
               top: Radius.circular(AppConstants.largeRadius),
             ),
@@ -39,7 +41,7 @@ class SelectionBottomSheet {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppConstants.tertiaryBackground,
+                    color: dialogContext.colors.surfaceRaised,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -48,7 +50,7 @@ class SelectionBottomSheet {
               Text(
                 title.toUpperCase(),
                 style: AppTypography.display(
-                  color: AppConstants.textColor,
+                  color: dialogContext.colors.text,
                   fontSize: 19,
                 ),
               ),
@@ -56,7 +58,11 @@ class SelectionBottomSheet {
               Text(
                 subtitle,
                 style: AppTypography.sans(
-                  color: AppConstants.textMutedColor,
+                  color: MbPalette.ensureContrast(
+                    dialogContext.colors.textMuted,
+                    dialogContext.colors.surface,
+                    minimum: 4.5,
+                  ),
                   fontSize: 13,
                 ),
               ),
@@ -108,6 +114,11 @@ class SelectionBottomSheet {
     BuildContext context,
   ) {
     final isSelected = option == currentValue;
+    final colors = context.colors;
+    final selectedBackground = Color.alphaBlend(
+      colors.accent.withValues(alpha: 0.14),
+      colors.surface,
+    );
     return MbTappable(
       pressedScale: 0.985,
       onTap: () {
@@ -121,8 +132,8 @@ class SelectionBottomSheet {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppConstants.accentColor.withValues(alpha: 0.14)
-              : AppConstants.tertiaryBackground,
+              ? colors.accent.withValues(alpha: 0.14)
+              : colors.surfaceRaised,
           borderRadius: BorderRadius.circular(AppConstants.denseRadius),
         ),
         child: Row(
@@ -132,8 +143,12 @@ class SelectionBottomSheet {
                 getLabel(option),
                 style: AppTypography.sans(
                   color: isSelected
-                      ? AppConstants.accentColor
-                      : AppConstants.textColor,
+                      ? colors.accentOn(selectedBackground)
+                      : MbPalette.ensureContrast(
+                          colors.text,
+                          colors.surfaceRaised,
+                          minimum: 4.5,
+                        ),
                   fontSize: 15,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 ),
@@ -149,7 +164,7 @@ class SelectionBottomSheet {
                   ? Icon(
                       Icons.check_circle_rounded,
                       key: const ValueKey('checked'),
-                      color: AppConstants.accentColor,
+                      color: colors.accentOn(selectedBackground, minimum: 3),
                       size: 22,
                     )
                   : const SizedBox(

@@ -1,4 +1,6 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
@@ -86,80 +88,86 @@ class ListStyleDialogs {
           builder: (context, _) {
             final currentValue = currentValueGetter();
 
-            return Container(
-              decoration: BoxDecoration(
-                color: AppConstants.secondaryBackground,
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(AppConstants.largeRadius),
+            return SingleChildScrollView(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: context.colors.surface,
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(AppConstants.largeRadius),
+                  ),
                 ),
-              ),
-              padding: const EdgeInsets.fromLTRB(0, 12, 0, 40),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 32,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppConstants.tertiaryBackground,
-                        borderRadius: BorderRadius.circular(2),
+                padding: const EdgeInsets.fromLTRB(0, 12, 0, 40),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 32,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: context.colors.surfaceRaised,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Text(
-                      title,
-                      style: AppTypography.display(
-                        color: AppConstants.textColor,
-                        fontSize: 18,
+                    const SizedBox(height: 24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Text(
+                        title,
+                        style: AppTypography.display(
+                          color: context.colors.text,
+                          fontSize: 18,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Text(
-                      subtitle,
-                      style: AppTypography.sans(
-                        color: AppConstants.textMutedColor,
-                        fontSize: 13,
+                    const SizedBox(height: 4),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Text(
+                        subtitle,
+                        style: AppTypography.sans(
+                          color: MbPalette.ensureContrast(
+                            context.colors.textMuted,
+                            context.colors.surface,
+                            minimum: 4.5,
+                          ),
+                          fontSize: 13,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    height: 200,
-                    child: ScrollConfiguration(
-                      behavior: const ScrollBehavior().copyWith(
-                        scrollbars: false,
-                      ),
-                      child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        scrollDirection: Axis.horizontal,
-                        itemCount: AppListStyle.values.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(width: 8),
-                        itemBuilder: (context, index) {
-                          final style = AppListStyle.values[index];
-                          final isSelected = currentValue == style;
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      height: 200,
+                      child: ScrollConfiguration(
+                        behavior: const ScrollBehavior().copyWith(
+                          scrollbars: false,
+                        ),
+                        child: ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          scrollDirection: Axis.horizontal,
+                          itemCount: AppListStyle.values.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(width: 8),
+                          itemBuilder: (context, index) {
+                            final style = AppListStyle.values[index];
+                            final isSelected = currentValue == style;
 
-                          return ListStylePreviewItem(
-                            style: style,
-                            isSelected: isSelected,
-                            label: getListStyleName(style),
-                            onTap: () {
-                              onSelected(style);
-                            },
-                          );
-                        },
+                            return ListStylePreviewItem(
+                              style: style,
+                              isSelected: isSelected,
+                              label: getListStyleName(style),
+                              onTap: () {
+                                onSelected(style);
+                              },
+                            );
+                          },
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },
