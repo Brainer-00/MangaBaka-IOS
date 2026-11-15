@@ -1,10 +1,10 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 import 'package:mangabaka_app/core/widgets/app_snack_bar.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 
 class DescriptionSection extends StatefulWidget {
   final String description;
@@ -19,6 +19,7 @@ class _DescriptionSectionState extends State<DescriptionSection> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final isLong =
         widget.description
                 .trim()
@@ -40,12 +41,14 @@ class _DescriptionSectionState extends State<DescriptionSection> {
                 child: Text(
                   widget.description,
                   maxLines: expanded ? null : 6,
-                  overflow: expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                  overflow: expanded
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        height: 1.72,
-                        color: AppConstants.textColor.withValues(alpha: 0.88),
-                        fontSize: 15.5,
-                      ),
+                    height: 1.72,
+                    color: colors.text,
+                    fontSize: 15.5,
+                  ),
                 ),
               ),
               if (isLong && !expanded)
@@ -60,9 +63,9 @@ class _DescriptionSectionState extends State<DescriptionSection> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          AppConstants.primaryBackground.withValues(alpha: 0),
-                          AppConstants.primaryBackground.withValues(alpha: 0.8),
-                          AppConstants.primaryBackground,
+                          colors.background.withValues(alpha: 0),
+                          colors.background.withValues(alpha: 0.8),
+                          colors.background,
                         ],
                       ),
                     ),
@@ -83,14 +86,23 @@ class _DescriptionSectionState extends State<DescriptionSection> {
                         onTap: () => setState(() => expanded = !expanded),
                         borderRadius: BorderRadius.circular(8),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 16.0),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 10.0,
+                            horizontal: 16.0,
+                          ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                expanded ? LocalizationService().translate('show_less') : LocalizationService().translate('show_more'),
+                                expanded
+                                    ? LocalizationService().translate(
+                                        'show_less',
+                                      )
+                                    : LocalizationService().translate(
+                                        'show_more',
+                                      ),
                                 style: AppTypography.sans(
-                                  color: AppConstants.accentColor,
+                                  color: colors.accentOn(colors.background),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
                                   letterSpacing: 0.5,
@@ -98,9 +110,11 @@ class _DescriptionSectionState extends State<DescriptionSection> {
                               ),
                               const SizedBox(width: 4),
                               Icon(
-                                expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                                expanded
+                                    ? Icons.keyboard_arrow_up
+                                    : Icons.keyboard_arrow_down,
                                 size: 20,
-                                color: AppConstants.accentColor,
+                                color: colors.accentOn(colors.background),
                               ),
                             ],
                           ),
@@ -113,9 +127,11 @@ class _DescriptionSectionState extends State<DescriptionSection> {
                   child: IconButton(
                     icon: const Icon(Icons.copy_all, size: 20),
                     padding: const EdgeInsets.all(8),
-                    color: AppConstants.textMutedColor,
+                    color: colors.textMuted,
                     onPressed: () {
-                      Clipboard.setData(ClipboardData(text: widget.description));
+                      Clipboard.setData(
+                        ClipboardData(text: widget.description),
+                      );
                       AppSnackBar.show(
                         context,
                         LocalizationService().translate('description_copied'),

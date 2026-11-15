@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 
 class SeriesDetailSkeleton extends StatefulWidget {
   final bool isWide;
@@ -37,22 +37,19 @@ class _SeriesDetailSkeletonState extends State<SeriesDetailSkeleton>
         children: [
           const SizedBox(width: 300),
           const SizedBox(width: 48),
-          Expanded(child: _buildBody()),
+          Expanded(child: _buildBody(context)),
         ],
       );
     }
-    return _buildBody();
+    return _buildBody(context);
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(BuildContext context) {
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
         final opacity = 0.3 + (_controller.value * 0.4);
-        return Opacity(
-          opacity: opacity,
-          child: child,
-        );
+        return Opacity(opacity: opacity, child: child);
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,43 +59,50 @@ class _SeriesDetailSkeletonState extends State<SeriesDetailSkeleton>
             spacing: 8,
             runSpacing: 8,
             children: [
-              _skeletonBox(width: 80, height: 24),
-              _skeletonBox(width: 60, height: 24),
-              _skeletonBox(width: 100, height: 24),
+              _skeletonBox(context, width: 80, height: 24),
+              _skeletonBox(context, width: 60, height: 24),
+              _skeletonBox(context, width: 100, height: 24),
             ],
           ),
           const SizedBox(height: 16),
           // Action Bar placeholder
-          _skeletonBox(width: double.infinity, height: 50),
+          _skeletonBox(context, width: double.infinity, height: 50),
           const SizedBox(height: 20),
           // Description placeholder
-          _skeletonBox(width: 150, height: 22),
+          _skeletonBox(context, width: 150, height: 22),
           const SizedBox(height: 16),
-          _skeletonBox(width: double.infinity, height: 14),
+          _skeletonBox(context, width: double.infinity, height: 14),
           const SizedBox(height: 8),
-          _skeletonBox(width: double.infinity, height: 14),
+          _skeletonBox(context, width: double.infinity, height: 14),
           const SizedBox(height: 8),
-          _skeletonBox(width: 200, height: 14),
+          _skeletonBox(context, width: 200, height: 14),
           const SizedBox(height: 32),
           // Grid items
-          _skeletonBox(width: 120, height: 22),
+          _skeletonBox(context, width: 120, height: 22),
           const SizedBox(height: 16),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: List.generate(6, (_) => _skeletonBox(width: 90, height: 35)),
+            children: List.generate(
+              6,
+              (_) => _skeletonBox(context, width: 90, height: 35),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _skeletonBox({required double width, required double height}) {
+  Widget _skeletonBox(
+    BuildContext context, {
+    required double width,
+    required double height,
+  }) {
     return Container(
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: AppConstants.tertiaryBackground,
+        color: context.colors.surfaceRaised,
         borderRadius: BorderRadius.circular(8),
       ),
     );
