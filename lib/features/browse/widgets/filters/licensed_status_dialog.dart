@@ -1,6 +1,6 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/features/browse/models/search_filters.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 
@@ -17,66 +17,72 @@ class LicensedStatusDialog {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (BuildContext dialogContext) {
         return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.85,
+          ),
           decoration: BoxDecoration(
-            color: AppConstants.secondaryBackground,
+            color: dialogContext.colors.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           padding: const EdgeInsets.fromLTRB(24, 12, 24, 60),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 24),
-              Text(
-                l10n.translate(titleKey).toUpperCase(),
-                style: AppTypography.display(
-                  color: AppConstants.textColor,
-                  fontSize: 18,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(dialogContext),
+                const SizedBox(height: 24),
+                Text(
+                  l10n.translate(titleKey).toUpperCase(),
+                  style: AppTypography.display(
+                    color: dialogContext.colors.text,
+                    fontSize: 18,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              _SelectionTile(
-                label: l10n.translate('any'),
-                isSelected: current == null,
-                onTap: () {
-                  onStatusSelected(null);
-                  Navigator.pop(dialogContext);
-                },
-              ),
-              _SelectionTile(
-                label: l10n.translate('yes'),
-                isSelected: current == true,
-                onTap: () {
-                  onStatusSelected(true);
-                  Navigator.pop(dialogContext);
-                },
-              ),
-              _SelectionTile(
-                label: l10n.translate('no'),
-                isSelected: current == false,
-                onTap: () {
-                  onStatusSelected(false);
-                  Navigator.pop(dialogContext);
-                },
-                isLast: true,
-              ),
-            ],
+                const SizedBox(height: 24),
+                _SelectionTile(
+                  label: l10n.translate('any'),
+                  isSelected: current == null,
+                  onTap: () {
+                    onStatusSelected(null);
+                    Navigator.pop(dialogContext);
+                  },
+                ),
+                _SelectionTile(
+                  label: l10n.translate('yes'),
+                  isSelected: current == true,
+                  onTap: () {
+                    onStatusSelected(true);
+                    Navigator.pop(dialogContext);
+                  },
+                ),
+                _SelectionTile(
+                  label: l10n.translate('no'),
+                  isSelected: current == false,
+                  onTap: () {
+                    onStatusSelected(false);
+                    Navigator.pop(dialogContext);
+                  },
+                  isLast: true,
+                ),
+              ],
+            ),
           ),
         );
       },
     );
   }
 
-  static Widget _buildHeader() {
+  static Widget _buildHeader(BuildContext context) {
     return Center(
       child: Container(
         width: 32,
         height: 4,
         decoration: BoxDecoration(
-          color: AppConstants.tertiaryBackground,
+          color: context.colors.border,
           borderRadius: BorderRadius.circular(2),
         ),
       ),
@@ -108,10 +114,7 @@ class _SelectionTile extends StatelessWidget {
           border: isLast
               ? null
               : Border(
-                  bottom: BorderSide(
-                    color: AppConstants.tertiaryBackground,
-                    width: 1,
-                  ),
+                  bottom: BorderSide(color: context.colors.border, width: 1),
                 ),
         ),
         child: Row(
@@ -119,7 +122,9 @@ class _SelectionTile extends StatelessWidget {
             Text(
               label,
               style: AppTypography.sans(
-                color: isSelected ? AppConstants.textColor : AppConstants.textMutedColor,
+                color: isSelected
+                    ? context.colors.text
+                    : context.colors.textMuted,
                 fontSize: 16,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
@@ -127,7 +132,12 @@ class _SelectionTile extends StatelessWidget {
             const Spacer(),
             Icon(
               isSelected ? Icons.check_circle : Icons.circle_outlined,
-              color: isSelected ? AppConstants.accentColor : AppConstants.borderColor.withValues(alpha: 0.3),
+              color: isSelected
+                  ? context.colors.accentOn(
+                      context.colors.surface,
+                      minimum: 3.0,
+                    )
+                  : context.colors.textMuted,
               size: 24,
             ),
           ],

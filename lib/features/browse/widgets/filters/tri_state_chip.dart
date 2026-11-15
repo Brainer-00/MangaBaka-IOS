@@ -1,6 +1,8 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 
 enum TriState { off, include, exclude }
 
@@ -18,24 +20,46 @@ class TriStateChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     Color? backgroundColor;
-    Color textColor = AppConstants.textColor;
+    Color textColor = colors.text;
     IconData? icon;
 
     switch (state) {
       case TriState.include:
-        backgroundColor = AppConstants.accentColor.withValues(alpha: 0.2);
-        textColor = AppConstants.accentColor;
+        backgroundColor = Color.alphaBlend(
+          colors.accent.withValues(alpha: 0.2),
+          colors.surface,
+        );
+        textColor = MbPalette.ensureContrast(
+          colors.accent,
+          backgroundColor,
+          minimum: 4.5,
+        );
         icon = Icons.check;
         break;
       case TriState.exclude:
-        backgroundColor = AppConstants.errorColor.withValues(alpha: 0.2);
-        textColor = AppConstants.errorColor;
+        backgroundColor = Color.alphaBlend(
+          colors.error.withValues(alpha: 0.2),
+          colors.surface,
+        );
+        textColor = MbPalette.ensureContrast(
+          colors.error,
+          backgroundColor,
+          minimum: 4.5,
+        );
         icon = Icons.close;
         break;
       case TriState.off:
-        backgroundColor = AppConstants.borderColor.withValues(alpha: 0.25);
-        textColor = AppConstants.textMutedColor;
+        backgroundColor = Color.alphaBlend(
+          colors.border.withValues(alpha: 0.25),
+          colors.surface,
+        );
+        textColor = MbPalette.ensureContrast(
+          colors.textMuted,
+          backgroundColor,
+          minimum: 4.5,
+        );
         icon = null;
         break;
     }
