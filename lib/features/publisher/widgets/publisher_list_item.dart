@@ -1,7 +1,8 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/features/publisher/models/publisher.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 
 class PublisherListItem extends StatelessWidget {
   final Publisher publisher;
@@ -20,15 +21,25 @@ class PublisherListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final muted = MbPalette.ensureContrast(
+      colors.textMuted,
+      colors.surface,
+      minimum: 4.5,
+    );
+    final badgeFill = Color.alphaBlend(
+      colors.accent.withValues(alpha: 0.1),
+      colors.surface,
+    );
     return Container(
       margin: margin ?? const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: AppConstants.secondaryBackground,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(8),
       ),
       child: InkWell(
         onTap: onTap,
-        hoverColor: AppConstants.tertiaryBackground,
+        hoverColor: colors.surfaceRaised,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -42,7 +53,7 @@ class PublisherListItem extends StatelessWidget {
                     Text(
                       publisher.name,
                       style: AppTypography.sans(
-                        color: AppConstants.textColor,
+                        color: colors.text,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -57,29 +68,41 @@ class PublisherListItem extends StatelessWidget {
                       runSpacing: 4,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        _buildBadge(publisher.subType.toUpperCase()),
+                        _buildBadge(
+                          publisher.subType.toUpperCase(),
+                          colors,
+                          badgeFill,
+                        ),
                         if (publisher.founded != null)
-                          _buildInfoText('Est. ${publisher.founded}'),
+                          _buildInfoText('Est. ${publisher.founded}', muted),
                         if (publisher.closed != null)
-                          _buildInfoText('Closed ${publisher.closed}', isError: true),
+                          _buildInfoText(
+                            'Closed ${publisher.closed}',
+                            MbPalette.ensureContrast(
+                              colors.error,
+                              colors.surface,
+                              minimum: 4.5,
+                            ),
+                          ),
                         if (publisher.imprints.isNotEmpty)
-                          _buildInfoText('${publisher.imprints.length} Imprints'),
+                          _buildInfoText(
+                            '${publisher.imprints.length} Imprints',
+                            muted,
+                          ),
                         if (publisher.links.isNotEmpty)
                           Icon(
                             Icons.link_rounded,
                             size: 14,
-                            color: AppConstants.accentColor.withValues(alpha: 0.6),
+                            color: colors.accentOn(colors.surface, minimum: 3),
                           ),
                       ],
                     ),
-                    if (publisher.description != null && publisher.description!.isNotEmpty) ...[
+                    if (publisher.description != null &&
+                        publisher.description!.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       Text(
                         publisher.description!,
-                        style: AppTypography.sans(
-                          color: AppConstants.textMutedColor,
-                          fontSize: 13,
-                        ),
+                        style: AppTypography.sans(color: muted, fontSize: 13),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -90,7 +113,11 @@ class PublisherListItem extends StatelessWidget {
               const SizedBox(width: 8),
               Icon(
                 Icons.chevron_right_rounded,
-                color: AppConstants.textMutedColor.withValues(alpha: 0.5),
+                color: MbPalette.ensureContrast(
+                  colors.textMuted,
+                  colors.surface,
+                  minimum: 3,
+                ),
               ),
             ],
           ),
@@ -99,17 +126,17 @@ class PublisherListItem extends StatelessWidget {
     );
   }
 
-  Widget _buildBadge(String text) {
+  Widget _buildBadge(String text, MbPalette colors, Color fill) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: AppConstants.accentColor.withValues(alpha: 0.1),
+        color: fill,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         text,
         style: AppTypography.sans(
-          color: AppConstants.accentColor,
+          color: colors.accentOn(fill),
           fontSize: 10,
           fontWeight: FontWeight.bold,
           letterSpacing: 0.5,
@@ -118,11 +145,11 @@ class PublisherListItem extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoText(String text, {bool isError = false}) {
+  Widget _buildInfoText(String text, Color color) {
     return Text(
       text,
       style: AppTypography.sans(
-        color: isError ? AppConstants.errorColor.withValues(alpha: 0.8) : AppConstants.textMutedColor,
+        color: color,
         fontSize: 12,
         fontWeight: FontWeight.w500,
       ),
