@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 import 'package:mangabaka_app/core/widgets/design/mb_screen_header.dart';
 import 'package:mangabaka_app/features/collections/services/collection_service.dart';
@@ -112,9 +113,10 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
   Widget build(BuildContext context) {
     final l10n = LocalizationService();
     final col = widget.collection;
+    final colors = context.colors;
 
     return Scaffold(
-      backgroundColor: AppConstants.primaryBackground,
+      backgroundColor: colors.background,
       appBar: mbScreenAppBar(title: l10n.translate('tab_collections')),
       body: WidgetUtils.responsiveConstraint(
         maxWidth: 1100,
@@ -150,9 +152,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                 child: Center(
                   child: Text(
                     l10n.translate('no_works_available'),
-                    style: AppTypography.sans(
-                      color: AppConstants.textMutedColor,
-                    ),
+                    style: AppTypography.sans(color: colors.textMuted),
                   ),
                 ),
               )
@@ -201,6 +201,7 @@ class _WorkTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final label = work.sequenceString.isNotEmpty
         ? 'Vol. ${work.sequenceString}'
         : (work.subTitle.isNotEmpty ? work.subTitle : work.countType);
@@ -220,10 +221,14 @@ class _WorkTile extends StatelessWidget {
                     memCacheWidth: 300,
                   )
                 : Container(
-                    color: AppConstants.tertiaryBackground,
+                    color: colors.surfaceRaised,
                     child: Icon(
                       Icons.book_outlined,
-                      color: AppConstants.textMutedColor,
+                      color: MbPalette.ensureContrast(
+                        colors.textMuted,
+                        colors.surfaceRaised,
+                        minimum: 3,
+                      ),
                     ),
                   ),
           ),
@@ -233,30 +238,21 @@ class _WorkTile extends StatelessWidget {
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: AppTypography.display(
-            color: AppConstants.textColor,
-            fontSize: 13,
-          ),
+          style: AppTypography.display(color: colors.text, fontSize: 13),
         ),
         if (work.releaseDate.isNotEmpty)
           Text(
             work.releaseDate,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AppTypography.sans(
-              color: AppConstants.textMutedColor,
-              fontSize: 12,
-            ),
+            style: AppTypography.sans(color: colors.textMuted, fontSize: 12),
           ),
         if (work.priceString != null)
           Text(
             work.priceString!,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AppTypography.sans(
-              color: AppConstants.textMutedColor,
-              fontSize: 12,
-            ),
+            style: AppTypography.sans(color: colors.textMuted, fontSize: 12),
           ),
       ],
     );

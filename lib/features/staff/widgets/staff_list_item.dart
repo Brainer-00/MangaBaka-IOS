@@ -2,6 +2,7 @@ import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/features/staff/models/staff.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 
 class StaffListItem extends StatelessWidget {
@@ -21,10 +22,10 @@ class StaffListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Card(
-      margin:
-          margin ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: AppConstants.secondaryBackground,
+      margin: margin ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: colors.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppConstants.cardRadius),
@@ -49,6 +50,7 @@ class StaffListItem extends StatelessWidget {
         title: Text(
           staff.name,
           style: AppTypography.sans(
+            color: colors.text,
             fontWeight: FontWeight.bold,
             fontSize: 16,
           ),
@@ -60,7 +62,7 @@ class StaffListItem extends StatelessWidget {
               Text(
                 staff.nativeName!,
                 style: AppTypography.sans(
-                  color: AppConstants.textMutedColor,
+                  color: colors.textMuted,
                   fontSize: 14,
                 ),
               ),
@@ -70,7 +72,7 @@ class StaffListItem extends StatelessWidget {
                 child: Text(
                   staff.role!,
                   style: AppTypography.sans(
-                    color: AppConstants.accentColor,
+                    color: colors.accentOn(colors.surface),
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -85,6 +87,7 @@ class StaffListItem extends StatelessWidget {
                   Text(
                     staff.seriesCount.toString(),
                     style: AppTypography.sans(
+                      color: colors.text,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                     ),
@@ -92,7 +95,7 @@ class StaffListItem extends StatelessWidget {
                   Text(
                     'Series',
                     style: AppTypography.sans(
-                      color: AppConstants.textMutedColor,
+                      color: colors.textMuted,
                       fontSize: 10,
                     ),
                   ),
