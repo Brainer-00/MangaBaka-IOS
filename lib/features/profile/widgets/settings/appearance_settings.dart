@@ -7,6 +7,7 @@ import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/theme/theme_presets.dart';
+import 'package:mangabaka_app/features/profile/widgets/settings/theme_miniature_preview.dart';
 
 /// One settings surface shared by portrait, landscape dialog, and desktop.
 /// The application root remains the sole owner of ThemeController.
@@ -111,6 +112,7 @@ class AppearanceSettings extends StatelessWidget {
         .where((p) => dark ? p.dark != null : p.light != null)
         .toList();
     final selected = dark ? settings.darkThemeId : settings.lightThemeId;
+    final accentOverride = settings.accentOverride;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -121,32 +123,40 @@ class AppearanceSettings extends StatelessWidget {
         const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {
-            final width = constraints.maxWidth;
-            final columns = width >= 580
-                ? 3
-                : width >= 360
-                ? 2
-                : 1;
-            final cardWidth = (width - (columns - 1) * 10) / columns;
-            return Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final preset in presets)
-                  SizedBox(
-                    width: cardWidth,
-                    child: _presetCard(
-                      context,
-                      preset,
-                      dark ? preset.dark! : preset.light!,
-                      selected == preset.id,
-                      () => dark
-                          ? settings.setDarkThemeId(preset.id)
-                          : settings.setLightThemeId(preset.id),
-                      brightness,
+            final cardWidth = (constraints.maxWidth * 0.58)
+                .clamp(150.0, 220.0)
+                .toDouble();
+            return SingleChildScrollView(
+              key: PageStorageKey('appearance_gallery_${brightness.name}'),
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: [
+                  for (var index = 0; index < presets.length; index++) ...[
+                    if (index > 0) const SizedBox(width: 12),
+                    SizedBox(
+                      width: cardWidth,
+                      child: _presetCard(
+                        context,
+                        presets[index],
+                        accentOverride == null
+                            ? (dark
+                                  ? presets[index].dark!
+                                  : presets[index].light!)
+                            : (dark
+                                      ? presets[index].dark!
+                                      : presets[index].light!)
+                                  .withAccent(Color(accentOverride)),
+                        selected == presets[index].id,
+                        () => dark
+                            ? settings.setDarkThemeId(presets[index].id)
+                            : settings.setLightThemeId(presets[index].id),
+                        brightness,
+                      ),
                     ),
-                  ),
-              ],
+                  ],
+                ],
+              ),
             );
           },
         ),
@@ -184,50 +194,11 @@ class AppearanceSettings extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                height: 48,
-                decoration: BoxDecoration(
-                  color: palette.background,
-                  borderRadius: BorderRadius.circular(7),
-                ),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: Container(
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: palette.surface,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Row(
-                          children: [
-                            const SizedBox(width: 5),
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: palette.accent,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 5),
-                            Expanded(
-                              child: Container(
-                                height: 3,
-                                color: palette.textMuted,
-                              ),
-                            ),
-                            const SizedBox(width: 5),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 7),
-                  ],
-                ),
+              ThemeMiniaturePreview(
+                key: Key('appearance_preview_${brightness.name}_${preset.id}'),
+                palette: palette,
               ),
-              const SizedBox(height: 7),
+              const SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(

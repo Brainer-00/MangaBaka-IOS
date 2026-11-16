@@ -1,3 +1,5 @@
+import 'dart:ui' show Tristate;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
@@ -9,6 +11,7 @@ import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/theme/theme_controller.dart';
 import 'package:mangabaka_app/core/theme/theme_presets.dart';
 import 'package:mangabaka_app/features/profile/widgets/settings/appearance_settings.dart';
+import 'package:mangabaka_app/features/profile/widgets/settings/theme_miniature_preview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -42,6 +45,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('appearance_preset_light_nord')), findsNothing);
+    await _showPreset(tester, Brightness.dark, 'nord');
     await tester.tap(find.byKey(const Key('appearance_preset_dark_nord')));
     await tester.pumpAndSettle();
     expect(SettingsManager().darkThemeId, 'nord');
@@ -60,9 +64,7 @@ void main() {
       find.byKey(const Key('appearance_preset_dark_amoled')),
       findsOneWidget,
     );
-    await tester.ensureVisible(
-      find.byKey(const Key('appearance_preset_light_catppuccin')),
-    );
+    await _showPreset(tester, Brightness.light, 'catppuccin');
     await tester.tap(
       find.byKey(const Key('appearance_preset_light_catppuccin')),
     );
@@ -78,6 +80,179 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('appearance_preset_dark_nord')), findsNothing);
     expect(SettingsManager().themeMode, AppThemeMode.light);
+  });
+
+  testWidgets(
+    'horizontal galleries reveal later presets and keep their scroll',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pump(tester);
+
+      final darkRail = find.byKey(
+        const PageStorageKey<String>('appearance_gallery_dark'),
+      );
+      expect(darkRail, findsOneWidget);
+      expect(
+        tester.widget<SingleChildScrollView>(darkRail).scrollDirection,
+        Axis.horizontal,
+      );
+      final first = find.byKey(const Key('appearance_preset_dark_eirenyu'));
+      final second = find.byKey(const Key('appearance_preset_dark_default'));
+      expect(tester.getSize(first).width, inInclusiveRange(150, 220));
+      expect(tester.getRect(second).left, lessThan(320));
+
+      await tester.drag(darkRail, const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      final nord = find.byKey(const Key('appearance_preset_dark_nord'));
+      await _showPreset(tester, Brightness.dark, 'nord');
+      await tester.pumpAndSettle();
+      final leftBefore = tester.getRect(nord).left;
+      await tester.tap(nord);
+      await tester.pumpAndSettle();
+      expect(SettingsManager().darkThemeId, 'nord');
+      expect(tester.getRect(nord).left, closeTo(leftBefore, 1));
+      final semantics = tester.ensureSemantics();
+      expect(
+        tester.getSemantics(nord).flagsCollection.isSelected,
+        Tristate.isTrue,
+      );
+      expect(
+        find.descendant(of: nord, matching: find.byIcon(Icons.check_circle)),
+        findsOneWidget,
+      );
+      semantics.dispose();
+
+      await tester.ensureVisible(
+        find.byKey(const Key('appearance_mode_system')),
+      );
+      await tester.tap(find.byKey(const Key('appearance_mode_system')));
+      await tester.pumpAndSettle();
+      final lightRail = find.byKey(
+        const PageStorageKey<String>('appearance_gallery_light'),
+      );
+      expect(lightRail, findsOneWidget);
+      expect(
+        tester.widget<SingleChildScrollView>(lightRail).scrollDirection,
+        Axis.horizontal,
+      );
+      expect(
+        find.byKey(const Key('appearance_preset_light_amoled')),
+        findsNothing,
+      );
+      expect(tester.getRect(nord).left, closeTo(leftBefore, 1));
+      await tester.drag(lightRail, const Offset(-400, 0));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .getRect(find.byKey(const Key('appearance_preset_light_eirenyu')))
+            .left,
+        lessThan(0),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('miniature surfaces match actual dark and light palette roles', (
+    tester,
+  ) async {
+    await pump(tester);
+    await tester.tap(find.byKey(const Key('appearance_mode_system')));
+    await tester.pumpAndSettle();
+    for (final (brightness, preset) in [
+      (Brightness.dark, ThemePresets.byId('nord')!),
+      (Brightness.light, ThemePresets.byId('catppuccin')!),
+    ]) {
+      final palette = brightness == Brightness.dark
+          ? preset.dark!
+          : preset.light!;
+      final preview = find.byKey(
+        Key('appearance_preview_${brightness.name}_${preset.id}'),
+      );
+      expect(tester.widget<ThemeMiniaturePreview>(preview).palette, palette);
+      Color painted(String key) {
+        final container = tester.widget<Container>(
+          find.descendant(of: preview, matching: find.byKey(Key(key))),
+        );
+        final decoration = container.decoration;
+        return decoration is BoxDecoration
+            ? decoration.color!
+            : container.color!;
+      }
+
+      expect(painted('appearance_preview_background'), palette.background);
+      expect(painted('appearance_preview_header'), palette.surface);
+      expect(painted('appearance_preview_search'), palette.surfaceRaised);
+      expect(painted('appearance_preview_accent'), palette.accent);
+      expect(painted('appearance_preview_card'), palette.surface);
+      expect(painted('appearance_preview_navigation'), palette.surface);
+    }
+  });
+
+  testWidgets(
+    'accent override changes miniature palettes and reset restores them',
+    (tester) async {
+      await pump(tester);
+      await tester.tap(find.byKey(const Key('appearance_mode_system')));
+      await tester.pumpAndSettle();
+      final dark = find.byKey(const Key('appearance_preview_dark_nord'));
+      final light = find.byKey(
+        const Key('appearance_preview_light_catppuccin'),
+      );
+      MbPalette palette(Finder preview) =>
+          tester.widget<ThemeMiniaturePreview>(preview).palette;
+      expect(palette(dark).accent, ThemePresets.byId('nord')!.dark!.accent);
+      expect(
+        palette(light).accent,
+        ThemePresets.byId('catppuccin')!.light!.accent,
+      );
+
+      final swatch = find.byKey(const Key('appearance_accent_10'));
+      await tester.ensureVisible(swatch);
+      await tester.tap(swatch);
+      await tester.pumpAndSettle();
+      const override = Color(0xFFA82F4F);
+      expect(
+        palette(dark),
+        ThemePresets.byId('nord')!.dark!.withAccent(override),
+      );
+      expect(
+        palette(light),
+        ThemePresets.byId('catppuccin')!.light!.withAccent(override),
+      );
+
+      final themeDefault = find.byKey(const Key('appearance_accent_default'));
+      await tester.tap(themeDefault);
+      await tester.pumpAndSettle();
+      expect(palette(dark), ThemePresets.byId('nord')!.dark);
+      expect(palette(light), ThemePresets.byId('catppuccin')!.light);
+    },
+  );
+
+  testWidgets('gallery coexists with vertical scrolling on short landscape', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(640, 320);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await pump(tester);
+    final darkRail = find.byKey(
+      const PageStorageKey<String>('appearance_gallery_dark'),
+    );
+    await tester.drag(darkRail, const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .getRect(find.byKey(const Key('appearance_preset_dark_eirenyu')))
+          .left,
+      lessThan(0),
+    );
+    final outer = find.byType(SingleChildScrollView).first;
+    await tester.drag(outer, const Offset(0, -280));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('appearance_accent_default')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('curated and custom accents persist, then theme default clears', (
@@ -123,7 +298,7 @@ void main() {
     for (final preset in ThemePresets.all) {
       if (preset.dark == null) continue;
       final card = find.byKey(Key('appearance_preset_dark_${preset.id}'));
-      await tester.ensureVisible(card);
+      await _showPreset(tester, Brightness.dark, preset.id);
       await tester.pumpAndSettle();
       await tester.tap(card);
       await tester.pumpAndSettle();
@@ -138,7 +313,7 @@ void main() {
         expect(card, findsNothing);
         continue;
       }
-      await tester.ensureVisible(card);
+      await _showPreset(tester, Brightness.light, preset.id);
       await tester.pumpAndSettle();
       await tester.tap(card);
       await tester.pumpAndSettle();
@@ -240,6 +415,7 @@ void main() {
           .widget<Container>(find.byKey(const Key('effective_theme')))
           .color!;
       expect(find.text('dark'), findsOneWidget);
+      await _showPreset(tester, Brightness.dark, 'nord');
       await tester.tap(find.byKey(const Key('appearance_preset_dark_nord')));
       await tester.pumpAndSettle();
       expect(background(), ThemePresets.byId('nord')!.dark!.background);
@@ -247,14 +423,29 @@ void main() {
       await tester.tap(find.byKey(const Key('appearance_mode_light')));
       await tester.pumpAndSettle();
       expect(find.text('light'), findsOneWidget);
-      await tester.ensureVisible(
-        find.byKey(const Key('appearance_preset_light_nord')),
-      );
+      await _showPreset(tester, Brightness.light, 'nord');
       await tester.tap(find.byKey(const Key('appearance_preset_light_nord')));
       await tester.pumpAndSettle();
       expect(background(), ThemePresets.byId('nord')!.light!.background);
     },
   );
+}
+
+Future<void> _showPreset(
+  WidgetTester tester,
+  Brightness brightness,
+  String id,
+) async {
+  final rail = find.byKey(
+    PageStorageKey<String>('appearance_gallery_${brightness.name}'),
+  );
+  await tester.ensureVisible(rail);
+  await tester.scrollUntilVisible(
+    find.byKey(Key('appearance_preset_${brightness.name}_$id')),
+    220,
+    scrollable: find.descendant(of: rail, matching: find.byType(Scrollable)),
+  );
+  await tester.pumpAndSettle();
 }
 
 Future<void> _openPicker(WidgetTester tester) async {
