@@ -6,6 +6,9 @@
   ],
   "strings": {
     "app_name": "EirenYu",
+    "appearance_logo": "লোগো",
+    "appearance_logo_match_accent": "এপৰ থীম বা এক্সেণ্ট ৰঙৰ সৈতে মিলাওক",
+    "appearance_logo_colour": "লোগোৰ ৰং",
     "home": "গৃহপৃষ্ঠ",
     "discover": "আৱিষ্কাৰ",
     "current": "বৰ্তমান",

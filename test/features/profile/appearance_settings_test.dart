@@ -1,6 +1,7 @@
 import 'dart:ui' show Tristate;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/settings/settings_enums.dart';
@@ -10,6 +11,7 @@ import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/theme/theme_controller.dart';
 import 'package:mangabaka_app/core/theme/theme_presets.dart';
+import 'package:mangabaka_app/core/widgets/design/eirenyu_mark.dart';
 import 'package:mangabaka_app/features/profile/widgets/settings/appearance_settings.dart';
 import 'package:mangabaka_app/features/profile/widgets/settings/theme_miniature_preview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -307,6 +309,129 @@ void main() {
     expect(find.byKey(const Key('appearance_accent_default')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'narrow Logo gallery shows all named marks and retains selection',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final semantics = tester.ensureSemantics();
+      try {
+        await pump(tester);
+        final match = find.byKey(const Key('appearance_logo_match'));
+        final gallery = find.byKey(
+          const PageStorageKey('appearance_logo_gallery'),
+        );
+        expect(tester.widget<SwitchListTile>(match).value, isTrue);
+        expect(
+          find.byKey(const Key('appearance_logo_preview')),
+          findsOneWidget,
+        );
+        expect(gallery, findsNothing);
+        await tester.ensureVisible(match);
+        await tester.pumpAndSettle();
+        await tester.tap(match);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(gallery);
+        await tester.pumpAndSettle();
+
+        const names = [
+          'Emerald',
+          'Amber',
+          'Orange',
+          'Rose',
+          'Pink',
+          'Violet',
+          'Blue',
+          'Cyan',
+          'Teal',
+          'Lime',
+          'Crimson Moon',
+          'Twilight Lavender',
+          'Horizon Blue',
+        ];
+        Finder option(int index) =>
+            find.byKey(Key('appearance_logo_swatch_$index'));
+        final previews = find.descendant(
+          of: gallery,
+          matching: find.byType(EirenYuMark),
+        );
+        expect(previews, findsNWidgets(names.length));
+        for (final (index, name) in names.indexed) {
+          expect(
+            find.descendant(of: option(index), matching: find.text(name)),
+            findsOneWidget,
+          );
+          final mark = tester.widget<EirenYuMark>(previews.at(index));
+          expect(mark.color, ThemePresets.accentSwatches[index]);
+          expect(mark.size, 56);
+        }
+
+        final firstX = tester.getTopLeft(option(0)).dx;
+        await tester.drag(gallery, const Offset(-260, 0));
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(option(0)).dx, lessThan(firstX));
+        await tester.ensureVisible(option(10));
+        await tester.pumpAndSettle();
+        expect(tester.getSemantics(option(10)).label, 'Crimson Moon');
+        expect(
+          tester.getSemantics(option(10)).flagsCollection.isSelected,
+          Tristate.isTrue,
+        );
+
+        await tester.ensureVisible(option(12));
+        await tester.pumpAndSettle();
+        await tester.tap(option(12));
+        await tester.pumpAndSettle();
+        expect(tester.getSemantics(option(12)).label, 'Horizon Blue');
+        expect(
+          tester.getSemantics(option(12)).flagsCollection.isSelected,
+          Tristate.isTrue,
+        );
+        expect(
+          find.descendant(
+            of: option(12),
+            matching: find.byIcon(Icons.check_circle),
+          ),
+          findsOneWidget,
+        );
+
+        await tester.ensureVisible(match);
+        await tester.pumpAndSettle();
+        await tester.tap(match);
+        await tester.pumpAndSettle();
+        expect(gallery, findsNothing);
+        expect(
+          SettingsManager().manualLogoColor,
+          EirenYuPalette.horizonBlue.toARGB32(),
+        );
+        await tester.tap(match);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(option(12));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getSemantics(option(12)).flagsCollection.isSelected,
+          Tristate.isTrue,
+        );
+
+        await tester.ensureVisible(option(0));
+        Focus.of(tester.element(find.text('Emerald'))).requestFocus();
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(
+          SettingsManager().manualLogoColor,
+          ThemePresets.accentSwatches[1].toARGB32(),
+        );
+        expect(tester.takeException(), isNull);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
 
   testWidgets('curated and custom accents persist, then theme default clears', (
     tester,

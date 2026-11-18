@@ -278,6 +278,15 @@ void main() {
       await tester.tap(find.text('appearance'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('appearance_mode_dark')), findsOneWidget);
+      final match = find.byKey(const Key('appearance_logo_match'));
+      await tester.ensureVisible(match);
+      await tester.pumpAndSettle();
+      await tester.tap(match);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const PageStorageKey('appearance_logo_gallery')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('logs open from Advanced and go back to it', (tester) async {

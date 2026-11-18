@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/settings/setting_value.dart';
 import 'package:mangabaka_app/core/settings/settings_enums.dart';
 import 'package:mangabaka_app/core/settings/settings_keys.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_presets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Every user preference, and the only place they are persisted.
@@ -28,6 +30,11 @@ class SettingsManager extends ChangeNotifier {
   final _darkThemeId = StringSetting(SettingsKeys.darkThemeId, 'eirenyu');
   final _lightThemeId = StringSetting(SettingsKeys.lightThemeId, 'eirenyu');
   final _accentOverride = IntSetting(SettingsKeys.accentOverride, 0);
+  final _matchLogoToAccent = BoolSetting(SettingsKeys.matchLogoToAccent, true);
+  final _manualLogoColor = IntSetting(
+    SettingsKeys.manualLogoColor,
+    EirenYuPalette.crimsonMoon.toARGB32(),
+  );
   final _currentListStyle = EnumSetting(
     SettingsKeys.listStylePref,
     AppListStyle.compactGrid,
@@ -159,6 +166,8 @@ class SettingsManager extends ChangeNotifier {
     _darkThemeId,
     _lightThemeId,
     _accentOverride,
+    _matchLogoToAccent,
+    _manualLogoColor,
     _currentListStyle,
     _libraryListStyle,
     _browseListStyle,
@@ -242,10 +251,25 @@ class SettingsManager extends ChangeNotifier {
   String get lightThemeId => _lightThemeId.value;
   Future<void> setLightThemeId(String id) => _apply(_lightThemeId, id);
 
-  int? get accentOverride =>
-      _accentOverride.value == 0 ? null : _accentOverride.value;
+  int? get accentOverride => _opaqueAccent(_accentOverride.value);
   Future<void> setAccentOverride(int? argb) =>
-      _apply(_accentOverride, argb ?? 0);
+      _apply(_accentOverride, _opaqueAccent(argb ?? 0) ?? 0);
+
+  static int? _opaqueAccent(int argb) =>
+      argb >= 0xFF000000 && argb <= 0xFFFFFFFF ? argb : null;
+
+  bool get matchLogoToAccent => _matchLogoToAccent.value;
+  Future<void> setMatchLogoToAccent(bool match) =>
+      _apply(_matchLogoToAccent, match);
+
+  int get manualLogoColor => _validatedLogoColor(_manualLogoColor.value);
+  Future<void> setManualLogoColor(int argb) =>
+      _apply(_manualLogoColor, _validatedLogoColor(argb));
+
+  int _validatedLogoColor(int argb) =>
+      ThemePresets.accentSwatches.any((color) => color.toARGB32() == argb)
+      ? argb
+      : _manualLogoColor.defaultValue;
 
   // ─── List styles ─────────────────────────────────────────────────────────
 

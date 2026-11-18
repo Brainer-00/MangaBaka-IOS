@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/widgets/design/eirenyu_mark.dart';
 import 'package:mangabaka_app/core/widgets/design/mb_icons.dart';
 import 'package:mangabaka_app/desktop/widgets/desktop_sign_in_prompt.dart';
@@ -18,7 +19,7 @@ void main() {
     final semantics = tester.ensureSemantics();
     const boundaryKey = Key('mark-boundary');
 
-    Future<void> verifyMark(EirenYuMark mark, List<int> accent) async {
+    Future<void> verifyMark(Widget mark, List<int> accent) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: ThemeData.light(),
@@ -67,12 +68,20 @@ void main() {
 
     try {
       await verifyMark(const EirenYuMark(size: 128), [168, 47, 79, 255]);
-      await verifyMark(const EirenYuMark(size: 128, color: Color(0xFF12AB34)), [
-        18,
-        171,
-        52,
-        255,
-      ]);
+      await verifyMark(
+        const LogoColorScope(
+          color: Color(0xFFFAFCFE),
+          child: EirenYuMark(size: 128),
+        ),
+        [250, 252, 254, 255],
+      );
+      await verifyMark(
+        const LogoColorScope(
+          color: Color(0xFFFAFCFE),
+          child: EirenYuMark(size: 128, color: Color(0xFF12AB34)),
+        ),
+        [18, 171, 52, 255],
+      );
     } finally {
       semantics.dispose();
     }

@@ -15,7 +15,21 @@ class MbColors extends ThemeExtension<MbColors> {
       : this;
 }
 
+/// Carries the resolved logo color independently of animated UI themes.
+class LogoColorScope extends InheritedWidget {
+  const LogoColorScope({super.key, required this.color, required super.child});
+
+  final Color color;
+
+  @override
+  bool updateShouldNotify(LogoColorScope oldWidget) => color != oldWidget.color;
+}
+
 extension ThemeColorsContext on BuildContext {
   MbPalette get colors =>
       Theme.of(this).extension<MbColors>()?.palette ?? EirenYuPalette.dark;
+
+  Color get logoColor =>
+      dependOnInheritedWidgetOfExactType<LogoColorScope>()?.color ??
+      EirenYuPalette.crimsonMoon;
 }

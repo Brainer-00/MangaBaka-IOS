@@ -4,6 +4,9 @@
   "translators": [],
   "strings": {
     "app_name": "EirenYu",
+    "appearance_logo": "Logo",
+    "appearance_logo_match_accent": "App-Design oder Akzentfarbe übernehmen",
+    "appearance_logo_colour": "Logofarbe",
     "home": "Startseite",
     "discover": "Entdecken",
     "current": "Aktuell",

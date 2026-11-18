@@ -91,6 +91,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(Dialog), findsOneWidget);
     expect(find.byKey(const Key('appearance_mode_dark')), findsOneWidget);
+    final match = find.byKey(const Key('appearance_logo_match'));
+    await tester.ensureVisible(match);
+    await tester.pumpAndSettle();
+    await tester.tap(match);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const PageStorageKey('appearance_logo_gallery')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('Landscape Settings Dialog navigates internally with push/pop', (

@@ -96,6 +96,66 @@ void main() {
   });
 
   test(
+    'logo uses the active preset and preserves the exact saved accent',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        SettingsKeys.darkThemeId: 'nord',
+        SettingsKeys.lightThemeId: 'catppuccin',
+        SettingsKeys.accentOverride: 0x80FFFFFF,
+      });
+      await SettingsManager().init();
+      final controller = ThemeController()..init();
+      addTearDown(controller.dispose);
+      final dispatcher = TestWidgetsFlutterBinding.instance.platformDispatcher;
+      addTearDown(dispatcher.clearPlatformBrightnessTestValue);
+
+      final darkAccent = ThemePresets.byId('nord')!.dark!.accent;
+      final lightAccent = ThemePresets.byId('catppuccin')!.light!.accent;
+      expect(controller.currentLogoColor, darkAccent);
+      await controller.setMode(AppThemeMode.light);
+      expect(controller.currentLogoColor, lightAccent);
+      await controller.setMode(AppThemeMode.system);
+      dispatcher.platformBrightnessTestValue = Brightness.dark;
+      expect(controller.currentLogoColor, darkAccent);
+      dispatcher.platformBrightnessTestValue = Brightness.light;
+      expect(controller.currentLogoColor, lightAccent);
+
+      const custom = Color(0xFFFAFCFE);
+      await controller.setAccentOverride(custom);
+      expect(controller.lightPalette.accent, isNot(custom));
+      expect(controller.currentLogoColor.toARGB32(), custom.toARGB32());
+      dispatcher.platformBrightnessTestValue = Brightness.dark;
+      expect(controller.currentLogoColor.toARGB32(), custom.toARGB32());
+      await controller.setAccentOverride(null);
+      expect(controller.currentLogoColor, darkAccent);
+    },
+  );
+
+  test(
+    'a manual logo change notifies without changing the theme palette',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final settings = SettingsManager();
+      await settings.init();
+      final controller = ThemeController()..init();
+      addTearDown(controller.dispose);
+      final original = controller.darkPalette;
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      await settings.setManualLogoColor(0xFF22D3EE);
+      expect(notifications, 0);
+      await settings.setMatchLogoToAccent(false);
+      expect(notifications, 1);
+      expect(controller.currentLogoColor, const Color(0xFF22D3EE));
+      await settings.setManualLogoColor(0xFF5BBD74);
+      expect(notifications, 2);
+      expect(controller.currentLogoColor, const Color(0xFF5BBD74));
+      expect(controller.darkPalette, original);
+    },
+  );
+
+  test(
     'invalid mode and unsupported preset variant fall back safely',
     () async {
       SharedPreferences.setMockInitialValues({

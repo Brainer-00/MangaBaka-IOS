@@ -29,6 +29,8 @@ void main() {
       expect(manager.darkThemeId, 'eirenyu');
       expect(manager.lightThemeId, 'eirenyu');
       expect(manager.accentOverride, isNull);
+      expect(manager.matchLogoToAccent, isTrue);
+      expect(manager.manualLogoColor, 0xFFA82F4F);
       expect(manager.currentListStyle, AppListStyle.compactGrid);
       expect(manager.hideLibrarySeriesInBrowse, false);
       expect(manager.contentPreferences, ['safe', 'suggestive']);
@@ -58,6 +60,8 @@ void main() {
       expect(manager.darkThemeId, 'nord');
       expect(manager.lightThemeId, 'catppuccin');
       expect(manager.accentOverride, 0xFF8B7CF6);
+      expect(manager.matchLogoToAccent, isTrue);
+      expect(manager.manualLogoColor, 0xFFA82F4F);
       expect(manager.currentListStyle, AppListStyle.comfortable);
       expect(manager.hideLibrarySeriesInBrowse, true);
       expect(manager.contentPreferences, contains('erotica'));
@@ -79,6 +83,57 @@ void main() {
       expect(prefs.getInt(SettingsKeys.accentOverride), 0xFFA82F4F);
       expect(prefs.getString(SettingsKeys.themeMode), 'system');
       expect(prefs.getString(SettingsKeys.darkThemeId), 'dracula');
+    });
+
+    test('logo settings reload independently of theme and accent', () async {
+      final manager = SettingsManager();
+      await manager.init();
+      await manager.setMatchLogoToAccent(false);
+      await manager.setManualLogoColor(0xFF22D3EE);
+      await manager.setThemeMode(AppThemeMode.light);
+      await manager.setAccentOverride(0xFF123456);
+      await manager.setMatchLogoToAccent(true);
+      await manager.setMatchLogoToAccent(false);
+
+      final prefs = await SharedPreferences.getInstance();
+      SettingsManager.resetForTesting();
+      expect(manager.matchLogoToAccent, isTrue);
+      expect(manager.manualLogoColor, 0xFFA82F4F);
+      await prefs.reload();
+      await manager.init();
+
+      expect(manager.matchLogoToAccent, isFalse);
+      expect(manager.manualLogoColor, 0xFF22D3EE);
+      expect(manager.accentOverride, 0xFF123456);
+      expect(manager.themeMode, AppThemeMode.light);
+    });
+
+    test('invalid stored logo choices and accents fall back safely', () async {
+      for (final invalid in ['bad', 0x80778899, 0x1FF223344, -1]) {
+        SharedPreferences.setMockInitialValues({
+          SettingsKeys.matchLogoToAccent: 'off',
+          SettingsKeys.manualLogoColor: invalid,
+          SettingsKeys.accentOverride: invalid,
+        });
+        SettingsManager.resetForTesting();
+        final manager = SettingsManager();
+        await manager.init();
+
+        expect(manager.matchLogoToAccent, isTrue);
+        expect(manager.manualLogoColor, 0xFFA82F4F);
+        expect(manager.accentOverride, isNull);
+      }
+
+      SharedPreferences.setMockInitialValues({
+        SettingsKeys.manualLogoColor: 0xFF123456,
+      });
+      SettingsManager.resetForTesting();
+      final manager = SettingsManager();
+      await manager.init();
+      expect(manager.manualLogoColor, 0xFFA82F4F);
+      await manager.setManualLogoColor(0xFF123456);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt(SettingsKeys.manualLogoColor), 0xFFA82F4F);
     });
 
     test('updates values and notifies listeners', () async {

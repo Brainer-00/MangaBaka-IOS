@@ -9,6 +9,10 @@ class SettingsKeys {
       '${AppConstants.prefixStorageKey}light_theme_id';
   static const String accentOverride =
       '${AppConstants.prefixStorageKey}accent_override';
+  static const String matchLogoToAccent =
+      '${AppConstants.prefixStorageKey}logo_match_accent';
+  static const String manualLogoColor =
+      '${AppConstants.prefixStorageKey}logo_manual_color';
   static const String legacyAccentTheme =
       '${AppConstants.prefixStorageKey}accent_theme';
   static const String hideLibrarySeriesInBrowse =

@@ -6,6 +6,9 @@
   ],
   "strings": {
     "app_name": "EirenYu",
+    "appearance_logo": "Logotipo",
+    "appearance_logo_match_accent": "Usar el tema o el color de acento de la app",
+    "appearance_logo_colour": "Color del logotipo",
     "home": "Inicio",
     "discover": "Descubrir",
     "current": "Actual",

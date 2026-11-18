@@ -4,6 +4,9 @@
   "translators": [],
   "strings": {
     "app_name": "EirenYu",
+    "appearance_logo": "ロゴ",
+    "appearance_logo_match_accent": "アプリのテーマ／アクセントに合わせる",
+    "appearance_logo_colour": "ロゴの色",
     "home": "ホーム",
     "discover": "見つける",
     "current": "最近",

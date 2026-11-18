@@ -7,6 +7,7 @@ import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/theme/theme_presets.dart';
+import 'package:mangabaka_app/core/widgets/design/eirenyu_mark.dart';
 import 'package:mangabaka_app/features/profile/widgets/settings/theme_miniature_preview.dart';
 
 /// One settings surface shared by portrait, landscape dialog, and desktop.
@@ -91,10 +92,103 @@ class AppearanceSettings extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _accents(context, settings),
+          const SizedBox(height: 26),
+          _heading(_t('appearance_logo'), colors.text),
+          const SizedBox(height: 10),
+          SwitchListTile(
+            key: const Key('appearance_logo_match'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(_t('appearance_logo_match_accent')),
+            secondary: const ExcludeSemantics(
+              child: EirenYuMark(key: Key('appearance_logo_preview'), size: 56),
+            ),
+            value: settings.matchLogoToAccent,
+            onChanged: settings.setMatchLogoToAccent,
+          ),
+          if (!settings.matchLogoToAccent) ...[
+            const SizedBox(height: 12),
+            Text(
+              _t('appearance_logo_colour'),
+              style: TextStyle(color: colors.text, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            _logoGallery(context, settings),
+          ],
         ],
       );
     },
   );
+
+  Widget _logoGallery(BuildContext context, SettingsManager settings) {
+    final selected = settings.manualLogoColor;
+    return SingleChildScrollView(
+      key: const PageStorageKey('appearance_logo_gallery'),
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        spacing: 10,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final (index, color) in ThemePresets.accentSwatches.indexed)
+            _logoOption(
+              context,
+              index,
+              color,
+              selected: selected == color.toARGB32(),
+              onPressed: () => settings.setManualLogoColor(color.toARGB32()),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _logoOption(
+    BuildContext context,
+    int index,
+    Color color, {
+    required bool selected,
+    required VoidCallback onPressed,
+  }) {
+    final colors = context.colors;
+    return SizedBox(
+      width: 128,
+      child: ChoiceChip(
+        key: Key('appearance_logo_swatch_$index'),
+        selected: selected,
+        onSelected: (_) => onPressed(),
+        padding: const EdgeInsets.all(10),
+        labelPadding: EdgeInsets.zero,
+        labelStyle: TextStyle(color: colors.text),
+        color: WidgetStatePropertyAll(colors.surface),
+        showCheckmark: false,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        side: selected
+            ? BorderSide(color: colors.text, width: 2)
+            : BorderSide(color: colors.border),
+        label: Column(
+          children: [
+            Stack(
+              children: [
+                Center(
+                  child: ExcludeSemantics(
+                    child: EirenYuMark(size: 56, color: color),
+                  ),
+                ),
+                if (selected)
+                  const PositionedDirectional(
+                    top: 0,
+                    end: 0,
+                    child: Icon(Icons.check_circle, size: 16),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(_t(_accentNameKeys[index]), textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _heading(String label, Color color) => Text(
     label.toUpperCase(),

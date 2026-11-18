@@ -1,8 +1,12 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
+import 'package:mangabaka_app/core/settings/settings_enums.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/widgets/design/eirenyu_mark.dart';
+import 'package:mangabaka_app/desktop/desktop_layout.dart';
 import 'package:mangabaka_app/features/navigation/screens/onboarding_screen.dart';
 import 'package:mangabaka_app/features/profile/models/mb_profile.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
@@ -112,6 +116,55 @@ void main() {
     expect(updates.shouldPromptCalls, 0);
     expect(updates.checkForUpdateCalls, 0);
   });
+
+  testWidgets(
+    'mounted app mark follows logo settings and platform brightness',
+    (tester) async {
+      DesktopLayout.debugOverride = true;
+      tester.view.physicalSize = const Size(1040, 720);
+      tester.view.devicePixelRatio = 1;
+      final dispatcher = tester.binding.platformDispatcher;
+      dispatcher.platformBrightnessTestValue = Brightness.dark;
+      addTearDown(() {
+        DesktopLayout.debugOverride = null;
+        tester.view.reset();
+        dispatcher.clearPlatformBrightnessTestValue();
+      });
+
+      await tester.pumpWidget(const MangaBakaApp());
+      await tester.pump();
+      final mark = find.byType(EirenYuMark);
+      final mountedMark = tester.element(mark);
+      final layers = find.descendant(of: mark, matching: find.byType(Image));
+      Color? tint() => tester.widget<Image>(layers.first).color;
+
+      final settings = SettingsManager();
+      expect(tint(), EirenYuPalette.dark.accent);
+      await settings.setThemeMode(AppThemeMode.light);
+      await tester.pump();
+      expect(tint(), EirenYuPalette.light.accent);
+      await settings.setThemeMode(AppThemeMode.system);
+      await tester.pump();
+      expect(tint(), EirenYuPalette.dark.accent);
+      dispatcher.platformBrightnessTestValue = Brightness.light;
+      await tester.pump();
+      expect(tint(), EirenYuPalette.light.accent);
+
+      const custom = Color(0xFFFAFCFE);
+      await settings.setAccentOverride(custom.toARGB32());
+      await tester.pump();
+      expect(tint(), custom);
+      await settings.setMatchLogoToAccent(false);
+      await tester.pump();
+      expect(tint(), EirenYuPalette.crimsonMoon);
+      await settings.setManualLogoColor(EirenYuPalette.horizonBlue.toARGB32());
+      await tester.pump();
+      expect(tint(), EirenYuPalette.horizonBlue);
+      expect(tester.element(mark), same(mountedMark));
+      expect(tester.widget<Image>(layers.last).color, isNull);
+      expect(metadata.refreshCalls, 1);
+    },
+  );
 
   testWidgets('checks for updates once after the first real app frame', (
     WidgetTester tester,

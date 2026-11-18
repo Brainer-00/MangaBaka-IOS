@@ -13,6 +13,8 @@ class ThemeController extends ChangeNotifier with WidgetsBindingObserver {
   AppThemeMode _mode = AppThemeMode.dark;
   MbPalette _dark = EirenYuPalette.dark;
   MbPalette _light = EirenYuPalette.light;
+  Color _darkLogoColor = EirenYuPalette.dark.accent;
+  Color _lightLogoColor = EirenYuPalette.light.accent;
 
   void init() {
     if (_initialized) return;
@@ -48,6 +50,8 @@ class ThemeController extends ChangeNotifier with WidgetsBindingObserver {
           ? _dark
           : _light,
   };
+  Color get currentLogoColor =>
+      current.brightness == Brightness.dark ? _darkLogoColor : _lightLogoColor;
 
   Future<void> setMode(AppThemeMode mode) => _settings.setThemeMode(mode);
   Future<void> select(String id, Brightness brightness) {
@@ -77,15 +81,35 @@ class ThemeController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _resolve() {
-    final override = _settings.accentOverride;
-    MbPalette accent(MbPalette p) =>
-        override == null ? p : p.withAccent(Color(override));
-    final dark = accent(_for(_settings.darkThemeId, Brightness.dark));
-    final light = accent(_for(_settings.lightThemeId, Brightness.light));
+    final overrideArgb = _settings.accentOverride;
+    final override = overrideArgb == null ? null : Color(overrideArgb);
+    final darkPreset = _for(_settings.darkThemeId, Brightness.dark);
+    final lightPreset = _for(_settings.lightThemeId, Brightness.light);
+    final dark = override == null
+        ? darkPreset
+        : darkPreset.withAccent(override);
+    final light = override == null
+        ? lightPreset
+        : lightPreset.withAccent(override);
+    // The logo follows the original preset or exact saved ARGB. UI contrast
+    // adjustments belong to the palettes above.
+    final logoColor = _settings.matchLogoToAccent
+        ? override
+        : Color(_settings.manualLogoColor);
+    final darkLogoColor = logoColor ?? darkPreset.accent;
+    final lightLogoColor = logoColor ?? lightPreset.accent;
     final mode = _settings.themeMode;
-    if (dark == _dark && light == _light && mode == _mode) return;
+    if (dark == _dark &&
+        light == _light &&
+        darkLogoColor == _darkLogoColor &&
+        lightLogoColor == _lightLogoColor &&
+        mode == _mode) {
+      return;
+    }
     _dark = dark;
     _light = light;
+    _darkLogoColor = darkLogoColor;
+    _lightLogoColor = lightLogoColor;
     _mode = mode;
     notifyListeners();
   }
