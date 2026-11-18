@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/widgets/design/eirenyu_mark.dart';
 import 'package:mangabaka_app/desktop/widgets/desktop_surfaces.dart';
 
 /// The signed-out state of an account-backed page, as a centred card.
@@ -36,11 +37,7 @@ class DesktopSignInPrompt extends StatelessWidget {
                   color: AppConstants.accentColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(18),
                 ),
-                child: Image.asset(
-                  'assets/mangabaka512.png',
-                  width: 56,
-                  height: 56,
-                ),
+                child: const EirenYuMark(size: 56),
               ),
               const SizedBox(height: 20),
               Text(

@@ -1,3 +1,4 @@
+import 'package:mangabaka_app/core/widgets/design/eirenyu_mark.dart';
 import 'package:mangabaka_app/core/widgets/design/mb_button.dart';
 import 'package:mangabaka_app/core/widgets/app_snack_bar.dart';
 import 'package:mangabaka_app/core/motion/app_motion.dart';
@@ -238,7 +239,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Image.asset('assets/mangabaka512.png', width: 56, height: 56),
+          const EirenYuMark(size: 56),
           const SizedBox(height: 20),
           Text(
             AppConstants.appName.toUpperCase(),

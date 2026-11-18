@@ -2,6 +2,6 @@
 
 flutter_launcher_icons:
   ios: true
-  image_path: "assets/mangabaka512.png"
+  image_path: "assets/branding/eirenyu/app_icon_1024.png"
   remove_alpha_ios: true
-  background_color_ios: "#0B0B0B"
+  background_color_ios: "#0B0B10"

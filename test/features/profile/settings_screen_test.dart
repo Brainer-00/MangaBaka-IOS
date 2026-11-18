@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mangabaka_app/core/widgets/design/eirenyu_mark.dart';
 import 'package:mangabaka_app/features/profile/screens/settings_screen.dart';
 import 'package:mangabaka_app/features/profile/widgets/settings/settings_components.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
@@ -48,6 +49,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: SettingsScreen()));
     await tester.pumpAndSettle();
 
+    expect(tester.getSize(find.byType(EirenYuMark)), const Size.square(44));
     expect(find.byType(SettingsGroup, skipOffstage: false), findsAtLeast(5));
 
     tester.view.resetPhysicalSize();

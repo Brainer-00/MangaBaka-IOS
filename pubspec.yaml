@@ -54,18 +54,19 @@ dev_dependencies:
 
 
 flutter_native_splash:
-  color: "#0b0b0b"
-  image: assets/mangabaka_splash.png
+  color: "#0B0B10"
+  image: assets/branding/eirenyu/launch_splash.png
 
   ios: true
   android: false
+  web: false
 
 flutter:
   assets:
     - .env
     - assets/lang/
     - assets/fonts/licenses/
-    - assets/mangabaka512.png
+    - assets/branding/eirenyu/runtime/
     - assets/series_222_cover.jpg
   uses-material-design: true
 

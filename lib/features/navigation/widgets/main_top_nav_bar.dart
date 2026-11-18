@@ -4,6 +4,7 @@ import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
+import 'package:mangabaka_app/core/widgets/design/eirenyu_mark.dart';
 import 'package:mangabaka_app/desktop/desktop_layout.dart';
 import 'package:mangabaka_app/features/navigation/models/nav_destinations.dart';
 import 'package:mangabaka_app/features/navigation/widgets/top_nav_search_field.dart';
@@ -136,7 +137,7 @@ class _Brand extends StatelessWidget {
             color: context.colors.accent.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(AppConstants.denseRadius),
           ),
-          child: Image.asset('assets/mangabaka512.png', width: 28, height: 28),
+          child: const EirenYuMark(size: 28),
         ),
         if (!compact) ...[
           const SizedBox(width: 10),

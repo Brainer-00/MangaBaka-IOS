@@ -5,6 +5,7 @@ import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/motion/app_motion.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
+import 'package:mangabaka_app/core/widgets/design/eirenyu_mark.dart';
 import 'package:mangabaka_app/desktop/desktop_layout.dart';
 import 'package:mangabaka_app/desktop/widgets/desktop_surfaces.dart';
 import 'package:mangabaka_app/features/navigation/models/nav_destinations.dart';
@@ -133,7 +134,7 @@ class _Brand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = LocalizationService();
-    final logo = Image.asset('assets/mangabaka512.png', width: 32, height: 32);
+    const logo = EirenYuMark(size: 32);
 
     if (collapsed) {
       return Center(

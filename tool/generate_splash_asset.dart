@@ -7,9 +7,17 @@ const _canvasSize = 1254;
 const _nativeLogicalCanvasSize = 313;
 const _targetVisibleArtworkSize = 160;
 
-void main() {
-  const sourcePath = 'assets/mangabaka512.png';
-  const outputPath = 'assets/mangabaka_splash.png';
+void main(List<String> args) {
+  if (args.length == 1 && args.single == '--style-storyboard') {
+    _styleLaunchStoryboard();
+    return;
+  }
+  if (args.isNotEmpty) {
+    throw ArgumentError('Expected no arguments or --style-storyboard.');
+  }
+
+  const sourcePath = 'assets/branding/eirenyu/launch_neutral_1254.png';
+  const outputPath = 'assets/branding/eirenyu/launch_splash.png';
 
   final source = image.decodePng(File(sourcePath).readAsBytesSync());
   if (source == null) {
@@ -28,20 +36,13 @@ void main() {
       (_targetVisibleArtworkSize * _canvasSize / _nativeLogicalCanvasSize)
           .round();
   final scale = targetSourceDimension / sourceMaxDimension;
-  final resizedWidth = (sourceBounds.width * scale).round();
-  final resizedHeight = (sourceBounds.height * scale).round();
+  final resizedCanvasSize = (_canvasSize * scale).round();
 
-  final cropped = image.copyCrop(
-    source,
-    x: sourceBounds.left,
-    y: sourceBounds.top,
-    width: sourceBounds.width,
-    height: sourceBounds.height,
-  );
+  // Center the shared canvas so Flutter can match the native launch geometry.
   final resized = image.copyResize(
-    cropped,
-    width: resizedWidth,
-    height: resizedHeight,
+    source,
+    width: resizedCanvasSize,
+    height: resizedCanvasSize,
     interpolation: image.Interpolation.cubic,
   );
   final canvas = image.Image(
@@ -70,6 +71,23 @@ void main() {
       '${outputBounds.width * _nativeLogicalCanvasSize / _canvasSize}x'
       '${outputBounds.height * _nativeLogicalCanvasSize / _canvasSize}',
     );
+}
+
+void _styleLaunchStoryboard() {
+  // flutter_native_splash rewrites this fallback to white on every run.
+  final file = File('ios/Runner/Base.lproj/LaunchScreen.storyboard');
+  final source = file.readAsStringSync();
+  final background = RegExp(
+    r'<color key="backgroundColor"[^>]*/>',
+  ).allMatches(source).single;
+  const obsidian =
+      '<color key="backgroundColor" red="0.043137254901960784" '
+      'green="0.043137254901960784" blue="0.062745098039215686" '
+      'alpha="1" colorSpace="custom" customColorSpace="sRGB"/>';
+  if (background[0] == obsidian) return;
+  file.writeAsStringSync(
+    source.replaceRange(background.start, background.end, obsidian),
+  );
 }
 
 _Bounds _alphaBounds(image.Image source) {

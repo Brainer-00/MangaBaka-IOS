@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mangabaka_app/core/widgets/design/eirenyu_mark.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/settings/settings_enums.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
@@ -226,6 +227,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(tester.getSize(find.byType(EirenYuMark)), const Size.square(32));
       final button = find.byIcon(Icons.keyboard_double_arrow_right_rounded);
       expect(button, findsOneWidget);
       // Inside the sidebar, halfway down it.
@@ -272,6 +274,7 @@ void main() {
 
     testWidgets('Appearance opens in the inline desktop pane', (tester) async {
       await pumpSettings(tester);
+      expect(tester.getSize(find.byType(EirenYuMark)), const Size.square(22));
       await tester.tap(find.text('appearance'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('appearance_mode_dark')), findsOneWidget);

@@ -3,6 +3,7 @@ import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
+import 'package:mangabaka_app/core/widgets/design/eirenyu_mark.dart';
 import 'package:mangabaka_app/core/widgets/design/mb_nav.dart';
 import 'package:mangabaka_app/features/navigation/models/nav_destinations.dart';
 import 'package:mangabaka_app/features/profile/screens/settings_screen.dart';
@@ -81,7 +82,7 @@ class _RailLogo extends StatelessWidget {
             color: context.colors.accent.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(AppConstants.denseRadius),
           ),
-          child: Image.asset('assets/mangabaka512.png', width: 36, height: 36),
+          child: const EirenYuMark(size: 36),
         ),
         const SizedBox(height: 32),
       ],

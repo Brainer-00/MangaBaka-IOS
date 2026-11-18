@@ -7,6 +7,7 @@ import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
+import 'package:mangabaka_app/core/widgets/design/eirenyu_mark.dart';
 import 'package:mangabaka_app/desktop/shell/desktop_shell.dart';
 import 'package:mangabaka_app/features/profile/screens/settings/settings_dialog.dart';
 import 'package:mangabaka_app/features/profile/screens/settings/settings_root_groups.dart';
@@ -114,11 +115,7 @@ class _BrandHeader extends StatelessWidget {
                 color: context.colors.accent.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(AppConstants.cardRadius),
               ),
-              child: Image.asset(
-                'assets/mangabaka512.png',
-                width: 44,
-                height: 44,
-              ),
+              child: const EirenYuMark(size: 44),
             ),
             const SizedBox(width: 16),
             Column(

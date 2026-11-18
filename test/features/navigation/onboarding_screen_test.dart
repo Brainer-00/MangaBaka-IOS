@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mangabaka_app/core/widgets/design/eirenyu_mark.dart';
 import 'package:mangabaka_app/desktop/desktop_layout.dart';
 import 'package:mangabaka_app/features/navigation/screens/onboarding_screen.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
@@ -90,6 +91,7 @@ void main() {
     await tester.pumpWidget(createWidgetUnderTest());
     await tester.pump();
 
+    expect(tester.getSize(find.byType(EirenYuMark)), const Size.square(56));
     expect(find.text('EIRENYU'), findsNWidgets(2));
     expect(find.text('WELCOME'), findsOneWidget);
     final localization = LocalizationService();

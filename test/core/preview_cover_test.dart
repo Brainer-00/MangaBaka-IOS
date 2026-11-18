@@ -4,14 +4,19 @@ import 'package:mangabaka_app/core/constants/mock_series_data.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 
 void main() {
-  testWidgets('precached sample cover paints on the very first frame',
-      (tester) async {
+  testWidgets('precached sample cover paints on the very first frame', (
+    tester,
+  ) async {
     late BuildContext ctx;
     await tester.pumpWidget(
-      MaterialApp(home: Builder(builder: (c) {
-        ctx = c;
-        return const SizedBox();
-      })),
+      MaterialApp(
+        home: Builder(
+          builder: (c) {
+            ctx = c;
+            return const SizedBox();
+          },
+        ),
+      ),
     );
     await tester.runAsync(
       () => precacheImage(AssetImage(mockSeries222.coverUrl), ctx),
@@ -35,7 +40,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: WidgetUtils.networkImage(
-          url: 'assets/mangabaka512.png',
+          url: 'assets/branding/eirenyu/runtime/symbol_512.png',
           width: 100,
           height: 150,
         ),

@@ -10,6 +10,7 @@ import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/widgets/app_snack_bar.dart';
+import 'package:mangabaka_app/core/widgets/design/eirenyu_mark.dart';
 import 'package:mangabaka_app/core/widgets/design/github_logo.dart';
 import 'package:mangabaka_app/desktop/desktop_layout.dart';
 import 'package:mangabaka_app/desktop/widgets/desktop_list_customization.dart';
@@ -233,7 +234,7 @@ class DesktopSettingsScreenState extends State<DesktopSettingsScreen> {
           padding: const EdgeInsets.only(left: 8),
           child: Row(
             children: [
-              Image.asset('assets/mangabaka512.png', width: 22, height: 22),
+              const EirenYuMark(size: 22),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(

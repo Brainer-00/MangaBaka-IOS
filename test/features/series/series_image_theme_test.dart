@@ -319,7 +319,7 @@ void main() {
                 SeriesCover(
                   type: 'volume',
                   language: 'en',
-                  url: 'assets/mangabaka512.png',
+                  url: 'assets/series_222_cover.jpg',
                 ),
               ],
             ),

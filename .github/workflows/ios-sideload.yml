@@ -149,7 +149,9 @@ jobs:
         run: dart run tool/generate_splash_asset.dart
 
       - name: Generate native splash assets
-        run: dart run flutter_native_splash:create
+        run: |
+          dart run flutter_native_splash:create
+          dart run tool/generate_splash_asset.dart --style-storyboard
 
       - name: Verify generated outputs are current
         run: |

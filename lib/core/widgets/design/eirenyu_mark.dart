@@ -1,0 +1,44 @@
+import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+
+/// The app emblem. The symbol and fixed white dot share a transparent canvas.
+class EirenYuMark extends StatelessWidget {
+  const EirenYuMark({
+    super.key,
+    required this.size,
+    this.color = EirenYuPalette.crimsonMoon,
+  });
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: AppConstants.appName,
+      image: true,
+      excludeSemantics: true,
+      child: SizedBox.square(
+        dimension: size,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: EirenYuPalette.obsidian,
+            borderRadius: BorderRadius.circular(size * 0.2),
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                'assets/branding/eirenyu/runtime/symbol_512.png',
+                color: color,
+                colorBlendMode: BlendMode.srcIn,
+              ),
+              Image.asset('assets/branding/eirenyu/runtime/dot_512.png'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
