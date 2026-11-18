@@ -1055,10 +1055,13 @@ class _DesktopLogsViewState extends State<_DesktopLogsView> {
     if (_logs.isEmpty) return;
     try {
       final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/mangabaka_logs.txt');
+      final file = File('${directory.path}/eirenyu_logs.txt');
       await file.writeAsString(_logsText);
       await SharePlus.instance.share(
-        ShareParams(files: [XFile(file.path)], subject: 'MangaBaka iOS Logs'),
+        ShareParams(
+          files: [XFile(file.path)],
+          subject: '${AppConstants.appName} Logs',
+        ),
       );
     } catch (_) {
       if (mounted) {

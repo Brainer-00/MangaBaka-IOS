@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../generated/app_version.dart';
 
 class AppConstants {
-  static const String appName = 'MangaBaka iOS';
+  static const String appName = 'EirenYu';
   static const String appVersion = GeneratedAppVersion.version;
   static const String baseApiUrl = 'https://api.mangabaka.org/v1';
   static const String baseApiUrlV2 = 'https://api.mangabaka.org/v2';
@@ -26,8 +26,9 @@ class AppConstants {
   static const String authBaseUrl = 'https://mangabaka.org/auth/oauth2';
   static const String oauthRedirectUri =
       'io.github.brainer00.mangabaka-ios://oauthredirect';
+  static const String _userAgentProduct = 'MangaBaka iOS';
   static const String userAgent =
-      '$appName/$appVersion (https://github.com/$githubOwner/$githubRepo)';
+      '$_userAgentProduct/$appVersion ($githubRepoUrl)';
   static const int networkTimeoutSeconds = 30;
   static const int maxRetries = 3;
   static const int rateLimitRetryDelaySeconds = 5;

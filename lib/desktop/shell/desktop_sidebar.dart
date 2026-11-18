@@ -154,7 +154,7 @@ class _Brand extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: Text(
-            'MANGABAKA',
+            'EIRENYU',
             maxLines: 1,
             overflow: TextOverflow.clip,
             style: AppTypography.display(

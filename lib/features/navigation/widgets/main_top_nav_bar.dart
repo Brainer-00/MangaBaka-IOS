@@ -141,7 +141,7 @@ class _Brand extends StatelessWidget {
         if (!compact) ...[
           const SizedBox(width: 10),
           Text(
-            'MANGABAKA',
+            'EIRENYU',
             style: AppTypography.display(
               color: context.colors.text,
               fontSize: 17,

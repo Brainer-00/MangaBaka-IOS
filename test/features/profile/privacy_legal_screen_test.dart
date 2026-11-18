@@ -52,6 +52,13 @@ void main() {
 
     expect(find.text('PRIVACY & LEGAL'), findsOneWidget);
     expect(find.text('PRIVACY AT A GLANCE'), findsOneWidget);
+    expect(
+      find.text(
+        'EirenYu is an independent client for MangaBaka. '
+        'MangaBaka and other services process requests sent to them under their own policies.',
+      ),
+      findsOneWidget,
+    );
     expect(find.textContaining('MangaBaka OAuth'), findsOneWidget);
   });
 

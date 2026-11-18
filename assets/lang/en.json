@@ -5,7 +5,7 @@
     "Oazzies"
   ],
   "strings": {
-    "app_name": "MangaBaka iOS",
+    "app_name": "EirenYu",
     "home": "Home",
     "discover": "Discover",
     "current": "Current",
@@ -51,7 +51,7 @@
     "privacy_and_legal": "Privacy & Legal",
     "privacy_and_legal_subtitle": "Privacy, terms, attribution, and licenses",
     "privacy_summary_title": "Privacy at a Glance",
-    "privacy_summary_intro": "MangaBaka iOS is an independent client. MangaBaka and other services process requests sent to them under their own policies.",
+    "privacy_summary_intro": "EirenYu is an independent client for MangaBaka. MangaBaka and other services process requests sent to them under their own policies.",
     "privacy_summary_oauth": "MangaBaka OAuth is used for account integration; the app does not collect your MangaBaka password.",
     "privacy_summary_storage": "OAuth credentials and profile cache use secure storage. Library, settings, synchronization, metadata, cache, and diagnostic data may be stored locally.",
     "privacy_summary_requests": "Search, browse, and signed-in library requests are sent to MangaBaka.",
