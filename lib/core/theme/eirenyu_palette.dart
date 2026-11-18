@@ -185,10 +185,10 @@ class EirenYuPalette {
 
   static const light = MbPalette(
     brightness: Brightness.light,
-    background: Color(0xFFF6F5F9),
-    surface: Color(0xFFFFFFFF),
-    surfaceRaised: Color(0xFFEDEBF3),
-    border: Color(0xFFD4D0DE),
+    background: Color(0xFFF5EBEF),
+    surface: Color(0xFFFFF8FA),
+    surfaceRaised: Color(0xFFEBDCE3),
+    border: Color(0xFFCDB8C2),
     accent: Color(0xFF982B49),
     onAccent: Color(0xFFFFFFFF),
     text: Color(0xFF181725),

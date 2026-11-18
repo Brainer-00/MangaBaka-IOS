@@ -123,8 +123,8 @@ class AppearanceSettings extends StatelessWidget {
         const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {
-            final cardWidth = (constraints.maxWidth * 0.58)
-                .clamp(150.0, 220.0)
+            final cardWidth = (constraints.maxWidth * 0.47)
+                .clamp(146.0, 175.0)
                 .toDouble();
             return SingleChildScrollView(
               key: PageStorageKey('appearance_gallery_${brightness.name}'),
@@ -148,6 +148,12 @@ class AppearanceSettings extends StatelessWidget {
                                       : presets[index].light!)
                                   .withAccent(Color(accentOverride)),
                         selected == presets[index].id,
+                        accentOverride == null
+                            ? null
+                            : (dark
+                                      ? presets[index].dark!
+                                      : presets[index].light!)
+                                  .accent,
                         () => dark
                             ? settings.setDarkThemeId(presets[index].id)
                             : settings.setLightThemeId(presets[index].id),
@@ -169,6 +175,7 @@ class AppearanceSettings extends StatelessWidget {
     ThemePreset preset,
     MbPalette palette,
     bool selected,
+    Color? nativeAccent,
     VoidCallback onTap,
     Brightness brightness,
   ) {
@@ -182,12 +189,12 @@ class AppearanceSettings extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: colors.surface,
+            color: palette.background,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? colors.accentForeground : colors.border,
+              color: selected ? colors.accentForeground : palette.border,
               width: selected ? 2 : 1,
             ),
           ),
@@ -198,7 +205,7 @@ class AppearanceSettings extends StatelessWidget {
                 key: Key('appearance_preview_${brightness.name}_${preset.id}'),
                 palette: palette,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
@@ -207,17 +214,36 @@ class AppearanceSettings extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: colors.text,
+                        color: palette.text,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
+                  if (nativeAccent != null) ...[
+                    Container(
+                      key: Key(
+                        'appearance_native_accent_${brightness.name}_${preset.id}',
+                      ),
+                      width: 11,
+                      height: 11,
+                      margin: const EdgeInsets.only(right: 6),
+                      decoration: BoxDecoration(
+                        color: nativeAccent,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: palette.border),
+                      ),
+                    ),
+                  ],
                   if (selected)
                     Icon(
                       Icons.check_circle,
                       size: 16,
-                      color: colors.accentForeground,
+                      color: MbPalette.ensureContrast(
+                        colors.accentForeground,
+                        palette.background,
+                        minimum: 3,
+                      ),
                     ),
                 ],
               ),

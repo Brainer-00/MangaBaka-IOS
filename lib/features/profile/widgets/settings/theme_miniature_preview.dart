@@ -1,165 +1,176 @@
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 
-/// A static app-shaped sample of the exact colors a preset will apply.
+/// A static, scaled drawing of Home using the effective palette.
 class ThemeMiniaturePreview extends StatelessWidget {
   const ThemeMiniaturePreview({super.key, required this.palette});
 
   final MbPalette palette;
 
   @override
-  Widget build(BuildContext context) {
-    return ExcludeSemantics(
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: AspectRatio(
+      aspectRatio: 160 / 328,
       child: Container(
         key: const Key('appearance_preview_background'),
-        height: 164,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: palette.background,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: palette.border),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              key: const Key('appearance_preview_header'),
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              color: palette.surface,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'EIRENYU',
-                  style: TextStyle(
-                    color: palette.text,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.4,
+        child: FittedBox(
+          fit: BoxFit.fill,
+          child: SizedBox(
+            width: 160,
+            height: 328,
+            child: Column(
+              children: [
+                SizedBox(
+                  key: const Key('appearance_preview_header'),
+                  height: 40,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Text(
+                        'HOME',
+                        style: TextStyle(
+                          color: palette.text,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Positioned(
+                        right: 10,
+                        child: Icon(
+                          Icons.settings_outlined,
+                          size: 12,
+                          color: palette.text,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 7, 8, 6),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      key: const Key('appearance_preview_search'),
-                      height: 18,
-                      padding: const EdgeInsets.symmetric(horizontal: 7),
-                      decoration: BoxDecoration(
-                        color: palette.surfaceRaised,
-                        borderRadius: BorderRadius.circular(5),
-                        border: Border.all(color: palette.border),
-                      ),
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Search',
-                        style: TextStyle(color: palette.textMuted, fontSize: 8),
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Container(
-                      key: const Key('appearance_preview_accent'),
-                      height: 17,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: palette.accent,
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Explore',
-                          style: TextStyle(
-                            color: palette.onAccent,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Expanded(
-                      child: Container(
-                        key: const Key('appearance_preview_card'),
-                        padding: const EdgeInsets.all(6),
+                const SizedBox(height: 10),
+                _heading('FOR YOU'),
+                const SizedBox(height: 9),
+                _covers(first: true),
+                const SizedBox(height: 17),
+                _heading('TOP IN CULT', action: true),
+                const SizedBox(height: 9),
+                _covers(first: false),
+                const Spacer(),
+                Container(
+                  key: const Key('appearance_preview_navigation'),
+                  height: 30,
+                  color: palette.background,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Container(
+                        key: const Key('appearance_preview_active_nav'),
+                        width: 23,
+                        height: 23,
                         decoration: BoxDecoration(
-                          color: palette.surface,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: palette.border),
+                          color: palette.accent,
+                          shape: BoxShape.circle,
                         ),
-                        child: Row(
-                          children: [
-                            for (var index = 0; index < 3; index++) ...[
-                              if (index > 0) const SizedBox(width: 5),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    Expanded(
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: palette.surfaceRaised,
-                                          borderRadius: BorderRadius.circular(
-                                            3,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Container(height: 3, color: palette.text),
-                                    const SizedBox(height: 2),
-                                    Container(
-                                      height: 2,
-                                      color: palette.textMuted,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ],
+                        child: Icon(
+                          Icons.home,
+                          size: 12,
+                          color: palette.onAccent,
                         ),
                       ),
-                    ),
-                  ],
+                      for (final icon in [
+                        Icons.bookmark_border,
+                        Icons.explore_outlined,
+                        Icons.newspaper_outlined,
+                        Icons.person_outline,
+                      ])
+                        Icon(icon, size: 12, color: palette.textMuted),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
-            Container(
-              key: const Key('appearance_preview_navigation'),
-              height: 20,
-              color: palette.surface,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          ),
+        ),
+      ),
+    ),
+  );
+
+  Widget _heading(String title, {bool action = false}) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 9),
+    child: Row(
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            color: palette.text,
+            fontSize: 8,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.5,
+          ),
+        ),
+        if (action) ...[
+          const Spacer(),
+          Icon(Icons.arrow_forward, size: 10, color: palette.textMuted),
+        ],
+      ],
+    ),
+  );
+
+  Widget _covers({required bool first}) => SizedBox(
+    height: first ? 108 : 74,
+    child: ClipRect(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(width: 9),
+          for (var i = 0; i < 3; i++) ...[
+            SizedBox(
+              width: 44,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    width: 17,
-                    height: 4,
+                    key: first && i == 0
+                        ? const Key('appearance_preview_cover')
+                        : null,
+                    width: 44,
+                    height: 66,
                     decoration: BoxDecoration(
-                      color: palette.accent,
-                      borderRadius: BorderRadius.circular(2),
+                      color: palette.surfaceRaised,
+                      borderRadius: BorderRadius.circular(5),
                     ),
                   ),
-                  for (var index = 0; index < 2; index++)
+                  if (first) ...[
+                    const SizedBox(height: 5),
                     Container(
-                      width: 12,
                       height: 3,
-                      decoration: BoxDecoration(
-                        color: palette.textMuted,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+                      width: i == 1 ? 34 : 41,
+                      color: palette.text,
                     ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.star, size: 7, color: palette.star),
+                        const SizedBox(width: 2),
+                        Container(
+                          height: 2,
+                          width: 11,
+                          color: palette.textMuted,
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
+            const SizedBox(width: 5),
           ],
-        ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }

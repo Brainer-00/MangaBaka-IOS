@@ -14,6 +14,60 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SettingsManager.resetForTesting());
 
+  test('light presets retain distinct, readable tonal surfaces', () {
+    const expected = <String, (int, int, int, int)>{
+      'eirenyu': (0xFFF5EBEF, 0xFFFFF8FA, 0xFFEBDCE3, 0xFFCDB8C2),
+      'default': (0xFFE4EFE6, 0xFFF2F8F2, 0xFFD3E5D6, 0xFFB3CDB9),
+      'catppuccin': (0xFFEFF1F5, 0xFFF7F3FB, 0xFFE2D9EF, 0xFFC7B9D7),
+      'nord': (0xFFE5E9F0, 0xFFF0F4F8, 0xFFD8DEE9, 0xFFC3CBD8),
+      'midnight_dusk': (0xFFF0E7ED, 0xFFF9F1F5, 0xFFE5D5DE, 0xFFCDBAC5),
+      'strawberry': (0xFFF8E5E9, 0xFFFFF3F5, 0xFFF0D4DB, 0xFFD9B4BF),
+      'tako': (0xFFEEE7F3, 0xFFF8F3FA, 0xFFE1D6E9, 0xFFC9B8D3),
+      'yotsuba': (0xFFF8E9DB, 0xFFFFF4E9, 0xFFF0DCC9, 0xFFD9BDA3),
+      'green_apple': (0xFFEBF2D9, 0xFFF6F9E9, 0xFFDDE9C0, 0xFFBDD099),
+      'teal': (0xFFDDF1EC, 0xFFEDF9F5, 0xFFCCE8E1, 0xFFA7CDC3),
+      'tidal_wave': (0xFFE0F0F6, 0xFFF0F8FB, 0xFFCCE5EF, 0xFFA9CBDC),
+      'lavender': (0xFFECE6F6, 0xFFF7F2FC, 0xFFDED2EF, 0xFFBEABD8),
+    };
+    for (final entry in expected.entries) {
+      final palette = ThemePresets.byId(entry.key)!.light!;
+      final (background, surface, raised, border) = entry.value;
+      expect(palette.background.toARGB32(), background, reason: entry.key);
+      expect(palette.surface.toARGB32(), surface, reason: entry.key);
+      expect(palette.surfaceRaised.toARGB32(), raised, reason: entry.key);
+      expect(palette.border.toARGB32(), border, reason: entry.key);
+      expect(
+        MbPalette.contrastRatio(palette.text, palette.background),
+        greaterThanOrEqualTo(4.5),
+        reason: entry.key,
+      );
+      expect(
+        MbPalette.contrastRatio(palette.text, palette.surface),
+        greaterThanOrEqualTo(4.5),
+        reason: entry.key,
+      );
+      expect(
+        MbPalette.contrastRatio(palette.textMuted, palette.background),
+        greaterThanOrEqualTo(4.5),
+        reason: entry.key,
+      );
+      expect(
+        MbPalette.contrastRatio(palette.accentForeground, palette.surface),
+        greaterThanOrEqualTo(4.5),
+        reason: entry.key,
+      );
+    }
+    expect(ThemePresets.byId('amoled')!.light, isNull);
+    expect(
+      ThemePresets.byId('monochrome')!.light!.surface,
+      const Color(0xFFFFFFFF),
+    );
+    expect(
+      ThemePresets.byId('amoled')!.dark!.background,
+      const Color(0xFF000000),
+    );
+  });
+
   test('defaults to EirenYu dark and supports both brightness slots', () async {
     SharedPreferences.setMockInitialValues({});
     await SettingsManager().init();

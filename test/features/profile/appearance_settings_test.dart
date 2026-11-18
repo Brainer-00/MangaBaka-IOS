@@ -50,6 +50,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(SettingsManager().darkThemeId, 'nord');
 
+    await tester.ensureVisible(find.byKey(const Key('appearance_mode_system')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('appearance_mode_system')));
     await tester.pumpAndSettle();
     expect(
@@ -142,6 +144,8 @@ void main() {
         findsNothing,
       );
       expect(tester.getRect(nord).left, closeTo(leftBefore, 1));
+      await tester.ensureVisible(lightRail);
+      await tester.pumpAndSettle();
       await tester.drag(lightRail, const Offset(-400, 0));
       await tester.pumpAndSettle();
       expect(
@@ -182,11 +186,34 @@ void main() {
       }
 
       expect(painted('appearance_preview_background'), palette.background);
-      expect(painted('appearance_preview_header'), palette.surface);
-      expect(painted('appearance_preview_search'), palette.surfaceRaised);
-      expect(painted('appearance_preview_accent'), palette.accent);
-      expect(painted('appearance_preview_card'), palette.surface);
-      expect(painted('appearance_preview_navigation'), palette.surface);
+      expect(painted('appearance_preview_cover'), palette.surfaceRaised);
+      expect(painted('appearance_preview_active_nav'), palette.accent);
+      expect(painted('appearance_preview_navigation'), palette.background);
+      final size = tester.getSize(preview);
+      expect(size.width / size.height, closeTo(160 / 328, 0.01));
+      final cover = tester.getSize(
+        find.descendant(
+          of: preview,
+          matching: find.byKey(const Key('appearance_preview_cover')),
+        ),
+      );
+      expect(cover.width / cover.height, closeTo(2 / 3, 0.01));
+      expect(
+        find.descendant(of: preview, matching: find.text('HOME')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: preview, matching: find.text('FOR YOU')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: preview, matching: find.text('TOP IN CULT')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: preview, matching: find.byType(Icon)),
+        findsNWidgets(10),
+      );
     }
   });
 
@@ -221,6 +248,13 @@ void main() {
         palette(light),
         ThemePresets.byId('catppuccin')!.light!.withAccent(override),
       );
+      final native = tester.widget<Container>(
+        find.byKey(const Key('appearance_native_accent_dark_nord')),
+      );
+      expect(
+        (native.decoration! as BoxDecoration).color,
+        ThemePresets.byId('nord')!.dark!.accent,
+      );
 
       final themeDefault = find.byKey(const Key('appearance_accent_default'));
       await tester.tap(themeDefault);
@@ -240,6 +274,8 @@ void main() {
     final darkRail = find.byKey(
       const PageStorageKey<String>('appearance_gallery_dark'),
     );
+    await tester.ensureVisible(darkRail);
+    await tester.pumpAndSettle();
     await tester.drag(darkRail, const Offset(-300, 0));
     await tester.pumpAndSettle();
     expect(
@@ -420,6 +456,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(background(), ThemePresets.byId('nord')!.dark!.background);
 
+      await tester.ensureVisible(
+        find.byKey(const Key('appearance_mode_light')),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('appearance_mode_light')));
       await tester.pumpAndSettle();
       expect(find.text('light'), findsOneWidget);
