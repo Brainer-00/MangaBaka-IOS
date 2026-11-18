@@ -132,6 +132,18 @@ void main() {
         'rereading',
         'considering',
       ];
+      expect(
+        AppConstants.getColorForState('considering'),
+        const Color(0xFF9B8CF4),
+      );
+      expect(
+        AppConstants.getColorForState('rereading'),
+        const Color(0xFF4FA6C8),
+      );
+      expect(
+        AppConstants.getColorForState('considering'),
+        isNot(AppConstants.getColorForState('rereading')),
+      );
       final counts = {
         for (var index = 0; index < statusKeys.length; index++)
           statusKeys[index]: index + 1,

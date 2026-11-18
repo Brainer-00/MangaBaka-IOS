@@ -28,27 +28,34 @@ class ThemeMiniaturePreview extends StatelessWidget {
               children: [
                 SizedBox(
                   key: const Key('appearance_preview_header'),
-                  height: 40,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Text(
-                        'HOME',
-                        style: TextStyle(
-                          color: palette.text,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
+                  height: 42,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Center(
+                            child: Text(
+                              'HOME',
+                              style: TextStyle(
+                                color: palette.text,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                      Positioned(
-                        right: 10,
-                        child: Icon(
-                          Icons.settings_outlined,
-                          size: 12,
-                          color: palette.text,
+                        SizedBox(
+                          width: 12,
+                          child: Icon(
+                            Icons.settings_outlined,
+                            size: 9,
+                            color: palette.text,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),

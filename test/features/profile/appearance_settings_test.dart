@@ -202,6 +202,23 @@ void main() {
         find.descendant(of: preview, matching: find.text('HOME')),
         findsOneWidget,
       );
+      final header = tester.getRect(
+        find.descendant(
+          of: preview,
+          matching: find.byKey(const Key('appearance_preview_header')),
+        ),
+      );
+      final home = tester.getRect(
+        find.descendant(of: preview, matching: find.text('HOME')),
+      );
+      final settings = tester.getRect(
+        find.descendant(
+          of: preview,
+          matching: find.byIcon(Icons.settings_outlined),
+        ),
+      );
+      expect(home.center.dx, closeTo(header.center.dx, 1));
+      expect(home.right, lessThan(settings.left));
       expect(
         find.descendant(of: preview, matching: find.text('FOR YOU')),
         findsOneWidget,
