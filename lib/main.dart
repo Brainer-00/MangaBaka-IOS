@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mangabaka_app/core/app_bootstrap.dart';
@@ -10,6 +12,7 @@ import 'package:mangabaka_app/core/theme/app_theme.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/theme/theme_controller.dart';
+import 'package:mangabaka_app/core/widgets/eirenyu_startup.dart';
 import 'package:mangabaka_app/desktop/widgets/desktop_window_frame.dart';
 import 'package:mangabaka_app/features/navigation/screens/main_screen.dart';
 import 'package:mangabaka_app/features/navigation/screens/onboarding_screen.dart';
@@ -44,10 +47,14 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
 
   bool _updateCheckScheduled = false;
   bool _metadataRefreshScheduled = false;
+  late final Completer<void>? _startupDismissed;
 
   @override
   void initState() {
     super.initState();
+    _startupDismissed = defaultTargetPlatform == TargetPlatform.iOS
+        ? Completer<void>()
+        : null;
 
     final settings = SettingsManager();
     final isPastOnboarding =
@@ -71,8 +78,14 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
 
   @override
   void dispose() {
+    _completeStartup();
     _themes.dispose();
     super.dispose();
+  }
+
+  void _completeStartup() {
+    final startup = _startupDismissed;
+    if (startup != null && !startup.isCompleted) startup.complete();
   }
 
   /// Checks GitHub for a newer release and, if found, shows the update dialog.
@@ -82,6 +95,9 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
     if (!service.shouldPrompt()) return;
     final release = await service.checkForUpdate();
     if (release == null) return;
+    final startup = _startupDismissed;
+    if (startup != null) await startup.future;
+    if (!mounted) return;
     final context = AppConstants.navigatorKey.currentContext;
     if (context == null || !context.mounted) return;
     await UpdateDialog.show(context, release);
@@ -130,12 +146,21 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
             theme: _themeFor(_themes.lightPalette, settings.showTooltips),
             darkTheme: _themeFor(_themes.darkPalette, settings.showTooltips),
             themeMode: _themes.materialThemeMode,
-            builder: (context, child) => LogoColorScope(
-              color: _themes.currentLogoColor,
-              child: DesktopWindowFrame(
+            builder: (context, child) {
+              final content = DesktopWindowFrame(
                 child: BrowserSignInPrompt(child: AppShortcuts(child: child!)),
-              ),
-            ),
+              );
+              return LogoColorScope(
+                color: _themes.currentLogoColor,
+                child: _startupDismissed == null
+                    ? content
+                    : EirenYuStartup(
+                        resolveColor: () => _themes.currentLogoColor,
+                        onDismissed: _completeStartup,
+                        child: content,
+                      ),
+              );
+            },
             home: AnnotatedRegion<SystemUiOverlayStyle>(
               value: AppTheme.overlayFor(_themes.current),
               child: isPastOnboarding ? MainScreen() : const OnboardingScreen(),

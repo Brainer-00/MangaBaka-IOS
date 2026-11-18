@@ -7,6 +7,13 @@ import 'package:mangabaka_app/core/theme/theme_context.dart';
 class EirenYuMark extends StatelessWidget {
   const EirenYuMark({super.key, required this.size, this.color});
 
+  static const symbolImage = AssetImage(
+    'assets/branding/eirenyu/runtime/symbol_512.png',
+  );
+  static const dotImage = AssetImage(
+    'assets/branding/eirenyu/runtime/dot_512.png',
+  );
+
   final double size;
   final Color? color;
 
@@ -26,12 +33,12 @@ class EirenYuMark extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.asset(
-                'assets/branding/eirenyu/runtime/symbol_512.png',
+              Image(
+                image: symbolImage,
                 color: color ?? context.logoColor,
                 colorBlendMode: BlendMode.srcIn,
               ),
-              Image.asset('assets/branding/eirenyu/runtime/dot_512.png'),
+              const Image(image: dotImage),
             ],
           ),
         ),
