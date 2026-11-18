@@ -222,7 +222,12 @@ jobs:
         run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Generate app icons
-        run: dart run flutter_launcher_icons
+        run: |
+          dart run flutter_launcher_icons
+          dart run tool/restore_alternate_icon_build_settings.dart
+
+      - name: Verify alternate app icons
+        run: dart run tool/generate_alternate_icons.dart --verify
 
       - name: Generate padded splash source
         run: dart run tool/generate_splash_asset.dart
@@ -245,6 +250,9 @@ jobs:
 
       - name: Build unsigned iOS application
         run: flutter build ios --release --no-codesign
+
+      - name: Verify compiled alternate icon registrations
+        run: python3 tool/verify_compiled_ios_icons.py build/ios/iphoneos/Runner.app/Info.plist
 
       - name: Verify build left tracked sources clean
         run: |

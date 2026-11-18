@@ -114,6 +114,18 @@ class AppearanceSettings extends StatelessWidget {
             const SizedBox(height: 8),
             _logoGallery(context, settings),
           ],
+          if (Theme.of(context).platform == TargetPlatform.iOS) ...[
+            const SizedBox(height: 20),
+            Text(
+              _t('home_screen_icon_title'),
+              style: TextStyle(color: colors.text, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _t('home_screen_icon_description'),
+              style: TextStyle(color: colors.textMuted),
+            ),
+          ],
         ],
       );
     },

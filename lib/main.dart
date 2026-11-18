@@ -12,6 +12,7 @@ import 'package:mangabaka_app/core/theme/app_theme.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/theme/theme_controller.dart';
+import 'package:mangabaka_app/core/theme/ios_home_icon.dart';
 import 'package:mangabaka_app/core/widgets/eirenyu_startup.dart';
 import 'package:mangabaka_app/desktop/widgets/desktop_window_frame.dart';
 import 'package:mangabaka_app/features/navigation/screens/main_screen.dart';
@@ -39,6 +40,8 @@ class MangaBakaApp extends StatefulWidget {
 
 class _MangaBakaAppState extends State<MangaBakaApp> {
   final ThemeController _themes = ThemeController()..init();
+  late final IosHomeIcon _homeIcon = IosHomeIcon(_themes);
+  bool _homeIconStarted = false;
 
   /// The theme is rebuilt only when [SettingsManager.showTooltips] changes —
   /// it is baked into the tooltip theme — rather than on every notification
@@ -79,6 +82,7 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
   @override
   void dispose() {
     _completeStartup();
+    _homeIcon.dispose();
     _themes.dispose();
     super.dispose();
   }
@@ -86,6 +90,14 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
   void _completeStartup() {
     final startup = _startupDismissed;
     if (startup != null && !startup.isCompleted) startup.complete();
+  }
+
+  void _onStartupDismissed() {
+    _completeStartup();
+    if (!_homeIconStarted) {
+      _homeIconStarted = true;
+      _homeIcon.start();
+    }
   }
 
   /// Checks GitHub for a newer release and, if found, shows the update dialog.
@@ -156,7 +168,7 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
                     ? content
                     : EirenYuStartup(
                         resolveColor: () => _themes.currentLogoColor,
-                        onDismissed: _completeStartup,
+                        onDismissed: _onStartupDismissed,
                         child: content,
                       ),
               );

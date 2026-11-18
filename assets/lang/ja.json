@@ -5,6 +5,8 @@
   "strings": {
     "app_name": "EirenYu",
     "appearance_logo": "ロゴ",
+    "home_screen_icon_title": "ホーム画面のアイコン",
+    "home_screen_icon_description": "カスタムカラーはEirenYu内で適用されます。iPhoneのアイコンはプリセットの色のみ対応します。",
     "appearance_logo_match_accent": "アプリのテーマ／アクセントに合わせる",
     "appearance_logo_colour": "ロゴの色",
     "home": "ホーム",

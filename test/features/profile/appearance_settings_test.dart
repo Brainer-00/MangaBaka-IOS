@@ -25,10 +25,13 @@ void main() {
     await LocalizationService().init();
   });
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(WidgetTester tester, {TargetPlatform? platform}) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.build(showTooltips: true, palette: EirenYuPalette.dark),
+        theme: AppTheme.build(
+          showTooltips: true,
+          palette: EirenYuPalette.dark,
+        ).copyWith(platform: platform),
         home: const Scaffold(
           body: SingleChildScrollView(child: AppearanceSettings()),
         ),
@@ -36,6 +39,19 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets('iPhone Appearance shows the concise Home Screen icon note', (
+    tester,
+  ) async {
+    await pump(tester, platform: TargetPlatform.iOS);
+    expect(find.text('Home Screen Icon'), findsOneWidget);
+    expect(
+      find.text(
+        'Custom colors work inside EirenYu, but the iPhone icon supports preset colors only.',
+      ),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('mode filters real preset variants and keeps separate choices', (
     tester,

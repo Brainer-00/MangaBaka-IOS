@@ -5,6 +5,8 @@
   "strings": {
     "app_name": "EirenYu",
     "appearance_logo": "Logo",
+    "home_screen_icon_title": "Icône de l’écran d’accueil",
+    "home_screen_icon_description": "Les couleurs personnalisées s’appliquent dans EirenYu. L’icône iPhone accepte uniquement les couleurs prédéfinies.",
     "appearance_logo_match_accent": "Suivre le thème ou la couleur d’accent de l’application",
     "appearance_logo_colour": "Couleur du logo",
     "home": "Accueil",

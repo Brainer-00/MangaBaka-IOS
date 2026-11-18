@@ -7,6 +7,8 @@
   "strings": {
     "app_name": "EirenYu",
     "appearance_logo": "লোগো",
+    "home_screen_icon_title": "হোম স্ক্ৰীণ আইকন",
+    "home_screen_icon_description": "কাষ্টম ৰং EirenYu-ৰ ভিতৰত প্ৰযোজ্য। iPhone আইকনত কেৱল পূৰ্বনিৰ্ধাৰিত ৰং উপলব্ধ।",
     "appearance_logo_match_accent": "এপৰ থীম বা এক্সেণ্ট ৰঙৰ সৈতে মিলাওক",
     "appearance_logo_colour": "লোগোৰ ৰং",
     "home": "গৃহপৃষ্ঠ",

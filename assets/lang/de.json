@@ -5,6 +5,8 @@
   "strings": {
     "app_name": "EirenYu",
     "appearance_logo": "Logo",
+    "home_screen_icon_title": "Home-Bildschirm-Symbol",
+    "home_screen_icon_description": "Eigene Farben gelten in EirenYu. Das iPhone-Symbol unterstützt nur voreingestellte Farben.",
     "appearance_logo_match_accent": "App-Design oder Akzentfarbe übernehmen",
     "appearance_logo_colour": "Logofarbe",
     "home": "Startseite",

@@ -32,6 +32,8 @@
     "appearance_theme_default": "Theme Default",
     "appearance_custom_accent": "Custom accent colour",
     "appearance_logo": "Logo",
+    "home_screen_icon_title": "Home Screen Icon",
+    "home_screen_icon_description": "Custom colors work inside EirenYu, but the iPhone icon supports preset colors only.",
     "appearance_logo_match_accent": "Match App Theme / Accent",
     "appearance_logo_colour": "Logo Color",
     "appearance_swatch_emerald": "Emerald",
