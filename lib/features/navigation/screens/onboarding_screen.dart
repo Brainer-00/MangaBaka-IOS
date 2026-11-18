@@ -2,6 +2,8 @@ import 'package:mangabaka_app/core/widgets/design/mb_button.dart';
 import 'package:mangabaka_app/core/widgets/app_snack_bar.dart';
 import 'package:mangabaka_app/core/motion/app_motion.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -52,28 +54,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   /// Desktop has no barcode scanner to grant access to, so that step is
   /// dropped there.
   List<({String titleKey, Widget page})> get _steps => [
-        (titleKey: 'onboarding_welcome_title', page: const WelcomePage()),
-        (titleKey: 'onboarding_language_title', page: const LanguagePage()),
-        (
-          titleKey: 'onboarding_content_title',
-          page: const ContentPreferencesPage(),
+    (titleKey: 'onboarding_welcome_title', page: const WelcomePage()),
+    (titleKey: 'onboarding_language_title', page: const LanguagePage()),
+    (
+      titleKey: 'onboarding_content_title',
+      page: const ContentPreferencesPage(),
+    ),
+    if (!_isDesktop)
+      (
+        titleKey: 'onboarding_camera_title',
+        page: CameraPermissionPage(
+          onRequestPermission: _requestCameraPermission,
         ),
-        if (!_isDesktop)
-          (
-            titleKey: 'onboarding_camera_title',
-            page: CameraPermissionPage(
-              onRequestPermission: _requestCameraPermission,
-            ),
-          ),
-        (
-          titleKey: 'onboarding_login_title',
-          page: LoginPage(
-            isLoggingIn: _isLoggingIn,
-            isLoggedIn: _isLoggedIn,
-            onLogin: _login,
-          ),
-        ),
-      ];
+      ),
+    (
+      titleKey: 'onboarding_login_title',
+      page: LoginPage(
+        isLoggingIn: _isLoggingIn,
+        isLoggedIn: _isLoggedIn,
+        onLogin: _login,
+      ),
+    ),
+  ];
 
   int get _totalPages => _isDesktop ? 4 : 5;
 
@@ -130,7 +132,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     // permission_handler does not support macOS — camera access is controlled
     // via the entitlements file and system dialog on first use.
     if (!Platform.isAndroid && !Platform.isIOS) {
-      _logger.info('Platform does not use permission_handler; skipping request');
+      _logger.info(
+        'Platform does not use permission_handler; skipping request',
+      );
       _nextPage();
       return;
     }
@@ -169,11 +173,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _pageView() => PageView(
-        controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(),
-        onPageChanged: (index) => setState(() => _currentPage = index),
-        children: [for (final step in _steps) step.page],
-      );
+    controller: _pageController,
+    physics: const NeverScrollableScrollPhysics(),
+    onPageChanged: (index) => setState(() => _currentPage = index),
+    children: [for (final step in _steps) step.page],
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -182,7 +186,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       builder: (context, _) {
         if (_isDesktop) return _desktopBody();
         return Scaffold(
-          backgroundColor: AppConstants.primaryBackground,
+          backgroundColor: context.colors.background,
           body: WidgetUtils.responsiveConstraint(
             SafeArea(
               child: Column(
@@ -202,7 +206,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _desktopBody() {
     return Scaffold(
-      backgroundColor: AppConstants.primaryBackground,
+      backgroundColor: context.colors.background,
       body: Row(
         children: [
           DesktopSidePanel(width: 340, child: _brandPanel()),
@@ -239,7 +243,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           Text(
             AppConstants.appName.toUpperCase(),
             style: AppTypography.display(
-              color: AppConstants.textColor,
+              color: context.colors.text,
               fontSize: 28,
               height: 1.1,
             ),
@@ -248,7 +252,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           Text(
             l10n.translate('onboarding_welcome_subtitle'),
             style: AppTypography.sans(
-              color: AppConstants.textMutedColor,
+              color: MbPalette.ensureContrast(
+                context.colors.textMuted,
+                context.colors.background,
+                minimum: 4.5,
+              ),
               fontSize: 14,
               height: 1.5,
             ),
@@ -264,9 +272,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _stepRow(int index, String title) {
     final isCurrent = index == _currentPage;
     final isDone = index < _currentPage;
+    final colors = context.colors;
     final color = isCurrent
-        ? AppConstants.textColor
-        : (isDone ? AppConstants.textMutedColor : AppConstants.borderColor);
+        ? colors.text
+        : MbPalette.ensureContrast(
+            isDone ? colors.textMuted : colors.border,
+            colors.background,
+            minimum: 4.5,
+          );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
@@ -277,14 +290,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             width: isCurrent ? 22 : 8,
             height: 2,
             color: isCurrent
-                ? AppConstants.accentColor
-                : AppConstants.tertiaryBackground,
+                ? colors.accentOn(colors.background, minimum: 3.0)
+                : MbPalette.ensureContrast(
+                    isDone ? colors.textMuted : colors.border,
+                    colors.background,
+                    minimum: 3.0,
+                  ),
           ),
           const SizedBox(width: 14),
           Text(
             (index + 1).toString().padLeft(2, '0'),
             style: AppTypography.monoLabel(
-              color: isCurrent ? AppConstants.accentColor : color,
+              color: isCurrent ? colors.accentOn(colors.background) : color,
               fontSize: 12,
             ),
           ),
@@ -298,7 +315,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ),
           if (isDone)
-            Icon(Icons.check_rounded, size: 16, color: AppConstants.accentColor),
+            Icon(
+              Icons.check_rounded,
+              size: 16,
+              color: colors.accentOn(colors.background, minimum: 3.0),
+            ),
         ],
       ),
     );
@@ -308,7 +329,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final isLastPage = _currentPage == _totalPages - 1;
     final localization = LocalizationService();
     final screenHeight = MediaQuery.of(context).size.height;
-    
+
     // Scale down spacing if height is small
     final isShort = screenHeight < 600;
     final bottomPadding = isShort ? 16.0 : 32.0;
@@ -320,11 +341,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (!_isDesktop)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              _totalPages,
-              (index) {
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(_totalPages, (index) {
                 final isSelected = _currentPage == index;
                 return AnimatedContainer(
                   duration: AppMotion.base,
@@ -335,13 +354,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(3),
                     color: isSelected
-                        ? AppConstants.accentColor
-                        : AppConstants.tertiaryBackground,
+                        ? context.colors.accentOn(
+                            context.colors.background,
+                            minimum: 3.0,
+                          )
+                        : MbPalette.ensureContrast(
+                            context.colors.border,
+                            context.colors.background,
+                            minimum: 3.0,
+                          ),
                   ),
                 );
-              },
+              }),
             ),
-          ),
           if (!_isDesktop) SizedBox(height: spacingHeight),
           Row(
             children: [
@@ -350,8 +375,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: TextButton(
                     onPressed: _previousPage,
                     style: TextButton.styleFrom(
-                      foregroundColor: AppConstants.textMutedColor,
-                      padding: EdgeInsets.symmetric(vertical: isShort ? 12 : 16),
+                      foregroundColor: MbPalette.ensureContrast(
+                        context.colors.textMuted,
+                        context.colors.background,
+                        minimum: 4.5,
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        vertical: isShort ? 12 : 16,
+                      ),
                     ),
                     child: Text(localization.translate('onboarding_back')),
                   ),
@@ -361,8 +392,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: TextButton(
                     onPressed: _finishOnboarding,
                     style: TextButton.styleFrom(
-                      foregroundColor: AppConstants.textMutedColor,
-                      padding: EdgeInsets.symmetric(vertical: isShort ? 12 : 16),
+                      foregroundColor: MbPalette.ensureContrast(
+                        context.colors.textMuted,
+                        context.colors.background,
+                        minimum: 4.5,
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        vertical: isShort ? 12 : 16,
+                      ),
                     ),
                     child: Text(localization.translate('onboarding_skip')),
                   ),

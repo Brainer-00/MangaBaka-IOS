@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/features/series/widgets/entry_progress_overlay.dart';
-
 
 class EntryListLayoutHelper {
   static Widget buildCoverImage({
@@ -14,10 +14,12 @@ class EntryListLayoutHelper {
     required String? heroTagPrefix,
     required double width,
     double? height,
-    BorderRadiusGeometry borderRadius = const BorderRadius.all(Radius.circular(12)),
+    BorderRadiusGeometry borderRadius = const BorderRadius.all(
+      Radius.circular(12),
+    ),
   }) {
-    final heroTag = heroTagPrefix != null 
-        ? '${heroTagPrefix}_${series.id}' 
+    final heroTag = heroTagPrefix != null
+        ? '${heroTagPrefix}_${series.id}'
         : 'series_cover_${series.id}';
 
     return Hero(
@@ -25,7 +27,9 @@ class EntryListLayoutHelper {
       child: ListenableBuilder(
         listenable: SettingsManager(),
         builder: (context, _) {
-          final isBlurred = SettingsManager().blurredContentRatings.contains(series.contentRating.toLowerCase());
+          final isBlurred = SettingsManager().blurredContentRatings.contains(
+            series.contentRating.toLowerCase(),
+          );
           return ClipRRect(
             borderRadius: borderRadius,
             child: WidgetUtils.networkImage(
@@ -43,15 +47,24 @@ class EntryListLayoutHelper {
   }
 
   static Widget buildPlaceholder(double width, double? height) {
-    return Container(
-      width: width,
-      height: height ?? double.infinity,
-      color: AppConstants.tertiaryBackground,
-      child: Icon(
-        Icons.broken_image,
-        color: AppConstants.textMutedColor,
-        size: width > 50 ? 40 : 24,
-      ),
+    return Builder(
+      builder: (context) {
+        final colors = context.colors;
+        return Container(
+          width: width,
+          height: height ?? double.infinity,
+          color: colors.surfaceRaised,
+          child: Icon(
+            Icons.broken_image,
+            color: MbPalette.ensureContrast(
+              colors.textMuted,
+              colors.surfaceRaised,
+              minimum: 3,
+            ),
+            size: width > 50 ? 40 : 24,
+          ),
+        );
+      },
     );
   }
 
@@ -96,7 +109,7 @@ class CoverOnlyGridItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: AppConstants.secondaryBackground,
+      color: context.colors.surface,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: LayoutBuilder(
@@ -156,9 +169,11 @@ class CompactGridItem extends StatelessWidget {
         AspectRatio(
           aspectRatio: 0.65,
           child: Card(
-            color: AppConstants.secondaryBackground,
+            color: context.colors.surface,
             clipBehavior: Clip.antiAlias,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
             margin: EdgeInsets.zero,
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -194,10 +209,10 @@ class CompactGridItem extends StatelessWidget {
             child: Text(
               displayTitle,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppConstants.textColor,
-                    fontSize: 12,
-                  ),
+                fontWeight: FontWeight.bold,
+                color: context.colors.text,
+                fontSize: 12,
+              ),
               maxLines: settings.compactGridTitleRows,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,

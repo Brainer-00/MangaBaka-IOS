@@ -4,6 +4,8 @@ import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 import 'package:mangabaka_app/core/widgets/design/mb_cover.dart';
 import 'package:mangabaka_app/core/widgets/design/mb_rating_stars.dart';
@@ -106,7 +108,7 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
       child: Focus(
         autofocus: true,
         child: Scaffold(
-          backgroundColor: AppConstants.primaryBackground,
+          backgroundColor: context.colors.background,
           appBar: isDesktop
               ? null
               : mbScreenAppBar(
@@ -127,8 +129,10 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
     final l10n = LocalizationService();
 
     if (_controller.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppConstants.accentColor),
+      return Center(
+        child: CircularProgressIndicator(
+          color: context.colors.accentOn(context.colors.background, minimum: 3),
+        ),
       );
     }
 
@@ -169,16 +173,19 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.auto_awesome_outlined,
                 size: 64,
-                color: AppConstants.accentColor,
+                color: context.colors.accentOn(
+                  context.colors.background,
+                  minimum: 3,
+                ),
               ),
               const SizedBox(height: 20),
               Text(
                 l10n.translate('discovery_queue').toUpperCase(),
                 style: AppTypography.display(
-                  color: AppConstants.textColor,
+                  color: context.colors.text,
                   fontSize: 22,
                 ),
                 textAlign: TextAlign.center,
@@ -187,7 +194,11 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
               Text(
                 l10n.translate('discovery_queue_not_ready'),
                 style: AppTypography.sans(
-                  color: AppConstants.textMutedColor,
+                  color: MbPalette.ensureContrast(
+                    context.colors.textMuted,
+                    context.colors.background,
+                    minimum: 4.5,
+                  ),
                   fontSize: 14,
                   height: 1.5,
                 ),
@@ -214,16 +225,24 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.explore_off_outlined,
                 size: 64,
-                color: AppConstants.textMutedColor,
+                color: MbPalette.ensureContrast(
+                  context.colors.textMuted,
+                  context.colors.background,
+                  minimum: 3,
+                ),
               ),
               const SizedBox(height: 20),
               Text(
                 l10n.translate('discovery_queue_empty'),
                 style: AppTypography.sans(
-                  color: AppConstants.textMutedColor,
+                  color: MbPalette.ensureContrast(
+                    context.colors.textMuted,
+                    context.colors.background,
+                    minimum: 4.5,
+                  ),
                   fontSize: 14,
                   height: 1.5,
                 ),
@@ -251,16 +270,24 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.error_outline_rounded,
                 size: 64,
-                color: AppConstants.errorColor,
+                color: MbPalette.ensureContrast(
+                  context.colors.error,
+                  context.colors.background,
+                  minimum: 3,
+                ),
               ),
               const SizedBox(height: 20),
               Text(
                 _controller.errorMessage ?? l10n.translate('error_loading'),
                 style: AppTypography.sans(
-                  color: AppConstants.textMutedColor,
+                  color: MbPalette.ensureContrast(
+                    context.colors.textMuted,
+                    context.colors.background,
+                    minimum: 4.5,
+                  ),
                   fontSize: 14,
                 ),
                 textAlign: TextAlign.center,
@@ -292,19 +319,25 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
                 height: 80,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppConstants.accentColor.withValues(alpha: 0.15),
+                  color: context.colors.accent.withValues(alpha: 0.15),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.check_circle_outline_rounded,
                   size: 48,
-                  color: AppConstants.accentColor,
+                  color: context.colors.accentOn(
+                    Color.alphaBlend(
+                      context.colors.accent.withValues(alpha: 0.15),
+                      context.colors.background,
+                    ),
+                    minimum: 3,
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
               Text(
                 l10n.translate('discovery_queue_complete_title').toUpperCase(),
                 style: AppTypography.display(
-                  color: AppConstants.textColor,
+                  color: context.colors.text,
                   fontSize: 24,
                 ),
                 textAlign: TextAlign.center,
@@ -316,7 +349,11 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
                     .replaceAll('{reviewed}', '${_controller.reviewedCount}')
                     .replaceAll('{added}', '${_controller.addedCount}'),
                 style: AppTypography.sans(
-                  color: AppConstants.textMutedColor,
+                  color: MbPalette.ensureContrast(
+                    context.colors.textMuted,
+                    context.colors.background,
+                    minimum: 4.5,
+                  ),
                   fontSize: 15,
                   height: 1.5,
                 ),
@@ -390,8 +427,8 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
         ),
         LinearProgressIndicator(
           value: _controller.progress,
-          color: AppConstants.accentColor,
-          backgroundColor: AppConstants.tertiaryBackground,
+          color: context.colors.progressIndicator,
+          backgroundColor: context.colors.surfaceRaised,
           minHeight: 3,
         ),
         Expanded(
@@ -431,7 +468,7 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
                                 child: Text(
                                   displayTitle,
                                   style: AppTypography.display(
-                                    color: AppConstants.textColor,
+                                    color: context.colors.text,
                                     fontSize: 24,
                                     height: 1.2,
                                   ),
@@ -443,7 +480,11 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
                               Text(
                                 secondaryTitle,
                                 style: AppTypography.sans(
-                                  color: AppConstants.textMutedColor,
+                                  color: MbPalette.ensureContrast(
+                                    context.colors.textMuted,
+                                    context.colors.surface,
+                                    minimum: 4.5,
+                                  ),
                                   fontSize: 14,
                                 ),
                               ),
@@ -459,9 +500,7 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
                                 maxLines: 6,
                                 overflow: TextOverflow.ellipsis,
                                 style: AppTypography.sans(
-                                  color: AppConstants.textColor.withValues(
-                                    alpha: 0.85,
-                                  ),
+                                  color: context.colors.text,
                                   fontSize: 14,
                                   height: 1.5,
                                 ),
@@ -497,8 +536,8 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
       children: [
         LinearProgressIndicator(
           value: _controller.progress,
-          color: AppConstants.accentColor,
-          backgroundColor: AppConstants.tertiaryBackground,
+          color: context.colors.progressIndicator,
+          backgroundColor: context.colors.surfaceRaised,
           minHeight: 3,
         ),
         Padding(
@@ -510,7 +549,11 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
                 .replaceAll('{total}', '${_controller.totalCount}')
                 .replaceAll('{remaining}', '${_controller.remainingCount}'),
             style: AppTypography.monoLabel(
-              color: AppConstants.textMutedColor,
+              color: MbPalette.ensureContrast(
+                context.colors.textMuted,
+                context.colors.background,
+                minimum: 4.5,
+              ),
               fontSize: 11,
             ),
           ),
@@ -540,7 +583,7 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
                       displayTitle,
                       textAlign: TextAlign.center,
                       style: AppTypography.display(
-                        color: AppConstants.textColor,
+                        color: context.colors.text,
                         fontSize: 20,
                         height: 1.25,
                       ),
@@ -558,7 +601,7 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
                     maxLines: 8,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.sans(
-                      color: AppConstants.textColor.withValues(alpha: 0.85),
+                      color: context.colors.text,
                       fontSize: 13.5,
                       height: 1.5,
                     ),
@@ -586,9 +629,9 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         if (series.type.isNotEmpty)
-          _chip(series.type.toUpperCase(), AppConstants.accentColor),
+          _chip(series.type.toUpperCase(), context.colors.accent),
         if (series.status.isNotEmpty)
-          _chip(series.status.toUpperCase(), AppConstants.textMutedColor),
+          _chip(series.status.toUpperCase(), context.colors.textMuted),
         if (ratingScore != null && ratingScore > 0)
           MbRatingStars(rating: ratingScore, fontSize: 13),
       ],
@@ -607,14 +650,18 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: AppConstants.secondaryBackground,
+              color: context.colors.surface,
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppConstants.borderColor),
+              border: Border.all(color: context.colors.border),
             ),
             child: Text(
               tag,
               style: AppTypography.sans(
-                color: AppConstants.textMutedColor,
+                color: MbPalette.ensureContrast(
+                  context.colors.textMuted,
+                  context.colors.surface,
+                  minimum: 4.5,
+                ),
                 fontSize: 11.5,
               ),
             ),
@@ -642,13 +689,25 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
           flex: 3,
           child: FilledButton.icon(
             onPressed: inProgress ? null : () => _addWithState(defaultTab),
+            style: inProgress
+                ? FilledButton.styleFrom(
+                    disabledBackgroundColor: context.colors.accent,
+                    disabledForegroundColor: context.colors.accentOn(
+                      context.colors.accent,
+                    ),
+                  )
+                : null,
             icon: inProgress
-                ? const SizedBox(
+                ? SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: MbPalette.ensureContrast(
+                        context.colors.onAccent,
+                        context.colors.accent,
+                        minimum: 3,
+                      ),
                     ),
                   )
                 : const Icon(Icons.bookmark_add_outlined, size: 18),
@@ -661,7 +720,6 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
         PopupMenuButton<String>(
           icon: const Icon(Icons.arrow_drop_down_rounded),
           tooltip: l10n.translate('import_add_as'),
-          color: AppConstants.secondaryBackground,
           onSelected: (state) => _addWithState(state),
           itemBuilder: (context) => [
             for (final s in _libraryStates)
@@ -669,7 +727,7 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
                 value: s,
                 child: Text(
                   l10n.translate(s),
-                  style: AppTypography.sans(color: AppConstants.textColor),
+                  style: AppTypography.sans(color: context.colors.text),
                 ),
               ),
           ],
@@ -678,15 +736,27 @@ class _DiscoveryQueueScreenState extends State<DiscoveryQueueScreen> {
     );
   }
 
-  Widget _chip(String label, Color color) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.14),
-      borderRadius: BorderRadius.circular(AppConstants.pillRadius),
-    ),
-    child: Text(
-      label,
-      style: AppTypography.monoLabel(color: color, fontSize: 10.5),
-    ),
-  );
+  Widget _chip(String label, Color color) {
+    final background = DesktopLayout.isActive(context)
+        ? context.colors.surface
+        : context.colors.background;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+      ),
+      child: Text(
+        label,
+        style: AppTypography.monoLabel(
+          color: MbPalette.ensureContrast(
+            color,
+            Color.alphaBlend(color.withValues(alpha: 0.14), background),
+            minimum: 4.5,
+          ),
+          fontSize: 10.5,
+        ),
+      ),
+    );
+  }
 }

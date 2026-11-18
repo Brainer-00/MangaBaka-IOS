@@ -3,6 +3,8 @@ import 'package:mangabaka_app/features/series/screens/series_detail_screen.dart'
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 
 class SnapshotListItem extends StatelessWidget {
@@ -39,7 +41,9 @@ class SnapshotListItem extends StatelessWidget {
                     ),
                     child: WidgetUtils.networkImage(
                       url: series.coverUrl,
-                      blurred: WidgetUtils.isRatingBlurred(series.contentRating),
+                      blurred: WidgetUtils.isRatingBlurred(
+                        series.contentRating,
+                      ),
                       fit: BoxFit.cover,
                       width: double.infinity,
                       memCacheWidth: 240,
@@ -51,7 +55,13 @@ class SnapshotListItem extends StatelessWidget {
                   height: 16, // Fixed height for title area
                   child: Text(
                     displayTitle,
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: MbPalette.ensureContrast(
+                        context.colors.textMuted,
+                        context.colors.background,
+                        minimum: 4.5,
+                      ),
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),

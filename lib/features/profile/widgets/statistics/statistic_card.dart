@@ -1,6 +1,8 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 
 class StatisticCard extends StatelessWidget {
   final IconData icon;
@@ -16,10 +18,16 @@ class StatisticCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final mutedOnCard = MbPalette.ensureContrast(
+      colors.textMuted,
+      colors.surface,
+      minimum: 4.5,
+    );
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppConstants.secondaryBackground,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(AppConstants.largeRadius),
       ),
       child: Column(
@@ -36,7 +44,7 @@ class StatisticCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.display(
-                    color: AppConstants.textColor,
+                    color: colors.text,
                     fontSize: 28,
                   ),
                 ),
@@ -44,17 +52,14 @@ class StatisticCard extends StatelessWidget {
               const SizedBox(width: 8),
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Icon(icon, color: AppConstants.textMutedColor, size: 18),
+                child: Icon(icon, color: mutedOnCard, size: 18),
               ),
             ],
           ),
           const SizedBox(height: 2),
           Text(
             label.toUpperCase(),
-            style: AppTypography.monoLabel(
-              color: AppConstants.textMutedColor,
-              fontSize: 11,
-            ),
+            style: AppTypography.monoLabel(color: mutedOnCard, fontSize: 11),
           ),
         ],
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/features/profile/widgets/settings/list_customization_scope.dart';
 
 /// The Library / Browse switch at the top of the list customization panel.
@@ -32,12 +33,9 @@ class ListScopeTabSelector extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 16),
           height: 38,
           decoration: BoxDecoration(
-            color: AppConstants.secondaryBackground,
+            color: context.colors.surface,
             borderRadius: BorderRadius.circular(25),
-            border: Border.all(
-              color: AppConstants.tertiaryBackground,
-              width: 1.5,
-            ),
+            border: Border.all(color: context.colors.border, width: 1.5),
           ),
           child: Stack(
             children: [
@@ -51,7 +49,10 @@ class ListScopeTabSelector extends StatelessWidget {
                   width: constraints.maxWidth / 2,
                   height: double.infinity,
                   decoration: BoxDecoration(
-                    color: AppConstants.accentColor,
+                    color: context.colors.accentOn(
+                      context.colors.surface,
+                      minimum: 3,
+                    ),
                     borderRadius: BorderRadius.circular(25),
                   ),
                 ),
@@ -101,11 +102,21 @@ class _Tab extends StatelessWidget {
             duration: ListScopeTabSelector._labelDuration,
             curve: Curves.easeInOut,
             style: AppTypography.sans(
-              // The active label sits on the accent pill, so it inverts to the
-              // page background colour to stay readable.
+              // The active label sits on the accent pill.
               color: isActive
-                  ? AppConstants.primaryBackground
-                  : AppConstants.textColor,
+                  ? MbPalette.ensureContrast(
+                      context.colors.onAccent,
+                      context.colors.accentOn(
+                        context.colors.surface,
+                        minimum: 3,
+                      ),
+                      minimum: 4.5,
+                    )
+                  : MbPalette.ensureContrast(
+                      context.colors.text,
+                      context.colors.surface,
+                      minimum: 4.5,
+                    ),
               fontWeight: FontWeight.bold,
               fontSize: 14,
             ),

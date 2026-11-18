@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:mangabaka_app/features/browse/models/search_filters.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/features/series/services/metadata_service.dart';
 
@@ -24,97 +26,147 @@ class FilterChipsRow extends StatelessWidget {
         final l10n = LocalizationService();
         final metadata = getIt<MetadataService>();
         final chips = <Widget>[];
+        final resetBackground = Color.alphaBlend(
+          context.colors.error.withValues(alpha: 0.1),
+          context.colors.background,
+        );
+        final resetForeground = MbPalette.ensureContrast(
+          context.colors.error,
+          resetBackground,
+          minimum: 4.5,
+        );
 
         // Sort By
         if (filters.sortBy != null && filters.sortBy!.isNotEmpty) {
           final label = _getSortLabel(filters.sortBy!, l10n);
           chips.add(
-            _buildChip(label, () {
+            _buildChip(context, label, () {
               onFiltersChanged(filters.copyWithSortBy(null));
             }),
           );
         }
 
         // Types
-        chips.addAll(_buildFilterPairChips(
-          include: filters.type,
-          exclude: filters.typeNot,
-          labelFor: (v) => l10n.translate('type_$v'),
-          onRemoveInclude: (v) => onFiltersChanged(
-            filters.copyWith(type: filters.type.where((x) => x != v).toList()),
+        chips.addAll(
+          _buildFilterPairChips(
+            context,
+            include: filters.type,
+            exclude: filters.typeNot,
+            labelFor: (v) => l10n.translate('type_$v'),
+            onRemoveInclude: (v) => onFiltersChanged(
+              filters.copyWith(
+                type: filters.type.where((x) => x != v).toList(),
+              ),
+            ),
+            onRemoveExclude: (v) => onFiltersChanged(
+              filters.copyWith(
+                typeNot: filters.typeNot.where((x) => x != v).toList(),
+              ),
+            ),
           ),
-          onRemoveExclude: (v) => onFiltersChanged(
-            filters.copyWith(typeNot: filters.typeNot.where((x) => x != v).toList()),
-          ),
-        ));
+        );
 
         // Status
-        chips.addAll(_buildFilterPairChips(
-          include: filters.status,
-          exclude: filters.statusNot,
-          labelFor: (v) => l10n.translate('status_$v'),
-          onRemoveInclude: (v) => onFiltersChanged(
-            filters.copyWith(status: filters.status.where((x) => x != v).toList()),
+        chips.addAll(
+          _buildFilterPairChips(
+            context,
+            include: filters.status,
+            exclude: filters.statusNot,
+            labelFor: (v) => l10n.translate('status_$v'),
+            onRemoveInclude: (v) => onFiltersChanged(
+              filters.copyWith(
+                status: filters.status.where((x) => x != v).toList(),
+              ),
+            ),
+            onRemoveExclude: (v) => onFiltersChanged(
+              filters.copyWith(
+                statusNot: filters.statusNot.where((x) => x != v).toList(),
+              ),
+            ),
           ),
-          onRemoveExclude: (v) => onFiltersChanged(
-            filters.copyWith(statusNot: filters.statusNot.where((x) => x != v).toList()),
-          ),
-        ));
+        );
 
         // Genres
-        chips.addAll(_buildFilterPairChips(
-          include: filters.genre,
-          exclude: filters.genreNot,
-          labelFor: metadata.getGenreLabel,
-          onRemoveInclude: (v) => onFiltersChanged(
-            filters.copyWith(genre: filters.genre.where((x) => x != v).toList()),
+        chips.addAll(
+          _buildFilterPairChips(
+            context,
+            include: filters.genre,
+            exclude: filters.genreNot,
+            labelFor: metadata.getGenreLabel,
+            onRemoveInclude: (v) => onFiltersChanged(
+              filters.copyWith(
+                genre: filters.genre.where((x) => x != v).toList(),
+              ),
+            ),
+            onRemoveExclude: (v) => onFiltersChanged(
+              filters.copyWith(
+                genreNot: filters.genreNot.where((x) => x != v).toList(),
+              ),
+            ),
           ),
-          onRemoveExclude: (v) => onFiltersChanged(
-            filters.copyWith(genreNot: filters.genreNot.where((x) => x != v).toList()),
-          ),
-        ));
+        );
 
         // Tags
-        chips.addAll(_buildFilterPairChips(
-          include: filters.tag,
-          exclude: filters.tagNot,
-          labelFor: (v) {
-            final id = int.tryParse(v);
-            if (id == null) return v;
-            return metadata.getTagName(id);
-          },
-          onRemoveInclude: (v) => onFiltersChanged(
-            filters.copyWith(tag: filters.tag.where((x) => x != v).toList()),
+        chips.addAll(
+          _buildFilterPairChips(
+            context,
+            include: filters.tag,
+            exclude: filters.tagNot,
+            labelFor: (v) {
+              final id = int.tryParse(v);
+              if (id == null) return v;
+              return metadata.getTagName(id);
+            },
+            onRemoveInclude: (v) => onFiltersChanged(
+              filters.copyWith(tag: filters.tag.where((x) => x != v).toList()),
+            ),
+            onRemoveExclude: (v) => onFiltersChanged(
+              filters.copyWith(
+                tagNot: filters.tagNot.where((x) => x != v).toList(),
+              ),
+            ),
           ),
-          onRemoveExclude: (v) => onFiltersChanged(
-            filters.copyWith(tagNot: filters.tagNot.where((x) => x != v).toList()),
-          ),
-        ));
+        );
 
         // Staff / Authors / Artists
         if (filters.staff.isNotEmpty) {
-          chips.addAll(filters.staff.map((v) => _buildChip(
-            v,
-            () => onFiltersChanged(
-              filters.copyWith(staff: filters.staff.where((x) => x != v).toList()),
+          chips.addAll(
+            filters.staff.map(
+              (v) => _buildChip(
+                context,
+                v,
+                () => onFiltersChanged(
+                  filters.copyWith(
+                    staff: filters.staff.where((x) => x != v).toList(),
+                  ),
+                ),
+              ),
             ),
-          )));
+          );
         }
 
         // Publisher
         if (filters.publisher.isNotEmpty) {
-          chips.addAll(filters.publisher.map((v) => _buildChip(
-            v,
-            () => onFiltersChanged(
-              filters.copyWith(publisher: filters.publisher.where((x) => x != v).toList()),
+          chips.addAll(
+            filters.publisher.map(
+              (v) => _buildChip(
+                context,
+                v,
+                () => onFiltersChanged(
+                  filters.copyWith(
+                    publisher: filters.publisher.where((x) => x != v).toList(),
+                  ),
+                ),
+              ),
             ),
-          )));
+          );
         }
 
         // Rating
         if (filters.ratingLower > 0 || filters.ratingUpper < 100) {
           chips.add(
             _buildChip(
+              context,
               '${l10n.translate('rating_range')}: ${filters.ratingLower.toInt()}-${filters.ratingUpper.toInt()}',
               () {
                 onFiltersChanged(
@@ -129,6 +181,7 @@ class FilterChipsRow extends StatelessWidget {
         if (filters.isLicensed != null) {
           chips.add(
             _buildChip(
+              context,
               '${l10n.translate('licensed_status')}: ${filters.isLicensed! ? l10n.translate('yes') : l10n.translate('no')}',
               () {
                 onFiltersChanged(filters.copyWithIsLicensed(null));
@@ -141,6 +194,7 @@ class FilterChipsRow extends StatelessWidget {
         if (filters.hasAnime != null) {
           chips.add(
             _buildChip(
+              context,
               '${l10n.translate('has_anime')}: ${filters.hasAnime! ? l10n.translate('yes') : l10n.translate('no')}',
               () {
                 onFiltersChanged(filters.copyWithHasAnime(null));
@@ -160,14 +214,18 @@ class FilterChipsRow extends StatelessWidget {
                     ? '>= ${filters.publishedYearLower}'
                     : '<= ${filters.publishedYearUpper}');
           chips.add(
-            _buildChip('${l10n.translate('publication_year')}: $yearText', () {
-              onFiltersChanged(
-                filters.copyWithYear(
-                  publishedYearLower: null,
-                  publishedYearUpper: null,
-                ),
-              );
-            }),
+            _buildChip(
+              context,
+              '${l10n.translate('publication_year')}: $yearText',
+              () {
+                onFiltersChanged(
+                  filters.copyWithYear(
+                    publishedYearLower: null,
+                    publishedYearUpper: null,
+                  ),
+                );
+              },
+            ),
           );
         }
 
@@ -189,7 +247,7 @@ class FilterChipsRow extends StatelessWidget {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: AppConstants.errorColor.withValues(alpha: 0.1),
+                    color: resetBackground,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -198,13 +256,13 @@ class FilterChipsRow extends StatelessWidget {
                       Icon(
                         Icons.refresh_rounded,
                         size: 16,
-                        color: AppConstants.errorColor,
+                        color: resetForeground,
                       ),
                       const SizedBox(width: 8),
                       Text(
                         l10n.translate('reset').toUpperCase(),
                         style: AppTypography.sans(
-                          color: AppConstants.errorColor,
+                          color: resetForeground,
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0.8,
@@ -224,7 +282,8 @@ class FilterChipsRow extends StatelessWidget {
   /// Builds include and exclude chips for a single filter category.
   /// Returns chips for every value in [include] (positive style) followed by
   /// every value in [exclude] (negative / red style).
-  List<Widget> _buildFilterPairChips({
+  List<Widget> _buildFilterPairChips(
+    BuildContext context, {
     required List<String> include,
     required List<String> exclude,
     required String Function(String) labelFor,
@@ -233,21 +292,33 @@ class FilterChipsRow extends StatelessWidget {
   }) {
     return [
       for (final v in include)
-        _buildChip(labelFor(v), () => onRemoveInclude(v)),
+        _buildChip(context, labelFor(v), () => onRemoveInclude(v)),
       for (final v in exclude)
-        _buildChip('- ${labelFor(v)}', () => onRemoveExclude(v), isNegative: true),
+        _buildChip(
+          context,
+          '- ${labelFor(v)}',
+          () => onRemoveExclude(v),
+          isNegative: true,
+        ),
     ];
   }
 
   Widget _buildChip(
+    BuildContext context,
     String label,
     VoidCallback onDeleted, {
     bool isNegative = false,
   }) {
-    final color = isNegative ? AppConstants.errorColor : AppConstants.textColor;
+    final colors = context.colors;
     final bgColor = isNegative
-        ? AppConstants.errorColor.withValues(alpha: 0.12)
-        : AppConstants.tertiaryBackground;
+        ? Color.alphaBlend(
+            colors.error.withValues(alpha: 0.12),
+            colors.background,
+          )
+        : colors.surfaceRaised;
+    final color = isNegative
+        ? MbPalette.ensureContrast(colors.error, bgColor, minimum: 4.5)
+        : MbPalette.ensureContrast(colors.text, bgColor, minimum: 4.5);
 
     return RawChip(
       label: Text(label.toUpperCase()),

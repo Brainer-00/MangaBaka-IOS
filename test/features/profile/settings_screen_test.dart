@@ -27,47 +27,88 @@ void main() {
     await resetServiceLocator();
     getIt.registerSingleton<LoggingService>(LoggingService());
     getIt.registerSingleton<ProfileAuthService>(MockProfileAuthService());
-    
+
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/path_provider'),
-      (MethodCall methodCall) async {
-        return '.';
-      },
-    );
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          (MethodCall methodCall) async {
+            return '.';
+          },
+        );
     SharedPreferences.setMockInitialValues({});
     await SettingsManager().init();
   });
 
-  testWidgets('SettingsScreen renders all sections', (WidgetTester tester) async {
+  testWidgets('SettingsScreen renders all sections', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(800, 2400);
     tester.view.devicePixelRatio = 1.0;
-    
-    await tester.pumpWidget(MaterialApp(
-      home: SettingsScreen(),
-    ));
+
+    await tester.pumpWidget(MaterialApp(home: SettingsScreen()));
     await tester.pumpAndSettle();
 
     expect(find.byType(SettingsGroup, skipOffstage: false), findsAtLeast(5));
-    
+
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
   });
 
-  testWidgets('Landscape Settings Dialog navigates internally with push/pop', (WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1.0;
+  testWidgets('Appearance opens through portrait settings', (tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const MaterialApp(home: SettingsScreen()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('APPEARANCE'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('appearance_mode_dark')), findsOneWidget);
+  });
 
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: Builder(
-          builder: (context) => ElevatedButton(
-            onPressed: () => SettingsScreen.show(context),
-            child: const Text('Open Settings'),
+  testWidgets('Appearance opens inside landscape settings dialog', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => SettingsScreen.show(context),
+              child: const Text('Open'),
+            ),
           ),
         ),
       ),
-    ));
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('APPEARANCE'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.byKey(const Key('appearance_mode_dark')), findsOneWidget);
+  });
+
+  testWidgets('Landscape Settings Dialog navigates internally with push/pop', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => SettingsScreen.show(context),
+              child: const Text('Open Settings'),
+            ),
+          ),
+        ),
+      ),
+    );
 
     await tester.tap(find.text('Open Settings'));
     await tester.pumpAndSettle();

@@ -3,6 +3,8 @@ import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 
 /// Laid over the whole app while a desktop sign-in waits on the browser.
@@ -41,67 +43,76 @@ class _Card extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = LocalizationService();
+    final colors = context.colors;
+    final mutedOnCard = MbPalette.ensureContrast(
+      colors.textMuted,
+      colors.surface,
+      minimum: 4.5,
+    );
     return Positioned.fill(
       child: Material(
         color: Colors.black.withValues(alpha: 0.72),
         child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: Container(
-              margin: const EdgeInsets.all(24),
-              padding: const EdgeInsets.all(28),
-              decoration: BoxDecoration(
-                color: AppConstants.secondaryBackground,
-                borderRadius: BorderRadius.circular(AppConstants.largeRadius),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: AppConstants.accentColor,
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Container(
+                margin: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(28),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(AppConstants.largeRadius),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: colors.accentOn(colors.surface, minimum: 3),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    l10n.translate('auth_waiting_title').toUpperCase(),
-                    style: AppTypography.display(
-                      color: AppConstants.textColor,
-                      fontSize: 20,
+                    const SizedBox(height: 20),
+                    Text(
+                      l10n.translate('auth_waiting_title').toUpperCase(),
+                      style: AppTypography.display(
+                        color: colors.text,
+                        fontSize: 20,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    l10n.translate('auth_waiting_body'),
-                    style: AppTypography.sans(
-                      color: AppConstants.textMutedColor,
-                      fontSize: 14.5,
-                      height: 1.5,
+                    const SizedBox(height: 10),
+                    Text(
+                      l10n.translate('auth_waiting_body'),
+                      style: AppTypography.sans(
+                        color: mutedOnCard,
+                        fontSize: 14.5,
+                        height: 1.5,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: auth.cancelLogin,
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppConstants.textMutedColor,
+                    const SizedBox(height: 24),
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        TextButton(
+                          onPressed: auth.cancelLogin,
+                          style: TextButton.styleFrom(
+                            foregroundColor: mutedOnCard,
+                          ),
+                          child: Text(l10n.translate('cancel')),
                         ),
-                        child: Text(l10n.translate('cancel')),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: auth.reopenBrowser,
-                        child: Text(l10n.translate('auth_reopen_browser')),
-                      ),
-                    ],
-                  ),
-                ],
+                        ElevatedButton(
+                          onPressed: auth.reopenBrowser,
+                          child: Text(l10n.translate('auth_reopen_browser')),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

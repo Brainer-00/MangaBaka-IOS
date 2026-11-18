@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/features/browse/controllers/mix_controller.dart';
 import 'package:mangabaka_app/features/browse/widgets/mix/mix_section_header.dart';
 import 'package:mangabaka_app/features/browse/widgets/mix/mix_seed_chip.dart';
@@ -128,32 +130,49 @@ class _SeedSearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return TextField(
       controller: controller,
       focusNode: focusNode,
-      style: AppTypography.sans(color: AppConstants.textColor, fontSize: 16),
+      style: AppTypography.sans(color: colors.text, fontSize: 16),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle:
-            AppTypography.sans(color: AppConstants.textMutedColor, fontSize: 16),
-        prefixIcon:
-            Icon(Icons.search, color: AppConstants.textColor, size: 22),
-        prefixIconConstraints:
-            const BoxConstraints(minWidth: 48, minHeight: 48),
+        hintStyle: AppTypography.sans(
+          color: MbPalette.ensureContrast(
+            colors.textMuted,
+            colors.surfaceRaised,
+            minimum: 4.5,
+          ),
+          fontSize: 16,
+        ),
+        prefixIcon: Icon(Icons.search, color: colors.text, size: 22),
+        prefixIconConstraints: const BoxConstraints(
+          minWidth: 48,
+          minHeight: 48,
+        ),
         suffixIcon: controller.text.isEmpty
             ? null
             : IconButton(
-                icon: Icon(Icons.close,
-                    color: AppConstants.textMutedColor, size: 18),
+                icon: Icon(
+                  Icons.close,
+                  color: MbPalette.ensureContrast(
+                    colors.textMuted,
+                    colors.surfaceRaised,
+                    minimum: 3.0,
+                  ),
+                  size: 18,
+                ),
                 onPressed: onClear,
               ),
         filled: true,
-        fillColor: AppConstants.tertiaryBackground,
+        fillColor: colors.surfaceRaised,
         border: _border,
         enabledBorder: _border,
         focusedBorder: _border,
-        contentPadding:
-            const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 14,
+          horizontal: 20,
+        ),
       ),
     );
   }

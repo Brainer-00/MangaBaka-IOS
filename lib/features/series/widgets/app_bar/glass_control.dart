@@ -1,8 +1,9 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 
 /// A frosted-glass control floating on the series banner: a labelled pill for
 /// "Back", or a circular icon button for share and delete.
@@ -53,22 +54,34 @@ class GlassControl extends StatelessWidget {
     // Blurring a transparent background costs the same as blurring a visible
     // one and shows nothing, so it is skipped along with the background.
     final useBlur = showBg && blurEnabled;
+    final colors = context.colors;
+    // Keep the artwork visible while making the control readable over either
+    // very bright or very dark covers.
+    final glassColor = colors.surface.withValues(alpha: 0.94);
+    final hardestBackdrop = colors.brightness == Brightness.dark
+        ? Colors.white
+        : Colors.black;
+    final foreground = MbPalette.ensureContrast(
+      colors.text,
+      showBg
+          ? Color.alphaBlend(glassColor, hardestBackdrop)
+          : colors.background,
+      minimum: 4.5,
+    );
 
     final Widget body = Container(
       height: size,
       width: label == null ? size : null,
       padding: EdgeInsets.symmetric(horizontal: label == null ? 0 : 14),
       decoration: BoxDecoration(
-        color: showBg
-            ? AppConstants.secondaryBackground.withValues(alpha: 0.55)
-            : Colors.transparent,
+        color: showBg ? glassColor : Colors.transparent,
         borderRadius: _radius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: iconSize, color: AppConstants.textColor),
+          Icon(icon, size: iconSize, color: foreground),
           if (label != null) ...[
             const SizedBox(width: 6),
             Flexible(
@@ -76,7 +89,7 @@ class GlassControl extends StatelessWidget {
                 label!,
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.sans(
-                  color: AppConstants.textColor,
+                  color: foreground,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),

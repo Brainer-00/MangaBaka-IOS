@@ -25,6 +25,10 @@ void main() {
       final manager = SettingsManager();
       await manager.init();
 
+      expect(manager.themeMode, AppThemeMode.dark);
+      expect(manager.darkThemeId, 'eirenyu');
+      expect(manager.lightThemeId, 'eirenyu');
+      expect(manager.accentOverride, isNull);
       expect(manager.currentListStyle, AppListStyle.compactGrid);
       expect(manager.hideLibrarySeriesInBrowse, false);
       expect(manager.contentPreferences, ['safe', 'suggestive']);
@@ -35,6 +39,10 @@ void main() {
 
     test('loads values from SharedPreferences', () async {
       SharedPreferences.setMockInitialValues({
+        SettingsKeys.themeMode: 'light',
+        SettingsKeys.darkThemeId: 'nord',
+        SettingsKeys.lightThemeId: 'catppuccin',
+        SettingsKeys.accentOverride: 0xFF8B7CF6,
         SettingsKeys.listStylePref: AppListStyle.comfortable.index,
         SettingsKeys.hideLibrarySeriesInBrowse: true,
         SettingsKeys.contentPreferences: ['safe', 'suggestive', 'erotica'],
@@ -46,12 +54,31 @@ void main() {
       final manager = SettingsManager();
       await manager.init();
 
+      expect(manager.themeMode, AppThemeMode.light);
+      expect(manager.darkThemeId, 'nord');
+      expect(manager.lightThemeId, 'catppuccin');
+      expect(manager.accentOverride, 0xFF8B7CF6);
       expect(manager.currentListStyle, AppListStyle.comfortable);
       expect(manager.hideLibrarySeriesInBrowse, true);
       expect(manager.contentPreferences, contains('erotica'));
       expect(manager.showTooltips, false);
       expect(manager.compactGridTitleRows, 3);
       expect(manager.defaultStartPage, AppStartPage.news);
+    });
+
+    test('appearance settings update and persist', () async {
+      final manager = SettingsManager();
+      await manager.init();
+
+      await manager.setThemeMode(AppThemeMode.system);
+      await manager.setDarkThemeId('dracula');
+      await manager.setAccentOverride(0xFFA82F4F);
+      expect(manager.themeMode, AppThemeMode.system);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt(SettingsKeys.accentOverride), 0xFFA82F4F);
+      expect(prefs.getString(SettingsKeys.themeMode), 'system');
+      expect(prefs.getString(SettingsKeys.darkThemeId), 'dracula');
     });
 
     test('updates values and notifies listeners', () async {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/features/profile/widgets/snapshot/snapshot_list.dart';
@@ -32,14 +33,20 @@ class ProfileSnapshotSection extends StatelessWidget {
         Text(
           l10n.translate('library_snapshot').toUpperCase(),
           style: AppTypography.display(
-            color: AppConstants.textColor,
+            color: context.colors.text,
             fontSize: 20,
           ),
         ),
         const SizedBox(height: 8),
         Text(
           l10n.translate('snapshot_desc'),
-          style: AppTypography.sans(color: AppConstants.textMutedColor),
+          style: AppTypography.sans(
+            color: MbPalette.ensureContrast(
+              context.colors.textMuted,
+              context.colors.background,
+              minimum: 4.5,
+            ),
+          ),
         ),
         const SizedBox(height: 16),
         SnapshotList(

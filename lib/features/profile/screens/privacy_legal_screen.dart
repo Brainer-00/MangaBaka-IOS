@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/utils/external_url_launcher.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 import 'package:mangabaka_app/core/widgets/app_snack_bar.dart';
@@ -21,7 +23,7 @@ class PrivacyLegalScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = LocalizationService();
     return Scaffold(
-      backgroundColor: AppConstants.primaryBackground,
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -30,7 +32,7 @@ class PrivacyLegalScreen extends StatelessWidget {
         title: Text(
           l10n.translate('privacy_and_legal').toUpperCase(),
           style: AppTypography.display(
-            color: AppConstants.textColor,
+            color: context.colors.text,
             fontSize: 20,
           ),
         ),
@@ -184,7 +186,10 @@ class _PrivacySummary extends StatelessWidget {
             children: [
               Icon(
                 Icons.shield_outlined,
-                color: AppConstants.accentColor,
+                color: context.colors.accentOn(
+                  context.colors.surface,
+                  minimum: 3,
+                ),
                 size: 22,
               ),
               const SizedBox(width: 12),
@@ -192,7 +197,7 @@ class _PrivacySummary extends StatelessWidget {
                 child: Text(
                   l10n.translate('privacy_summary_title').toUpperCase(),
                   style: AppTypography.display(
-                    color: AppConstants.textColor,
+                    color: context.colors.text,
                     fontSize: 16,
                   ),
                 ),
@@ -203,7 +208,7 @@ class _PrivacySummary extends StatelessWidget {
           Text(
             l10n.translate('privacy_summary_intro'),
             style: AppTypography.sans(
-              color: AppConstants.textColor,
+              color: context.colors.text,
               fontSize: 14,
               height: 1.45,
             ),
@@ -228,6 +233,7 @@ class _PrivacySummary extends StatelessWidget {
 
     if (DesktopLayout.isActive(context)) {
       return DesktopCard(
+        color: context.colors.surface,
         showBorder: false,
         padding: EdgeInsets.zero,
         child: summary,
@@ -252,7 +258,11 @@ class _SummaryPoint extends StatelessWidget {
           child: Icon(
             Icons.check_circle_outline,
             size: 17,
-            color: AppConstants.textMutedColor,
+            color: MbPalette.ensureContrast(
+              context.colors.textMuted,
+              context.colors.surface,
+              minimum: 3,
+            ),
           ),
         ),
         const SizedBox(width: 10),
@@ -260,7 +270,11 @@ class _SummaryPoint extends StatelessWidget {
           child: Text(
             text,
             style: AppTypography.sans(
-              color: AppConstants.textMutedColor,
+              color: MbPalette.ensureContrast(
+                context.colors.textMuted,
+                context.colors.surface,
+                minimum: 4.5,
+              ),
               fontSize: 13,
               height: 1.4,
             ),
@@ -283,15 +297,15 @@ class _MobileLegalActions extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SettingsSectionHeader(title: l10n.translate('project_documents')),
-        _group(actions.take(5).toList()),
+        _group(context, actions.take(5).toList()),
         const SizedBox(height: 20),
         SettingsSectionHeader(title: l10n.translate('service_policies')),
-        _group(actions.skip(5).toList()),
+        _group(context, actions.skip(5).toList()),
       ],
     );
   }
 
-  Widget _group(List<_LegalAction> items) {
+  Widget _group(BuildContext context, List<_LegalAction> items) {
     return SettingsGroup(
       children: [
         for (var index = 0; index < items.length; index++) ...[
@@ -308,7 +322,11 @@ class _MobileLegalActions extends StatelessWidget {
                 items[index].external
                     ? Icons.open_in_new
                     : Icons.chevron_right_rounded,
-                color: AppConstants.textMutedColor,
+                color: MbPalette.ensureContrast(
+                  context.colors.textMuted,
+                  context.colors.surface,
+                  minimum: 3,
+                ),
                 size: 18,
               ),
               isFirst: index == 0,
@@ -332,23 +350,41 @@ class _DesktopLegalActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        DesktopSectionTitle(title: l10n.translate('project_documents')),
-        _card(actions.take(5).toList()),
+        DesktopSectionTitle(
+          title: l10n.translate('project_documents'),
+          color: context.colors.text,
+        ),
+        _card(context, actions.take(5).toList()),
         const SizedBox(height: 24),
-        DesktopSectionTitle(title: l10n.translate('service_policies')),
-        _card(actions.skip(5).toList()),
+        DesktopSectionTitle(
+          title: l10n.translate('service_policies'),
+          color: context.colors.text,
+        ),
+        _card(context, actions.skip(5).toList()),
       ],
     );
   }
 
-  Widget _card(List<_LegalAction> items) {
+  Widget _card(BuildContext context, List<_LegalAction> items) {
     return DesktopCard(
+      color: context.colors.surface,
       showBorder: false,
       child: Column(
         children: [
           for (var index = 0; index < items.length; index++) ...[
             if (index > 0) const Divider(height: 24),
             DesktopSettingRow(
+              titleColor: context.colors.text,
+              subtitleColor: MbPalette.ensureContrast(
+                context.colors.textMuted,
+                context.colors.surface,
+                minimum: 4.5,
+              ),
+              iconColor: MbPalette.ensureContrast(
+                context.colors.textMuted,
+                context.colors.surface,
+                minimum: 3,
+              ),
               icon: items[index].icon,
               title: l10n.translate(items[index].titleKey),
               subtitle: l10n.translate(items[index].subtitleKey),
@@ -359,6 +395,9 @@ class _DesktopLegalActions extends StatelessWidget {
                     : Icons.arrow_forward_rounded,
                 onPressed: items[index].onTap,
                 link: items[index].external,
+                foregroundColor: context.colors.text,
+                backgroundColor: context.colors.surfaceRaised,
+                hoverColor: context.colors.border,
               ),
             ),
           ],
@@ -373,12 +412,18 @@ class _KeyboardAccessibleDesktopAction extends StatefulWidget {
   final IconData icon;
   final VoidCallback onPressed;
   final bool link;
+  final Color foregroundColor;
+  final Color backgroundColor;
+  final Color hoverColor;
 
   const _KeyboardAccessibleDesktopAction({
     required this.label,
     required this.icon,
     required this.onPressed,
     required this.link,
+    required this.foregroundColor,
+    required this.backgroundColor,
+    required this.hoverColor,
   });
 
   @override
@@ -411,7 +456,13 @@ class _KeyboardAccessibleDesktopActionState
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(AppConstants.pillRadius),
           border: _focused
-              ? Border.all(color: AppConstants.accentColor, width: 2)
+              ? Border.all(
+                  color: context.colors.accentOn(
+                    context.colors.surface,
+                    minimum: 3,
+                  ),
+                  width: 2,
+                )
               : null,
         ),
         child: Semantics(
@@ -421,6 +472,9 @@ class _KeyboardAccessibleDesktopActionState
             label: widget.label,
             icon: widget.icon,
             onPressed: widget.onPressed,
+            foregroundColor: widget.foregroundColor,
+            backgroundColor: widget.backgroundColor,
+            hoverColor: widget.hoverColor,
           ),
         ),
       ),

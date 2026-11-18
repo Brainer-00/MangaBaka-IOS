@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/desktop/desktop_layout.dart';
 
 /// Centralized SnackBar and Toast presenter.
@@ -26,6 +28,18 @@ class AppSnackBar {
     messenger.hideCurrentSnackBar();
 
     final isDesktop = DesktopLayout.isDesktopPlatform;
+    final colors = context.colors;
+    final background = colors.surfaceRaised;
+    final iconColor = MbPalette.ensureContrast(
+      isError ? colors.error : colors.success,
+      background,
+      minimum: 3,
+    );
+    final actionColor = MbPalette.ensureContrast(
+      action?.textColor ?? colors.accent,
+      background,
+      minimum: 4.5,
+    );
 
     if (isDesktop) {
       final screenWidth = MediaQuery.sizeOf(context).width;
@@ -34,18 +48,14 @@ class AppSnackBar {
       messenger.showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
-          backgroundColor: AppConstants.secondaryBackground,
+          backgroundColor: background,
           elevation: 6,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
-            side: BorderSide(color: AppConstants.borderColor),
+            side: BorderSide(color: colors.border),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          margin: EdgeInsets.only(
-            left: leftMargin,
-            right: 28,
-            bottom: 28,
-          ),
+          margin: EdgeInsets.only(left: leftMargin, right: 28, bottom: 28),
           duration: duration,
           content: Row(
             mainAxisSize: MainAxisSize.min,
@@ -55,16 +65,14 @@ class AppSnackBar {
                     ? Icons.error_outline_rounded
                     : Icons.check_circle_outline_rounded,
                 size: 18,
-                color: isError
-                    ? AppConstants.errorColor
-                    : AppConstants.accentColor,
+                color: iconColor,
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   message,
                   style: AppTypography.sans(
-                    color: AppConstants.textColor,
+                    color: colors.text,
                     fontSize: 13.5,
                     fontWeight: FontWeight.w500,
                   ),
@@ -78,8 +86,7 @@ class AppSnackBar {
                     messenger.hideCurrentSnackBar();
                   },
                   style: TextButton.styleFrom(
-                    foregroundColor:
-                        action.textColor ?? AppConstants.accentColor,
+                    foregroundColor: actionColor,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 4,
@@ -104,11 +111,11 @@ class AppSnackBar {
       messenger.showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
-          backgroundColor: AppConstants.secondaryBackground,
+          backgroundColor: background,
           duration: duration,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppConstants.denseRadius),
-            side: BorderSide(color: AppConstants.borderColor),
+            side: BorderSide(color: colors.border),
           ),
           content: Row(
             children: [
@@ -117,23 +124,24 @@ class AppSnackBar {
                     ? Icons.error_outline_rounded
                     : Icons.check_circle_outline_rounded,
                 size: 18,
-                color: isError
-                    ? AppConstants.errorColor
-                    : AppConstants.accentColor,
+                color: iconColor,
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   message,
-                  style: AppTypography.sans(
-                    color: AppConstants.textColor,
-                    fontSize: 13.5,
-                  ),
+                  style: AppTypography.sans(color: colors.text, fontSize: 13.5),
                 ),
               ),
             ],
           ),
-          action: action,
+          action: action == null
+              ? null
+              : SnackBarAction(
+                  label: action.label,
+                  onPressed: action.onPressed,
+                  textColor: actionColor,
+                ),
         ),
       );
     }

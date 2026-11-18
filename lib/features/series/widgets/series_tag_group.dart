@@ -1,6 +1,8 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/features/series/models/tag_chip_data.dart';
 import 'package:mangabaka_app/features/series/widgets/chip.dart';
 
@@ -31,6 +33,7 @@ class _SeriesTagGroupState extends State<SeriesTagGroup> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
@@ -45,7 +48,11 @@ class _SeriesTagGroupState extends State<SeriesTagGroup> {
           decoration: BoxDecoration(
             border: Border(
               left: BorderSide(
-                color: AppConstants.accentColor.withValues(alpha: 0.5),
+                color: MbPalette.ensureContrast(
+                  colors.accent,
+                  colors.surface,
+                  minimum: 3.0,
+                ),
                 width: 3,
               ),
             ),
@@ -62,15 +69,24 @@ class _SeriesTagGroupState extends State<SeriesTagGroup> {
                       style: AppTypography.sans(
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
-                        color: AppConstants.textMutedColor,
+                        color: MbPalette.ensureContrast(
+                          colors.textMuted,
+                          colors.surface,
+                        ),
                         letterSpacing: 1.5,
                       ),
                     ),
                   ),
                   Icon(
-                    _isCollapsed ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
+                    _isCollapsed
+                        ? Icons.keyboard_arrow_down
+                        : Icons.keyboard_arrow_up,
                     size: 16,
-                    color: AppConstants.textMutedColor.withValues(alpha: 0.7),
+                    color: MbPalette.ensureContrast(
+                      colors.textMuted,
+                      colors.surface,
+                      minimum: 3.0,
+                    ),
                   ),
                 ],
               ),
@@ -101,7 +117,10 @@ class _SeriesTagGroupState extends State<SeriesTagGroup> {
                                         style: AppTypography.sans(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
-                                          color: AppConstants.textMutedColor,
+                                          color: MbPalette.ensureContrast(
+                                            colors.textMuted,
+                                            colors.surface,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -109,9 +128,14 @@ class _SeriesTagGroupState extends State<SeriesTagGroup> {
                                   Wrap(
                                     spacing: 8,
                                     runSpacing: 8,
-                                    children: tags.map(_buildTagChip).toList(),
+                                    children: tags
+                                        .map(
+                                          (tag) => _buildTagChip(context, tag),
+                                        )
+                                        .toList(),
                                   ),
-                                  if (subEntry.key != widget.subGroups.keys.last)
+                                  if (subEntry.key !=
+                                      widget.subGroups.keys.last)
                                     const SizedBox(height: 16),
                                 ],
                               );
@@ -127,18 +151,15 @@ class _SeriesTagGroupState extends State<SeriesTagGroup> {
     );
   }
 
-  Widget _buildTagChip(TagChipData data) {
+  Widget _buildTagChip(BuildContext context, TagChipData data) {
+    final colors = context.colors;
     final tagParts = data.labelParts;
     final isSelected = widget.selectedTagIds.contains(data.tagId);
 
     return ChipBase(
       borderRadius: AppConstants.pillRadius,
-      backgroundColor: isSelected
-          ? AppConstants.accentColor
-          : AppConstants.secondaryBackground,
-      borderColor: isSelected
-          ? AppConstants.accentColor
-          : AppConstants.borderColor,
+      backgroundColor: isSelected ? colors.accent : colors.surfaceRaised,
+      borderColor: isSelected ? colors.accent : colors.border,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       onTap: () => widget.onTagTap(data.tag),
       onLongPress: () => widget.onTagLongPress(data.tag),
@@ -147,9 +168,15 @@ class _SeriesTagGroupState extends State<SeriesTagGroup> {
           children: [
             if (tagParts.length > 1) ...[
               TextSpan(
-                text: '${tagParts.sublist(0, tagParts.length - 1).join(' > ')} > ',
+                text:
+                    '${tagParts.sublist(0, tagParts.length - 1).join(' > ')} > ',
                 style: AppTypography.sans(
-                  color: isSelected ? Colors.white70 : AppConstants.textMutedColor,
+                  color: isSelected
+                      ? colors.accentOn(colors.accent)
+                      : MbPalette.ensureContrast(
+                          colors.textMuted,
+                          colors.surface,
+                        ),
                   fontSize: 11,
                   fontWeight: FontWeight.w400,
                   height: 1.2,
@@ -159,7 +186,13 @@ class _SeriesTagGroupState extends State<SeriesTagGroup> {
             TextSpan(
               text: tagParts.last,
               style: AppTypography.sans(
-                color: isSelected ? Colors.white : AppConstants.textColor,
+                color: isSelected
+                    ? colors.accentOn(colors.accent)
+                    : MbPalette.ensureContrast(
+                        colors.text,
+                        colors.surfaceRaised,
+                        minimum: 4.5,
+                      ),
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 height: 1.2,

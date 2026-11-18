@@ -1,5 +1,7 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 
 class LibraryStatusBanner extends StatelessWidget {
   final String message;
@@ -19,19 +21,28 @@ class LibraryStatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final background = Color.alphaBlend(
+      color.withValues(alpha: 0.12),
+      context.colors.background,
+    );
+    final foreground = MbPalette.ensureContrast(
+      color,
+      background,
+      minimum: 4.5,
+    );
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.12)),
+      decoration: BoxDecoration(color: background),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 18),
+          Icon(icon, color: foreground, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
               style: AppTypography.sans(
-                color: color,
+                color: foreground,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -40,7 +51,7 @@ class LibraryStatusBanner extends StatelessWidget {
           ?action,
           if (onClose != null)
             IconButton(
-              icon: Icon(Icons.close, color: color, size: 16),
+              icon: Icon(Icons.close, color: foreground, size: 16),
               onPressed: onClose,
             ),
         ],

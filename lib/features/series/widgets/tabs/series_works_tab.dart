@@ -1,12 +1,13 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/features/series/models/series_work.dart';
 import 'package:mangabaka_app/features/series/widgets/series_section_header.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/settings/settings_enums.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 
 class SeriesWorksTab extends StatelessWidget {
   final List<SeriesWork>? works;
@@ -14,7 +15,7 @@ class SeriesWorksTab extends StatelessWidget {
   final String? fallbackCoverUrl;
 
   const SeriesWorksTab({
-    super.key, 
+    super.key,
     this.works,
     this.horizontalPadding = 16.0,
     this.fallbackCoverUrl,
@@ -22,10 +23,28 @@ class SeriesWorksTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final l10n = LocalizationService();
-    if (works == null) return const Center(child: Padding(padding: EdgeInsets.all(32.0), child: CircularProgressIndicator()));
-    if (works!.isEmpty) return Center(child: Padding(padding: const EdgeInsets.all(32.0), child: Text(l10n.translate('no_works_available'))));
-    
+    if (works == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: CircularProgressIndicator(color: colors.progressIndicator),
+        ),
+      );
+    }
+    if (works!.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Text(
+            l10n.translate('no_works_available'),
+            style: AppTypography.sans(color: colors.textMuted),
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: ListenableBuilder(
@@ -76,10 +95,12 @@ class SeriesWorksTab extends StatelessWidget {
       child: IconButton(
         icon: Icon(
           isGrid ? Icons.view_agenda_outlined : Icons.grid_view_rounded,
-          color: AppConstants.textColor,
+          color: context.colors.text,
         ),
         onPressed: () {
-          settings.setWorksListStyle(isGrid ? AppListStyle.comfortable : AppListStyle.compactGrid);
+          settings.setWorksListStyle(
+            isGrid ? AppListStyle.comfortable : AppListStyle.compactGrid,
+          );
         },
       ),
     );
@@ -97,24 +118,34 @@ class SeriesWorksTab extends StatelessWidget {
   }
 
   Widget _buildGridView(BuildContext context, double maxWidth) {
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
     final crossAxisCount = isLandscape ? 4 : 2;
     final spacing = 12.0;
-    final itemWidth = (maxWidth - (spacing * (crossAxisCount - 1))) / crossAxisCount;
+    final itemWidth =
+        (maxWidth - (spacing * (crossAxisCount - 1))) / crossAxisCount;
 
     return Wrap(
       spacing: spacing,
       runSpacing: 16,
-      children: works!.map((w) => _buildGridItem(context, w, itemWidth)).toList(),
+      children: works!
+          .map((w) => _buildGridItem(context, w, itemWidth))
+          .toList(),
     );
   }
 
   Widget _buildListItem(BuildContext context, SeriesWork w) {
     final l10n = LocalizationService();
+    final colors = context.colors;
+    final metadataColor = MbPalette.ensureContrast(
+      colors.textMuted,
+      colors.surfaceRaised,
+      minimum: 4.5,
+    );
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppConstants.secondaryBackground,
+        color: colors.surfaceRaised,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -143,8 +174,16 @@ class SeriesWorksTab extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        w.subTitle.isNotEmpty ? w.subTitle : l10n.translate('volume_title').replaceAll('{index}', w.sequenceString),
-                        style: AppTypography.sans(color: AppConstants.textColor, fontWeight: FontWeight.bold, fontSize: 15),
+                        w.subTitle.isNotEmpty
+                            ? w.subTitle
+                            : l10n
+                                  .translate('volume_title')
+                                  .replaceAll('{index}', w.sequenceString),
+                        style: AppTypography.sans(
+                          color: colors.text,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -154,26 +193,50 @@ class SeriesWorksTab extends StatelessWidget {
                         padding: const EdgeInsets.only(left: 8),
                         child: Text(
                           w.priceString!,
-                          style: AppTypography.sans(color: AppConstants.accentColor, fontWeight: FontWeight.bold, fontSize: 13),
+                          style: AppTypography.sans(
+                            color: colors.accentOn(colors.surfaceRaised),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                   ],
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  l10n.translate('release_date').replaceAll('{date}', w.releaseDate),
-                  style: AppTypography.sans(color: AppConstants.textMutedColor, fontSize: 13),
+                  l10n
+                      .translate('release_date')
+                      .replaceAll('{date}', w.releaseDate),
+                  style: AppTypography.sans(color: metadataColor, fontSize: 13),
                 ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(Icons.description_outlined, size: 14, color: AppConstants.textMutedColor),
+                    Icon(
+                      Icons.description_outlined,
+                      size: 14,
+                      color: metadataColor,
+                    ),
                     const SizedBox(width: 4),
-                    Text(l10n.translate('pages_count').replaceAll('{count}', w.pages.toString()), style: AppTypography.sans(color: AppConstants.textMutedColor, fontSize: 12)),
+                    Text(
+                      l10n
+                          .translate('pages_count')
+                          .replaceAll('{count}', w.pages.toString()),
+                      style: AppTypography.sans(
+                        color: metadataColor,
+                        fontSize: 12,
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    Icon(Icons.label_outline, size: 14, color: AppConstants.textMutedColor),
+                    Icon(Icons.label_outline, size: 14, color: metadataColor),
                     const SizedBox(width: 4),
-                    Text(w.countType, style: AppTypography.sans(color: AppConstants.textMutedColor, fontSize: 12)),
+                    Text(
+                      w.countType,
+                      style: AppTypography.sans(
+                        color: metadataColor,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -186,6 +249,7 @@ class SeriesWorksTab extends StatelessWidget {
 
   Widget _buildGridItem(BuildContext context, SeriesWork w, double width) {
     final l10n = LocalizationService();
+    final colors = context.colors;
     return SizedBox(
       width: width,
       child: Column(
@@ -211,8 +275,16 @@ class SeriesWorksTab extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            w.subTitle.isNotEmpty ? w.subTitle : l10n.translate('volume_title').replaceAll('{index}', w.sequenceString),
-            style: AppTypography.sans(color: AppConstants.textColor, fontWeight: FontWeight.bold, fontSize: 13),
+            w.subTitle.isNotEmpty
+                ? w.subTitle
+                : l10n
+                      .translate('volume_title')
+                      .replaceAll('{index}', w.sequenceString),
+            style: AppTypography.sans(
+              color: colors.text,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -220,7 +292,11 @@ class SeriesWorksTab extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               w.priceString!,
-              style: AppTypography.sans(color: AppConstants.accentColor, fontWeight: FontWeight.bold, fontSize: 12),
+              style: AppTypography.sans(
+                color: colors.accentOn(colors.background),
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
             ),
           ],
         ],

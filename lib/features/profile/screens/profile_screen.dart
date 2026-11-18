@@ -3,8 +3,9 @@ import 'package:mangabaka_app/features/profile/services/snapshot_service.dart';
 import 'package:mangabaka_app/shared/widgets/app_shortcuts.dart';
 import 'package:mangabaka_app/features/profile/services/statistics_service.dart';
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/features/profile/screens/settings_screen.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
@@ -162,8 +163,27 @@ class _ProfileScreenState extends State<ProfileScreen> with ProfileDataMixin {
         message: l10n.translate('login_prompt_profile'),
       );
     }
-    if (loading) return const Center(child: CircularProgressIndicator());
-    if (error != null) return Center(child: Text(error!));
+    if (loading) {
+      return Center(
+        child: CircularProgressIndicator(
+          color: context.colors.accentOn(context.colors.background, minimum: 3),
+        ),
+      );
+    }
+    if (error != null) {
+      return Center(
+        child: Text(
+          error!,
+          style: AppTypography.sans(
+            color: MbPalette.ensureContrast(
+              context.colors.error,
+              context.colors.background,
+              minimum: 4.5,
+            ),
+          ),
+        ),
+      );
+    }
     if (profile == null) {
       return MBLoginPrompt(
         onLogin: login,
@@ -172,6 +192,8 @@ class _ProfileScreenState extends State<ProfileScreen> with ProfileDataMixin {
     }
 
     return RefreshIndicator(
+      color: context.colors.progressIndicator,
+      backgroundColor: context.colors.surfaceRaised,
       onRefresh: bootstrap,
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -211,13 +233,13 @@ class _ProfileScreenState extends State<ProfileScreen> with ProfileDataMixin {
             : profile?.preferredUsername;
 
         return Scaffold(
-          backgroundColor: AppConstants.primaryBackground,
+          backgroundColor: context.colors.background,
           appBar: AppBar(
             centerTitle: true,
             title: Text(
               _buildProfileTitle(username, l10n).toUpperCase(),
               style: AppTypography.display(
-                color: AppConstants.textColor,
+                color: context.colors.text,
                 fontSize: 20,
               ),
             ),

@@ -1,6 +1,7 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/features/library/constants/library_screen_constants.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/library/helpers/library_filter_helper.dart';
@@ -37,18 +38,32 @@ class LibraryBody extends StatelessWidget {
     required this.onItemTap,
   });
 
-  Widget _buildErrorState(BuildContext context, LocalizationService l10n, Object error) {
+  Widget _buildErrorState(
+    BuildContext context,
+    LocalizationService l10n,
+    Object error,
+  ) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline_rounded, color: AppConstants.errorColor, size: 40),
+            Icon(
+              Icons.error_outline_rounded,
+              color: context.colors.error,
+              size: 40,
+            ),
             const SizedBox(height: 12),
             Text(
               '${l10n.translate('failed_to_load')}: $error',
-              style: AppTypography.sans(color: AppConstants.errorColor),
+              style: AppTypography.sans(
+                color: MbPalette.ensureContrast(
+                  context.colors.error,
+                  context.colors.background,
+                  minimum: 4.5,
+                ),
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -57,7 +72,10 @@ class LibraryBody extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyLibraryState(BuildContext context, LocalizationService l10n) {
+  Widget _buildEmptyLibraryState(
+    BuildContext context,
+    LocalizationService l10n,
+  ) {
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: ListView(
@@ -69,11 +87,22 @@ class LibraryBody extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.library_books_outlined, size: 48, color: AppConstants.textMutedColor),
+                  Icon(
+                    Icons.library_books_outlined,
+                    size: 48,
+                    color: context.colors.textMuted,
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     l10n.translate('empty_library'),
-                    style: AppTypography.sans(color: AppConstants.textMutedColor, fontSize: 16),
+                    style: AppTypography.sans(
+                      color: MbPalette.ensureContrast(
+                        context.colors.textMuted,
+                        context.colors.background,
+                        minimum: 4.5,
+                      ),
+                      fontSize: 16,
+                    ),
                   ),
                 ],
               ),
@@ -101,7 +130,8 @@ class LibraryBody extends StatelessWidget {
     return StreamBuilder<List<LibraryEntry>>(
       stream: entriesStream,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
           final settings = SettingsManager();
           final isGrid = settings.resolvedLibraryListStyle.isGrid;
           return SeriesListSkeleton(isGrid: isGrid);

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/motion/app_motion.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 
 class DesktopDropdownItem<T> {
   final T value;
@@ -35,13 +37,13 @@ class DesktopDropdown<T> extends StatefulWidget {
   final T? selected;
   final ValueChanged<T> onSelected;
 
-  /// Custom background color for the button. Defaults to [AppConstants.tertiaryBackground].
+  /// Custom background color for the button. Defaults to the raised surface.
   final Color? backgroundColor;
 
-  /// Custom text & icon color for the button. Defaults to [AppConstants.textColor].
+  /// Custom text & icon color for the button. Defaults to theme text.
   final Color? foregroundColor;
 
-  /// Custom background color for the dropdown menu. Defaults to [AppConstants.secondaryBackground].
+  /// Custom background color for the dropdown menu. Defaults to theme surface.
   final Color? menuBackgroundColor;
 
   /// Optional border for the button itself. Defaults to null.
@@ -86,6 +88,25 @@ class _DesktopDropdownState<T> extends State<DesktopDropdown<T>> {
   bool _isHovered = false;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _refreshOverlay();
+  }
+
+  @override
+  void didUpdateWidget(covariant DesktopDropdown<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _refreshOverlay();
+  }
+
+  void _refreshOverlay() {
+    if (!_isOpen) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _isOpen) _overlayEntry?.markNeedsBuild();
+    });
+  }
+
+  @override
   void dispose() {
     _closeMenu(notify: false);
     super.dispose();
@@ -127,7 +148,8 @@ class _DesktopDropdownState<T> extends State<DesktopDropdown<T>> {
         openUpward: openUpward,
         items: widget.items,
         selected: widget.selected,
-        backgroundColor: widget.menuBackgroundColor ?? AppConstants.secondaryBackground,
+        backgroundColor: widget.menuBackgroundColor ?? context.colors.surface,
+        colors: context.colors,
         minWidth: widget.minWidth,
         onSelected: (val) {
           _closeMenu();
@@ -153,9 +175,19 @@ class _DesktopDropdownState<T> extends State<DesktopDropdown<T>> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = widget.backgroundColor ?? AppConstants.tertiaryBackground;
-    final fg = widget.foregroundColor ?? AppConstants.textColor;
-    final hoverBg = Color.lerp(bg, AppConstants.borderColor, 0.45) ?? AppConstants.borderColor;
+    final colors = context.colors;
+    final bg = widget.backgroundColor ?? colors.surfaceRaised;
+    final hoverBg = widget.backgroundColor != null
+        ? bg
+        : Color.lerp(bg, colors.border, 0.45) ?? colors.border;
+    final effectiveBg = _isOpen
+        ? (widget.backgroundColor != null ? bg : colors.border)
+        : (_isHovered ? hoverBg : bg);
+    final fg = MbPalette.ensureContrast(
+      widget.foregroundColor ?? colors.text,
+      effectiveBg,
+      minimum: 4.5,
+    );
 
     final displayText = (widget.label != null && widget.label!.isNotEmpty)
         ? '${widget.label} · ${widget.valueLabel}'
@@ -174,14 +206,14 @@ class _DesktopDropdownState<T> extends State<DesktopDropdown<T>> {
             curve: AppMotion.emphasized,
             padding: widget.padding,
             decoration: BoxDecoration(
-              color: _isOpen
-                  ? (widget.backgroundColor != null ? bg : AppConstants.borderColor)
-                  : (_isHovered ? hoverBg : bg),
+              color: effectiveBg,
               borderRadius: BorderRadius.circular(widget.radius),
               border: widget.border,
             ),
             child: Row(
-              mainAxisSize: widget.width != null ? MainAxisSize.max : MainAxisSize.min,
+              mainAxisSize: widget.width != null
+                  ? MainAxisSize.max
+                  : MainAxisSize.min,
               children: [
                 if (widget.leading != null) ...[
                   widget.leading!,
@@ -196,10 +228,7 @@ class _DesktopDropdownState<T> extends State<DesktopDropdown<T>> {
                       displayText.toUpperCase(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTypography.display(
-                        color: fg,
-                        fontSize: 12.5,
-                      ),
+                      style: AppTypography.display(color: fg, fontSize: 12.5),
                     ),
                   )
                 else
@@ -207,10 +236,7 @@ class _DesktopDropdownState<T> extends State<DesktopDropdown<T>> {
                     displayText.toUpperCase(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTypography.display(
-                      color: fg,
-                      fontSize: 12.5,
-                    ),
+                    style: AppTypography.display(color: fg, fontSize: 12.5),
                   ),
                 const SizedBox(width: 8),
                 AnimatedRotation(
@@ -246,6 +272,7 @@ class _DesktopDropdownOverlay<T> extends StatefulWidget {
   final List<DesktopDropdownItem<T>> items;
   final T? selected;
   final Color backgroundColor;
+  final MbPalette colors;
   final double minWidth;
   final ValueChanged<T> onSelected;
   final VoidCallback onDismiss;
@@ -258,6 +285,7 @@ class _DesktopDropdownOverlay<T> extends StatefulWidget {
     required this.items,
     required this.selected,
     required this.backgroundColor,
+    required this.colors,
     required this.minWidth,
     required this.onSelected,
     required this.onDismiss,
@@ -324,16 +352,14 @@ class _DesktopDropdownOverlayState<T> extends State<_DesktopDropdownOverlay<T>>
                     ? Alignment.bottomCenter
                     : Alignment.topCenter,
                 child: Container(
+                  key: const Key('desktop_dropdown_menu'),
                   width: menuWidth,
                   constraints: const BoxConstraints(maxHeight: 320),
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     color: widget.backgroundColor,
                     borderRadius: menuRadius,
-                    border: Border.all(
-                      color: AppConstants.borderColor,
-                      width: 1,
-                    ),
+                    border: Border.all(color: widget.colors.border, width: 1),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.5),
@@ -355,6 +381,8 @@ class _DesktopDropdownOverlayState<T> extends State<_DesktopDropdownOverlay<T>>
                               item: widget.items[i],
                               isSelected:
                                   widget.items[i].value == widget.selected,
+                              colors: widget.colors,
+                              menuBackground: widget.backgroundColor,
                               onTap: () =>
                                   widget.onSelected(widget.items[i].value),
                             ),
@@ -376,11 +404,15 @@ class _DropdownRow<T> extends StatefulWidget {
   final DesktopDropdownItem<T> item;
   final bool isSelected;
   final VoidCallback onTap;
+  final MbPalette colors;
+  final Color menuBackground;
 
   const _DropdownRow({
     required this.item,
     required this.isSelected,
     required this.onTap,
+    required this.colors,
+    required this.menuBackground,
   });
 
   @override
@@ -394,7 +426,19 @@ class _DropdownRowState<T> extends State<_DropdownRow<T>> {
   Widget build(BuildContext context) {
     final isSelected = widget.isSelected;
     final item = widget.item;
-    final activeColor = item.iconColor ?? AppConstants.accentColor;
+    final colors = widget.colors;
+    final activeColor = item.iconColor ?? colors.accent;
+    final rowColor = isSelected
+        ? Color.alphaBlend(
+            activeColor.withValues(alpha: 0.14),
+            widget.menuBackground,
+          )
+        : (_hovered ? colors.surfaceRaised : widget.menuBackground);
+    final activeForeground = MbPalette.ensureContrast(
+      activeColor,
+      rowColor,
+      minimum: 4.5,
+    );
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -408,9 +452,7 @@ class _DropdownRowState<T> extends State<_DropdownRow<T>> {
           decoration: BoxDecoration(
             color: isSelected
                 ? activeColor.withValues(alpha: 0.14)
-                : (_hovered
-                    ? AppConstants.tertiaryBackground
-                    : Colors.transparent),
+                : (_hovered ? colors.surfaceRaised : Colors.transparent),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -422,10 +464,13 @@ class _DropdownRowState<T> extends State<_DropdownRow<T>> {
                 Icon(
                   item.icon,
                   size: 17,
-                  color: item.iconColor ??
-                      (isSelected
-                          ? activeColor
-                          : AppConstants.textMutedColor),
+                  color: isSelected
+                      ? activeForeground
+                      : MbPalette.ensureContrast(
+                          item.iconColor ?? colors.textMuted,
+                          rowColor,
+                          minimum: 3.0,
+                        ),
                 ),
                 const SizedBox(width: 10),
               ],
@@ -436,8 +481,12 @@ class _DropdownRowState<T> extends State<_DropdownRow<T>> {
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.sans(
                     color: isSelected
-                        ? activeColor
-                        : AppConstants.textColor,
+                        ? activeForeground
+                        : MbPalette.ensureContrast(
+                            colors.text,
+                            rowColor,
+                            minimum: 4.5,
+                          ),
                     fontSize: 13.5,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   ),
@@ -448,11 +497,7 @@ class _DropdownRowState<T> extends State<_DropdownRow<T>> {
                 item.trailing!,
               ] else if (isSelected) ...[
                 const SizedBox(width: 8),
-                Icon(
-                  Icons.check_rounded,
-                  size: 16,
-                  color: activeColor,
-                ),
+                Icon(Icons.check_rounded, size: 16, color: activeForeground),
               ],
             ],
           ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 
@@ -11,9 +13,15 @@ class TranslationCreditsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = LocalizationService();
     final languages = l10n.getLanguages();
+    final colors = context.colors;
+    final mutedOnCard = MbPalette.ensureContrast(
+      colors.textMuted,
+      colors.surface,
+      minimum: 4.5,
+    );
 
     return Scaffold(
-      backgroundColor: AppConstants.primaryBackground,
+      backgroundColor: colors.background,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -21,10 +29,7 @@ class TranslationCreditsScreen extends StatelessWidget {
         ),
         title: Text(
           l10n.translate('translation_credits').toUpperCase(),
-          style: AppTypography.display(
-            color: AppConstants.textColor,
-            fontSize: 20,
-          ),
+          style: AppTypography.display(color: colors.text, fontSize: 20),
         ),
         centerTitle: true,
       ),
@@ -39,7 +44,7 @@ class TranslationCreditsScreen extends StatelessWidget {
             return Container(
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: AppConstants.secondaryBackground,
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(AppConstants.largeRadius),
               ),
               child: Column(
@@ -49,18 +54,22 @@ class TranslationCreditsScreen extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                     child: Row(
                       children: [
-                        Text(
-                          lang['name'],
-                          style: AppTypography.display(
-                            color: AppConstants.textColor,
-                            fontSize: 16,
+                        Flexible(
+                          child: Text(
+                            lang['name'],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.display(
+                              color: colors.text,
+                              fontSize: 16,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           '(${lang['code']})',
                           style: AppTypography.sans(
-                            color: AppConstants.textMutedColor,
+                            color: mutedOnCard,
                             fontSize: 14,
                           ),
                         ),
@@ -78,7 +87,7 @@ class TranslationCreditsScreen extends StatelessWidget {
                           child: Text(
                             t,
                             style: AppTypography.sans(
-                              color: AppConstants.textMutedColor,
+                              color: mutedOnCard,
                               fontSize: 15,
                             ),
                           ),

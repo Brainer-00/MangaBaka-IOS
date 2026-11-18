@@ -270,6 +270,13 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    testWidgets('Appearance opens in the inline desktop pane', (tester) async {
+      await pumpSettings(tester);
+      await tester.tap(find.text('appearance'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('appearance_mode_dark')), findsOneWidget);
+    });
+
     testWidgets('logs open from Advanced and go back to it', (tester) async {
       await pumpSettings(tester);
 

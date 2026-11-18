@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/widgets/app_snack_bar.dart';
@@ -160,9 +160,7 @@ class CopyToOtherListButton extends StatelessWidget {
         scope.copyToOtherTab();
         AppSnackBar.show(
           context,
-          l10n.translate(
-            toBrowse ? 'copied_to_browse' : 'copied_to_library',
-          ),
+          l10n.translate(toBrowse ? 'copied_to_browse' : 'copied_to_library'),
         );
       },
       icon: const Icon(Icons.copy_all_outlined),
@@ -170,9 +168,9 @@ class CopyToOtherListButton extends StatelessWidget {
         l10n.translate(toBrowse ? 'copy_to_browse' : 'copy_to_library'),
       ),
       style: OutlinedButton.styleFrom(
-        foregroundColor: AppConstants.accentColor,
+        foregroundColor: context.colors.accentOn(context.colors.background),
         side: BorderSide(
-          color: AppConstants.accentColor.withValues(alpha: 0.5),
+          color: context.colors.accentOn(context.colors.background, minimum: 3),
         ),
         padding: const EdgeInsets.symmetric(vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

@@ -1,6 +1,8 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 
 class StandoutPickCard extends StatelessWidget {
   final IconData icon;
@@ -24,18 +26,22 @@ class StandoutPickCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppConstants.secondaryBackground,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(AppConstants.largeRadius),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: AppConstants.textColor, size: 22),
+          Icon(icon, color: context.colors.text, size: 22),
           const SizedBox(height: 8),
           Text(
             label,
             style: AppTypography.sans(
-              color: AppConstants.textMutedColor,
+              color: MbPalette.ensureContrast(
+                context.colors.textMuted,
+                context.colors.surface,
+                minimum: 4.5,
+              ),
               fontSize: 14,
             ),
           ),
@@ -45,7 +51,7 @@ class StandoutPickCard extends StatelessWidget {
             child: Text(
               title,
               style: AppTypography.display(
-                color: AppConstants.accentColor,
+                color: context.colors.accentOn(context.colors.surface),
                 fontSize: 16,
               ),
             ),
@@ -54,7 +60,7 @@ class StandoutPickCard extends StatelessWidget {
           Text(
             value,
             style: AppTypography.sans(
-              color: AppConstants.textColor,
+              color: context.colors.text,
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),

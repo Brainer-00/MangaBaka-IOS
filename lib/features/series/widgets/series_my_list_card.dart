@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
@@ -38,6 +40,7 @@ class SeriesMyListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final chapterTotal = _parseTotal(series.totalChapters);
     final volumeTotal = _parseTotal(series.finalVolume);
     final hasChapters =
@@ -57,7 +60,11 @@ class SeriesMyListCard extends StatelessWidget {
           ? Text(
               '${(pct * 100).round()}%',
               style: AppTypography.sans(
-                color: statusColor,
+                color: MbPalette.ensureContrast(
+                  statusColor,
+                  colors.surface,
+                  minimum: 4.5,
+                ),
                 fontSize: 10.5,
                 fontWeight: FontWeight.w600,
               ),
@@ -120,6 +127,17 @@ class _ProgressRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final statusText = MbPalette.ensureContrast(
+      statusColor,
+      colors.surface,
+      minimum: 4.5,
+    );
+    final statusIndicator = MbPalette.ensureContrast(
+      statusColor,
+      colors.surfaceRaised,
+      minimum: 3.0,
+    );
     final pct = (total != null && total! > 0)
         ? (value / total!).clamp(0.0, 1.0)
         : 0.0;
@@ -138,7 +156,7 @@ class _ProgressRow extends StatelessWidget {
                 child: Text(
                   label.toUpperCase(),
                   style: AppTypography.monoLabel(
-                    color: AppConstants.textMutedColor,
+                    color: colors.textMuted,
                     fontSize: 12,
                   ),
                 ),
@@ -149,7 +167,7 @@ class _ProgressRow extends StatelessWidget {
                     TextSpan(
                       text: '$value',
                       style: AppTypography.sans(
-                        color: statusColor,
+                        color: statusText,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
@@ -157,7 +175,7 @@ class _ProgressRow extends StatelessWidget {
                     TextSpan(
                       text: ' / $totalLabel',
                       style: AppTypography.sans(
-                        color: AppConstants.textColor,
+                        color: colors.text,
                         fontSize: 14,
                       ),
                     ),
@@ -165,7 +183,7 @@ class _ProgressRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.add, size: 16, color: AppConstants.textMutedColor),
+              Icon(Icons.add, size: 16, color: colors.textMuted),
             ],
           ),
           const SizedBox(height: 8),
@@ -174,9 +192,9 @@ class _ProgressRow extends StatelessWidget {
             child: Container(
               height: 7,
               decoration: BoxDecoration(
-                color: AppConstants.tertiaryBackground,
+                color: colors.surfaceRaised,
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: AppConstants.borderColor, width: 1),
+                border: Border.all(color: colors.border, width: 1),
               ),
               child: FractionallySizedBox(
                 alignment: Alignment.centerLeft,
@@ -186,12 +204,8 @@ class _ProgressRow extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                     gradient: LinearGradient(
                       colors: [
-                        statusColor,
-                        Color.lerp(
-                          statusColor,
-                          Colors.white,
-                          0.28,
-                        )!,
+                        statusIndicator,
+                        Color.lerp(statusIndicator, colors.text, 0.28)!,
                       ],
                     ),
                   ),
@@ -221,13 +235,22 @@ class _ScoreRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pct = (rating / 100.0).clamp(0.0, 1.0);
+    final colors = context.colors;
+    final statusText = MbPalette.ensureContrast(
+      statusColor,
+      colors.surface,
+      minimum: 4.5,
+    );
+    final statusIndicator = MbPalette.ensureContrast(
+      statusColor,
+      colors.surfaceRaised,
+      minimum: 3.0,
+    );
 
     return Container(
       padding: const EdgeInsets.only(top: 16),
       decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: AppConstants.borderColor, width: 1),
-        ),
+        border: Border(top: BorderSide(color: colors.border, width: 1)),
       ),
       child: InkWell(
         onTap: onTap,
@@ -242,7 +265,7 @@ class _ScoreRow extends StatelessWidget {
                   child: Text(
                     label.toUpperCase(),
                     style: AppTypography.monoLabel(
-                      color: AppConstants.textMutedColor,
+                      color: colors.textMuted,
                       fontSize: 12,
                     ),
                   ),
@@ -253,7 +276,7 @@ class _ScoreRow extends StatelessWidget {
                       TextSpan(
                         text: rating > 0 ? '$rating' : '–',
                         style: AppTypography.sans(
-                          color: statusColor,
+                          color: statusText,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -261,7 +284,7 @@ class _ScoreRow extends StatelessWidget {
                       TextSpan(
                         text: ' / 100',
                         style: AppTypography.sans(
-                          color: AppConstants.textColor,
+                          color: colors.text,
                           fontSize: 14,
                         ),
                       ),
@@ -269,7 +292,7 @@ class _ScoreRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(Icons.edit, size: 16, color: AppConstants.textMutedColor),
+                Icon(Icons.edit, size: 16, color: colors.textMuted),
               ],
             ),
             const SizedBox(height: 8),
@@ -278,9 +301,9 @@ class _ScoreRow extends StatelessWidget {
               child: Container(
                 height: 7,
                 decoration: BoxDecoration(
-                  color: AppConstants.tertiaryBackground,
+                  color: colors.surfaceRaised,
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: AppConstants.borderColor, width: 1),
+                  border: Border.all(color: colors.border, width: 1),
                 ),
                 child: FractionallySizedBox(
                   alignment: Alignment.centerLeft,
@@ -290,12 +313,8 @@ class _ScoreRow extends StatelessWidget {
                       borderRadius: BorderRadius.circular(999),
                       gradient: LinearGradient(
                         colors: [
-                          statusColor,
-                          Color.lerp(
-                            statusColor,
-                            Colors.white,
-                            0.28,
-                          )!,
+                          statusIndicator,
+                          Color.lerp(statusIndicator, colors.text, 0.28)!,
                         ],
                       ),
                     ),

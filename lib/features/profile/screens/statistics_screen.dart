@@ -2,8 +2,8 @@ import 'package:mangabaka_app/features/profile/widgets/statistics/statistics_dat
 import 'package:mangabaka_app/features/profile/widgets/statistics/standout_pick_card.dart';
 import 'package:mangabaka_app/features/profile/widgets/statistics/statistic_card.dart';
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/features/series/screens/series_detail_screen.dart';
 import 'package:mangabaka_app/features/library/services/mappers/db_to_api_mapper.dart';
@@ -44,7 +44,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         final l10n = LocalizationService();
 
         return Scaffold(
-          backgroundColor: AppConstants.primaryBackground,
+          backgroundColor: context.colors.background,
           appBar: AppBar(
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
@@ -54,14 +54,21 @@ class _StatisticsScreenState extends State<StatisticsScreen>
             title: Text(
               l10n.translate('statistics').toUpperCase(),
               style: AppTypography.display(
-                color: AppConstants.textColor,
+                color: context.colors.text,
                 fontSize: 20,
               ),
             ),
           ),
           body: WidgetUtils.responsiveConstraint(
             loading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(
+                    child: CircularProgressIndicator(
+                      color: context.colors.accentOn(
+                        context.colors.background,
+                        minimum: 3,
+                      ),
+                    ),
+                  )
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -70,7 +77,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                         Text(
                           l10n.translate('reading_stats').toUpperCase(),
                           style: AppTypography.display(
-                            color: AppConstants.textColor,
+                            color: context.colors.text,
                             fontSize: 20,
                             letterSpacing: -0.5,
                           ),
@@ -126,7 +133,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                         Text(
                           l10n.translate('standout_picks').toUpperCase(),
                           style: AppTypography.display(
-                            color: AppConstants.textColor,
+                            color: context.colors.text,
                             fontSize: 20,
                             letterSpacing: -0.5,
                           ),

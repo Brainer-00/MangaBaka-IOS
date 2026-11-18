@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/features/series/widgets/mb_card.dart';
@@ -26,12 +27,12 @@ class SeriesInformationCard extends StatelessWidget {
   String _cap(String s) =>
       s.isEmpty ? s : s[0].toUpperCase() + s.substring(1).replaceAll('_', ' ');
 
-  String? _validNum(String raw) =>
-      (raw.isEmpty || raw == 'null') ? null : raw;
+  String? _validNum(String raw) => (raw.isEmpty || raw == 'null') ? null : raw;
 
   @override
   Widget build(BuildContext context) {
     final detailState = SeriesDetailScreen.of(context);
+    final colors = context.colors;
     final isSelecting = detailState?.drawerFilters != null;
 
     final start = series.published?['start_date']?.toString() ?? '';
@@ -41,11 +42,15 @@ class SeriesInformationCard extends StatelessWidget {
       dateRange = end.isNotEmpty && end != start ? '$start – $end' : start;
     }
 
-    final yearVal = int.tryParse(start.split('-')[0]) ?? int.tryParse(series.year);
+    final yearVal =
+        int.tryParse(start.split('-')[0]) ?? int.tryParse(series.year);
 
-    final isTypeSelected = detailState?.drawerFilters?.type.contains(series.type) ?? false;
-    final isStatusSelected = detailState?.drawerFilters?.status.contains(series.status) ?? false;
-    final isYearSelected = yearVal != null &&
+    final isTypeSelected =
+        detailState?.drawerFilters?.type.contains(series.type) ?? false;
+    final isStatusSelected =
+        detailState?.drawerFilters?.status.contains(series.status) ?? false;
+    final isYearSelected =
+        yearVal != null &&
         detailState?.drawerFilters?.publishedYearLower == yearVal &&
         detailState?.drawerFilters?.publishedYearUpper == yearVal;
 
@@ -59,7 +64,9 @@ class SeriesInformationCard extends StatelessWidget {
             if (isSelecting) {
               detailState?.handleTypeToggle(series.type);
             } else {
-              detailState?.executeSearchWithFilters(SearchFilters(type: [series.type]));
+              detailState?.executeSearchWithFilters(
+                SearchFilters(type: [series.type]),
+              );
             }
           },
         ),
@@ -73,7 +80,9 @@ class SeriesInformationCard extends StatelessWidget {
             if (isSelecting) {
               detailState?.handleStatusToggle(series.status);
             } else {
-              detailState?.executeSearchWithFilters(SearchFilters(status: [series.status]));
+              detailState?.executeSearchWithFilters(
+                SearchFilters(status: [series.status]),
+              );
             }
           },
         ),
@@ -82,32 +91,40 @@ class SeriesInformationCard extends StatelessWidget {
           label: l10n.translate('published'),
           value: dateRange,
           isSelected: isYearSelected,
-          onTap: yearVal == null ? null : () {
-            if (isSelecting) {
-              detailState?.handleYearToggle(yearVal);
-            } else {
-              detailState?.executeSearchWithFilters(SearchFilters(
-                publishedYearLower: yearVal,
-                publishedYearUpper: yearVal,
-              ));
-            }
-          },
+          onTap: yearVal == null
+              ? null
+              : () {
+                  if (isSelecting) {
+                    detailState?.handleYearToggle(yearVal);
+                  } else {
+                    detailState?.executeSearchWithFilters(
+                      SearchFilters(
+                        publishedYearLower: yearVal,
+                        publishedYearUpper: yearVal,
+                      ),
+                    );
+                  }
+                },
         ),
       if (series.year.isNotEmpty && series.year != 'null' && dateRange == null)
         _Row(
           label: l10n.translate('year'),
           value: series.year,
           isSelected: isYearSelected,
-          onTap: yearVal == null ? null : () {
-            if (isSelecting) {
-              detailState?.handleYearToggle(yearVal);
-            } else {
-              detailState?.executeSearchWithFilters(SearchFilters(
-                publishedYearLower: yearVal,
-                publishedYearUpper: yearVal,
-              ));
-            }
-          },
+          onTap: yearVal == null
+              ? null
+              : () {
+                  if (isSelecting) {
+                    detailState?.handleYearToggle(yearVal);
+                  } else {
+                    detailState?.executeSearchWithFilters(
+                      SearchFilters(
+                        publishedYearLower: yearVal,
+                        publishedYearUpper: yearVal,
+                      ),
+                    );
+                  }
+                },
         ),
       if (_validNum(series.totalChapters) != null)
         _Row(label: l10n.translate('chapters'), value: series.totalChapters),
@@ -117,7 +134,8 @@ class SeriesInformationCard extends StatelessWidget {
         _LinkedRow(
           label: l10n.translate('authors'),
           items: series.authors,
-          isSelected: (name) => detailState?.drawerFilters?.staff.contains(name) ?? false,
+          isSelected: (name) =>
+              detailState?.drawerFilters?.staff.contains(name) ?? false,
           onTap: (authorName) {
             if (isSelecting) {
               detailState?.handleStaffToggle(authorName);
@@ -130,7 +148,8 @@ class SeriesInformationCard extends StatelessWidget {
         _LinkedRow(
           label: l10n.translate('artists'),
           items: series.artists,
-          isSelected: (name) => detailState?.drawerFilters?.staff.contains(name) ?? false,
+          isSelected: (name) =>
+              detailState?.drawerFilters?.staff.contains(name) ?? false,
           onTap: (artistName) {
             if (isSelecting) {
               detailState?.handleStaffToggle(artistName);
@@ -143,7 +162,8 @@ class SeriesInformationCard extends StatelessWidget {
         _LinkedRow(
           label: l10n.translate('publishers'),
           items: series.publishers,
-          isSelected: (name) => detailState?.drawerFilters?.publisher.contains(name) ?? false,
+          isSelected: (name) =>
+              detailState?.drawerFilters?.publisher.contains(name) ?? false,
           onTap: (publisherName) {
             if (isSelecting) {
               detailState?.handlePublisherToggle(publisherName);
@@ -153,7 +173,10 @@ class SeriesInformationCard extends StatelessWidget {
           },
         ),
       if (series.contentRating.isNotEmpty && series.contentRating != 'null')
-        _Row(label: l10n.translate('content_rating'), value: _cap(series.contentRating)),
+        _Row(
+          label: l10n.translate('content_rating'),
+          value: _cap(series.contentRating),
+        ),
       _Row(label: 'MangaBaka ID', value: series.id),
     ];
 
@@ -163,13 +186,16 @@ class SeriesInformationCard extends StatelessWidget {
     for (var i = 0; i < rows.length; i++) {
       children.add(rows[i]);
       if (i != rows.length - 1) {
-        children.add(Divider(height: 1, thickness: 1, color: AppConstants.borderColor));
+        children.add(Divider(height: 1, thickness: 1, color: colors.border));
       }
     }
 
     return MbCard(
       label: l10n.translate('information'),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
     );
   }
 }
@@ -191,9 +217,10 @@ class _Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = isSelected 
-        ? AppConstants.accentColor 
-        : (accent ? AppConstants.accentColor : AppConstants.textColor);
+    final colors = context.colors;
+    final textColor = (isSelected || accent)
+        ? colors.accentOn(colors.surface, minimum: 4.5)
+        : colors.text;
     final textWeight = isSelected ? FontWeight.bold : FontWeight.w500;
 
     return GestureDetector(
@@ -207,7 +234,11 @@ class _Row extends StatelessWidget {
             Text(
               label.toUpperCase(),
               style: AppTypography.monoLabel(
-                color: AppConstants.textMutedColor,
+                color: MbPalette.ensureContrast(
+                  colors.textMuted,
+                  colors.surface,
+                  minimum: 4.5,
+                ),
                 fontSize: 10,
               ),
             ),
@@ -243,6 +274,7 @@ class _LinkedRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 11),
       child: Column(
@@ -250,7 +282,14 @@ class _LinkedRow extends StatelessWidget {
         children: [
           Text(
             label.toUpperCase(),
-            style: AppTypography.monoLabel(color: AppConstants.textMutedColor, fontSize: 10),
+            style: AppTypography.monoLabel(
+              color: MbPalette.ensureContrast(
+                colors.textMuted,
+                colors.surface,
+                minimum: 4.5,
+              ),
+              fontSize: 10,
+            ),
           ),
           const SizedBox(height: 4),
           Wrap(
@@ -266,20 +305,24 @@ class _LinkedRow extends StatelessWidget {
                       return Text(
                         items[i],
                         style: AppTypography.sans(
-                          color: selected ? AppConstants.accentColor : AppConstants.textColor,
+                          color: selected
+                              ? colors.accentOn(colors.surface, minimum: 4.5)
+                              : colors.text,
                           fontSize: 14,
-                          fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                          fontWeight: selected
+                              ? FontWeight.bold
+                              : FontWeight.w500,
                           height: 1.4,
                         ),
                       );
-                    }
+                    },
                   ),
                 ),
                 if (i < items.length - 1)
                   Text(
                     ', ',
                     style: AppTypography.sans(
-                      color: AppConstants.textColor,
+                      color: colors.text,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       height: 1.4,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/motion/app_motion.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 
 /// One destination in [MbBottomNav] / [MbNavRail].
 @immutable
@@ -36,19 +36,20 @@ class _MbNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     Widget child = AnimatedContainer(
       duration: AppMotion.base,
       curve: AppMotion.overshoot,
       width: 44,
       height: 44,
       decoration: BoxDecoration(
-        color: selected ? AppConstants.accentColor : Colors.transparent,
+        color: selected ? colors.accent : Colors.transparent,
         shape: BoxShape.circle,
       ),
       child: Icon(
         selected ? destination.selectedIcon : destination.icon,
         size: 23,
-        color: selected ? AppConstants.onAccent : AppConstants.textMutedColor,
+        color: selected ? colors.onAccent : colors.textMuted,
       ),
     );
 
@@ -99,7 +100,7 @@ class MbBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppConstants.primaryBackground,
+      color: context.colors.background,
       child: SafeArea(
         top: false,
         child: SizedBox(
@@ -147,7 +148,7 @@ class MbNavRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppConstants.primaryBackground,
+      color: context.colors.background,
       child: Column(
         children: [
           ?leading,

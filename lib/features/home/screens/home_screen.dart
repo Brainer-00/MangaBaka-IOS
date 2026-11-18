@@ -4,6 +4,7 @@ import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 import 'package:mangabaka_app/core/widgets/design/mb_screen_header.dart';
 import 'package:mangabaka_app/features/browse/screens/browse_results_screen.dart';
@@ -379,7 +380,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final structureEstablished = _structureEstablished;
 
         return Scaffold(
-          backgroundColor: AppConstants.primaryBackground,
+          backgroundColor: context.colors.background,
           appBar: mbScreenAppBar(
             title: l10n.translate('home'),
             isRoot: true,
@@ -392,8 +393,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           body: RefreshIndicator(
-            color: AppConstants.accentColor,
-            backgroundColor: AppConstants.secondaryBackground,
+            color: context.colors.accentForeground,
+            backgroundColor: context.colors.surface,
             onRefresh: () => _loadRails(force: true),
             child: WidgetUtils.responsiveConstraint(
               ListView(
@@ -495,7 +496,7 @@ class _HomeInitialShell extends StatelessWidget {
             width: 148,
             height: 18,
             decoration: BoxDecoration(
-              color: AppConstants.tertiaryBackground,
+              color: context.colors.surfaceRaised,
               borderRadius: BorderRadius.circular(4),
             ),
           ),
@@ -510,7 +511,7 @@ class _HomeInitialShell extends StatelessWidget {
               itemBuilder: (_, _) => Container(
                 width: 118,
                 decoration: BoxDecoration(
-                  color: AppConstants.tertiaryBackground,
+                  color: context.colors.surfaceRaised,
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),

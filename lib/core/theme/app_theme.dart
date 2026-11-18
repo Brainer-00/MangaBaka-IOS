@@ -3,12 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 
-/// The app's single dark theme — "Ink & Amber": near-black surfaces with one
-/// accent colour, used as the "on" state wherever a control has one.
-///
-/// There is deliberately no light variant and no theme switching; the palette
-/// lives in [AppConstants] and the type scale in [AppTypography].
+/// Material themes built from the resolved semantic palette.
 class AppTheme {
   AppTheme._();
 
@@ -28,57 +26,73 @@ class AppTheme {
   static void applySystemOverlay() =>
       SystemChrome.setSystemUIOverlayStyle(systemOverlay);
 
+  static SystemUiOverlayStyle overlayFor(MbPalette palette) =>
+      systemOverlay.copyWith(
+        systemNavigationBarIconBrightness: palette.brightness == Brightness.dark
+            ? Brightness.light
+            : Brightness.dark,
+        statusBarIconBrightness: palette.brightness == Brightness.dark
+            ? Brightness.light
+            : Brightness.dark,
+      );
+
   /// Builds the theme.
   ///
   /// [showTooltips] is baked in rather than read at each call site: Flutter
   /// has no "off" for tooltips, so disabling them means switching every
   /// tooltip to manual triggering — a theme-level change, and the reason the
   /// caller caches the result and rebuilds it only when the setting changes.
-  static ThemeData build({required bool showTooltips}) {
-    final base = ThemeData.dark(useMaterial3: true);
-    final textBase =
-        Typography.material2021(platform: TargetPlatform.android).white;
+  static ThemeData build({
+    required bool showTooltips,
+    required MbPalette palette,
+  }) {
+    final base = ThemeData(brightness: palette.brightness, useMaterial3: true);
+    final textBase = palette.brightness == Brightness.dark
+        ? Typography.material2021(platform: TargetPlatform.android).white
+        : Typography.material2021(platform: TargetPlatform.android).black;
 
     return base.copyWith(
       textTheme: AppTypography.textTheme(textBase),
       colorScheme: ColorScheme.fromSeed(
-        seedColor: AppConstants.primaryAccent,
-        brightness: Brightness.dark,
-        surface: AppConstants.primaryBackground,
-        primary: AppConstants.accentColor,
-        error: AppConstants.errorColor,
+        seedColor: palette.accent,
+        brightness: palette.brightness,
+        surface: palette.surface,
+        primary: palette.accent,
+        onPrimary: palette.onAccent,
+        error: palette.error,
       ),
-      scaffoldBackgroundColor: AppConstants.primaryBackground,
-      cardColor: AppConstants.secondaryBackground,
+      extensions: [MbColors(palette)],
+      scaffoldBackgroundColor: palette.background,
+      cardColor: palette.surface,
       // Dividers are drawn deliberately where they are wanted; the implicit
       // ones Material adds inside tab bars and dialogs are noise here.
       dividerColor: Colors.transparent,
-      tooltipTheme: _tooltip(showTooltips),
-      dialogTheme: _dialog(),
-      bottomSheetTheme: _bottomSheet(),
-      appBarTheme: _appBar(),
-      inputDecorationTheme: _inputDecoration(),
-      chipTheme: _chip(),
-      cardTheme: _card(),
-      textButtonTheme: _textButton(),
-      elevatedButtonTheme: _elevatedButton(),
-      outlinedButtonTheme: _outlinedButton(),
+      tooltipTheme: _tooltip(palette, showTooltips),
+      dialogTheme: _dialog(palette),
+      bottomSheetTheme: _bottomSheet(palette),
+      appBarTheme: _appBar(palette),
+      inputDecorationTheme: _inputDecoration(palette),
+      chipTheme: _chip(palette),
+      cardTheme: _card(palette),
+      textButtonTheme: _textButton(palette),
+      elevatedButtonTheme: _elevatedButton(palette),
+      outlinedButtonTheme: _outlinedButton(palette),
       iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(foregroundColor: AppConstants.textColor),
+        style: IconButton.styleFrom(foregroundColor: palette.text),
       ),
-      switchTheme: _switch(),
-      checkboxTheme: _checkbox(),
-      radioTheme: _radio(),
-      sliderTheme: _slider(),
+      switchTheme: _switch(palette),
+      checkboxTheme: _checkbox(palette),
+      radioTheme: _radio(palette),
+      sliderTheme: _slider(palette),
       progressIndicatorTheme: ProgressIndicatorThemeData(
-        color: AppConstants.accentColor,
-        linearTrackColor: AppConstants.tertiaryBackground,
+        color: palette.progressIndicator,
+        linearTrackColor: palette.surfaceRaised,
         circularTrackColor: Colors.transparent,
       ),
-      tabBarTheme: _tabBar(),
-      snackBarTheme: _snackBar(),
-      popupMenuTheme: _popupMenu(),
-      listTileTheme: _listTile(),
+      tabBarTheme: _tabBar(palette),
+      snackBarTheme: _snackBar(palette),
+      popupMenuTheme: _popupMenu(palette),
+      listTileTheme: _listTile(palette),
       pageTransitionsTheme: _pageTransitions,
     );
   }
@@ -86,15 +100,16 @@ class AppTheme {
   /// Flutter cannot disable tooltips outright, so "off" is manual triggering
   /// plus a wait long enough never to elapse. When enabled, snappy 350ms wait duration
   /// with desktop styling.
-  static TooltipThemeData _tooltip(bool showTooltips) => TooltipThemeData(
+  static TooltipThemeData _tooltip(MbPalette palette, bool showTooltips) =>
+      TooltipThemeData(
         triggerMode: showTooltips ? null : TooltipTriggerMode.manual,
         waitDuration: showTooltips
             ? const Duration(milliseconds: 350)
             : const Duration(days: 365),
         decoration: BoxDecoration(
-          color: AppConstants.secondaryBackground,
+          color: palette.surface,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppConstants.borderColor),
+          border: Border.all(color: palette.border),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.35),
@@ -104,33 +119,31 @@ class AppTheme {
           ],
         ),
         textStyle: AppTypography.sans(
-          color: AppConstants.textColor,
+          color: palette.text,
           fontSize: 12,
           fontWeight: FontWeight.w500,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       );
 
-  static DialogThemeData _dialog() => DialogThemeData(
-        backgroundColor: AppConstants.secondaryBackground,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppConstants.largeRadius),
-        ),
-        titleTextStyle: AppTypography.display(
-          color: AppConstants.textColor,
-          fontSize: 18,
-        ),
-        contentTextStyle: AppTypography.sans(
-          color: AppConstants.textMutedColor,
-          fontSize: 15,
-          height: 1.45,
-        ),
-      );
+  static DialogThemeData _dialog(MbPalette palette) => DialogThemeData(
+    backgroundColor: palette.surface,
+    surfaceTintColor: Colors.transparent,
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppConstants.largeRadius),
+    ),
+    titleTextStyle: AppTypography.display(color: palette.text, fontSize: 18),
+    contentTextStyle: AppTypography.sans(
+      color: palette.textMuted,
+      fontSize: 15,
+      height: 1.45,
+    ),
+  );
 
-  static BottomSheetThemeData _bottomSheet() => BottomSheetThemeData(
-        backgroundColor: AppConstants.secondaryBackground,
+  static BottomSheetThemeData _bottomSheet(MbPalette palette) =>
+      BottomSheetThemeData(
+        backgroundColor: palette.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(AppConstants.largeRadius),
@@ -138,28 +151,25 @@ class AppTheme {
         ),
       );
 
-  static AppBarTheme _appBar() => AppBarTheme(
-        backgroundColor: AppConstants.primaryBackground,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        // Material tints the bar as content scrolls under it; on a near-black
-        // surface that reads as the bar changing colour at random.
-        scrolledUnderElevation: 0,
-        iconTheme: IconThemeData(color: AppConstants.textColor),
-        titleTextStyle: AppTypography.display(
-          color: AppConstants.textColor,
-          fontSize: 20,
-        ),
-      );
+  static AppBarTheme _appBar(MbPalette palette) => AppBarTheme(
+    backgroundColor: palette.background,
+    surfaceTintColor: Colors.transparent,
+    elevation: 0,
+    // Material tints the bar as content scrolls under it; on a near-black
+    // surface that reads as the bar changing colour at random.
+    scrolledUnderElevation: 0,
+    iconTheme: IconThemeData(color: palette.text),
+    titleTextStyle: AppTypography.display(color: palette.text, fontSize: 20),
+  );
 
-  static InputDecorationTheme _inputDecoration() {
+  static InputDecorationTheme _inputDecoration(MbPalette palette) {
     final border = OutlineInputBorder(
       borderRadius: BorderRadius.circular(AppConstants.pillRadius),
       borderSide: BorderSide.none,
     );
     return InputDecorationTheme(
       filled: true,
-      fillColor: AppConstants.tertiaryBackground,
+      fillColor: palette.surfaceRaised,
       border: border,
       enabledBorder: border,
       focusedBorder: border,
@@ -167,38 +177,36 @@ class AppTheme {
     );
   }
 
-  static ChipThemeData _chip() => ChipThemeData(
-        backgroundColor: AppConstants.tertiaryBackground,
-        selectedColor: AppConstants.accentColor,
-        side: BorderSide.none,
-        labelStyle: AppTypography.display(
-          color: AppConstants.textColor,
-          fontSize: 12,
-        ),
-        secondaryLabelStyle: AppTypography.display(
-          color: AppConstants.onAccent,
-          fontSize: 12,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppConstants.pillRadius),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      );
+  static ChipThemeData _chip(MbPalette palette) => ChipThemeData(
+    backgroundColor: palette.surfaceRaised,
+    selectedColor: palette.accent,
+    side: BorderSide.none,
+    labelStyle: AppTypography.display(color: palette.text, fontSize: 12),
+    secondaryLabelStyle: AppTypography.display(
+      color: palette.onAccent,
+      fontSize: 12,
+    ),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+    ),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+  );
 
-  static CardThemeData _card() => CardThemeData(
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppConstants.cardRadius),
-        ),
-        color: AppConstants.secondaryBackground,
-      );
+  static CardThemeData _card(MbPalette palette) => CardThemeData(
+    elevation: 0,
+    surfaceTintColor: Colors.transparent,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppConstants.cardRadius),
+    ),
+    color: palette.surface,
+  );
 
   // Buttons: amber caps for affirmative actions, muted caps for the rest.
 
-  static TextButtonThemeData _textButton() => TextButtonThemeData(
+  static TextButtonThemeData _textButton(MbPalette palette) =>
+      TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppConstants.accentColor,
+          foregroundColor: palette.accentForeground,
           textStyle: AppTypography.display(fontSize: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppConstants.pillRadius),
@@ -207,10 +215,11 @@ class AppTheme {
         ),
       );
 
-  static ElevatedButtonThemeData _elevatedButton() => ElevatedButtonThemeData(
+  static ElevatedButtonThemeData _elevatedButton(MbPalette palette) =>
+      ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppConstants.accentColor,
-          foregroundColor: AppConstants.onAccent,
+          backgroundColor: palette.accent,
+          foregroundColor: palette.onAccent,
           elevation: 0,
           textStyle: AppTypography.display(fontSize: 14),
           shape: RoundedRectangleBorder(
@@ -220,10 +229,11 @@ class AppTheme {
         ),
       );
 
-  static OutlinedButtonThemeData _outlinedButton() => OutlinedButtonThemeData(
+  static OutlinedButtonThemeData _outlinedButton(MbPalette palette) =>
+      OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppConstants.textColor,
-          side: BorderSide(color: AppConstants.borderColor),
+          foregroundColor: palette.text,
+          side: BorderSide(color: palette.border),
           textStyle: AppTypography.display(fontSize: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppConstants.pillRadius),
@@ -239,100 +249,84 @@ class AppTheme {
         (states) => states.contains(WidgetState.selected) ? on : off,
       );
 
-  static SwitchThemeData _switch() => SwitchThemeData(
-        thumbColor: _whenSelected(
-          AppConstants.onAccent,
-          AppConstants.textMutedColor,
-        ),
-        trackColor: _whenSelected(
-          AppConstants.accentColor,
-          AppConstants.tertiaryBackground,
-        ),
-        trackOutlineColor: WidgetStateProperty.all(AppConstants.borderColor),
-        // The default hover/press halo around the thumb reads as a glow.
-        overlayColor: WidgetStateProperty.all(Colors.transparent),
-      );
+  static SwitchThemeData _switch(MbPalette palette) => SwitchThemeData(
+    thumbColor: _whenSelected(palette.onAccent, palette.textMuted),
+    trackColor: _whenSelected(palette.accent, palette.surfaceRaised),
+    trackOutlineColor: WidgetStateProperty.all(palette.border),
+    // The default hover/press halo around the thumb reads as a glow.
+    overlayColor: WidgetStateProperty.all(Colors.transparent),
+  );
 
-  static CheckboxThemeData _checkbox() => CheckboxThemeData(
-        fillColor:
-            _whenSelected(AppConstants.accentColor, Colors.transparent),
-        checkColor: WidgetStateProperty.all(AppConstants.onAccent),
-        side: BorderSide(color: AppConstants.borderColor, width: 1.5),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      );
+  static CheckboxThemeData _checkbox(MbPalette palette) => CheckboxThemeData(
+    fillColor: _whenSelected(palette.accent, Colors.transparent),
+    checkColor: WidgetStateProperty.all(palette.onAccent),
+    side: BorderSide(color: palette.border, width: 1.5),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+  );
 
-  static RadioThemeData _radio() => RadioThemeData(
-        fillColor: _whenSelected(
-          AppConstants.accentColor,
-          AppConstants.textMutedColor,
-        ),
-      );
+  static RadioThemeData _radio(MbPalette palette) => RadioThemeData(
+    fillColor: _whenSelected(palette.accent, palette.textMuted),
+  );
 
-  static SliderThemeData _slider() => SliderThemeData(
-        activeTrackColor: AppConstants.accentColor,
-        inactiveTrackColor: AppConstants.tertiaryBackground,
-        thumbColor: AppConstants.accentColor,
-        overlayColor: Colors.transparent,
-        valueIndicatorColor: AppConstants.accentColor,
-        valueIndicatorTextStyle: AppTypography.display(
-          color: AppConstants.onAccent,
-          fontSize: 13,
-        ),
-        trackHeight: 4,
-      );
+  static SliderThemeData _slider(MbPalette palette) => SliderThemeData(
+    activeTrackColor: palette.accent,
+    inactiveTrackColor: palette.surfaceRaised,
+    thumbColor: palette.accent,
+    overlayColor: Colors.transparent,
+    valueIndicatorColor: palette.accent,
+    valueIndicatorTextStyle: AppTypography.display(
+      color: palette.onAccent,
+      fontSize: 13,
+    ),
+    trackHeight: 4,
+  );
 
-  static TabBarThemeData _tabBar() => TabBarThemeData(
-        labelColor: AppConstants.textColor,
-        unselectedLabelColor: AppConstants.textMutedColor,
-        labelStyle: AppTypography.display(fontSize: 13),
-        unselectedLabelStyle: AppTypography.display(fontSize: 13),
-        indicatorColor: AppConstants.accentColor,
-        dividerColor: Colors.transparent,
-        overlayColor: WidgetStateProperty.all(Colors.transparent),
-      );
+  static TabBarThemeData _tabBar(MbPalette palette) => TabBarThemeData(
+    labelColor: palette.text,
+    unselectedLabelColor: palette.textMuted,
+    labelStyle: AppTypography.display(fontSize: 13),
+    unselectedLabelStyle: AppTypography.display(fontSize: 13),
+    indicatorColor: palette.accent,
+    dividerColor: Colors.transparent,
+    overlayColor: WidgetStateProperty.all(Colors.transparent),
+  );
 
-  static SnackBarThemeData _snackBar() => SnackBarThemeData(
-        backgroundColor: AppConstants.tertiaryBackground,
-        contentTextStyle: AppTypography.sans(
-          color: AppConstants.textColor,
-          fontSize: 14,
-        ),
-        actionTextColor: AppConstants.accentColor,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppConstants.denseRadius),
-          side: BorderSide(color: AppConstants.borderColor),
-        ),
-      );
+  static SnackBarThemeData _snackBar(MbPalette palette) => SnackBarThemeData(
+    backgroundColor: palette.surfaceRaised,
+    contentTextStyle: AppTypography.sans(color: palette.text, fontSize: 14),
+    actionTextColor: palette.accentOn(palette.surfaceRaised),
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppConstants.denseRadius),
+      side: BorderSide(color: palette.border),
+    ),
+  );
 
-  static PopupMenuThemeData _popupMenu() => PopupMenuThemeData(
-        color: AppConstants.secondaryBackground,
-        surfaceTintColor: Colors.transparent,
-        textStyle: AppTypography.sans(
-          color: AppConstants.textColor,
-          fontSize: 14,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppConstants.denseRadius),
-        ),
-      );
+  static PopupMenuThemeData _popupMenu(MbPalette palette) => PopupMenuThemeData(
+    color: palette.surface,
+    surfaceTintColor: Colors.transparent,
+    textStyle: AppTypography.sans(color: palette.text, fontSize: 14),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppConstants.denseRadius),
+    ),
+  );
 
-  static ListTileThemeData _listTile() => ListTileThemeData(
-        iconColor: AppConstants.textMutedColor,
-        textColor: AppConstants.textColor,
-        titleTextStyle: AppTypography.sans(
-          color: AppConstants.textColor,
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-        ),
-        subtitleTextStyle: AppTypography.sans(
-          color: AppConstants.textMutedColor,
-          fontSize: 13,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppConstants.denseRadius),
-        ),
-      );
+  static ListTileThemeData _listTile(MbPalette palette) => ListTileThemeData(
+    iconColor: palette.textMuted,
+    textColor: palette.text,
+    titleTextStyle: AppTypography.sans(
+      color: palette.text,
+      fontSize: 16,
+      fontWeight: FontWeight.w500,
+    ),
+    subtitleTextStyle: AppTypography.sans(
+      color: palette.textMuted,
+      fontSize: 13,
+    ),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppConstants.denseRadius),
+    ),
+  );
 
   /// Page transitions match `AppTransitions` so system-pushed routes agree
   /// with the ones the app pushes itself.

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/features/profile/widgets/statistics/statistic_card.dart';
@@ -25,13 +26,14 @@ class ProfileStatisticsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(
               l10n.translate('at_a_glance').toUpperCase(),
               style: AppTypography.display(
-                color: AppConstants.textColor,
+                color: context.colors.text,
                 fontSize: 20,
               ),
             ),
@@ -47,7 +49,7 @@ class ProfileStatisticsSection extends StatelessWidget {
               child: Text(
                 l10n.translate('see_more_stats'),
                 style: AppTypography.sans(
-                  color: AppConstants.accentColor,
+                  color: context.colors.accentOn(context.colors.background),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -57,7 +59,13 @@ class ProfileStatisticsSection extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           l10n.translate('overview_desc'),
-          style: AppTypography.sans(color: AppConstants.textMutedColor),
+          style: AppTypography.sans(
+            color: MbPalette.ensureContrast(
+              context.colors.textMuted,
+              context.colors.background,
+              minimum: 4.5,
+            ),
+          ),
         ),
         const SizedBox(height: 16),
         Row(

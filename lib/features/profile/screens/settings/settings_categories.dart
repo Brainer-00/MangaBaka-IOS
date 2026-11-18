@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/widgets/app_snack_bar.dart';
@@ -13,6 +13,7 @@ import 'package:mangabaka_app/features/profile/widgets/dialogs/content_preferenc
 import 'package:mangabaka_app/features/profile/widgets/dialogs/general_settings_dialogs.dart';
 import 'package:mangabaka_app/features/profile/widgets/dialogs/logout_dialog.dart';
 import 'package:mangabaka_app/features/profile/widgets/settings/list_customization_settings.dart';
+import 'package:mangabaka_app/features/profile/widgets/settings/appearance_settings.dart';
 import 'package:mangabaka_app/features/profile/widgets/settings/settings_components.dart';
 import 'package:mangabaka_app/core/utils/external_url_launcher.dart';
 
@@ -25,6 +26,14 @@ import 'package:mangabaka_app/core/utils/external_url_launcher.dart';
 /// leave five files of a dozen lines each.
 class SettingsCategories {
   SettingsCategories._();
+
+  static void appearance(BuildContext context, LocalizationService l10n) {
+    showOrNavigate(
+      context,
+      title: l10n.translate('appearance'),
+      buildChildren: (_) => const [AppearanceSettings()],
+    );
+  }
 
   /// Below this width the general category hides the tooltip toggle: tooltips
   /// are a pointer affordance and there is no hover on a phone.
@@ -220,7 +229,7 @@ class SettingsCategories {
               ),
               trailing: Icon(
                 Icons.open_in_new,
-                color: AppConstants.textMutedColor,
+                color: ctx.colors.textMuted,
                 size: 20,
               ),
               isFirst: true,

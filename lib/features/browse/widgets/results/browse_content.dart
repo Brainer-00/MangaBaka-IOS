@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/features/series/widgets/entry_list_item.dart';
 import 'package:mangabaka_app/features/browse/widgets/shortcuts/browse_shortcuts.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/settings/settings_enums.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/features/series/widgets/series_list_skeleton.dart';
 import 'package:mangabaka_app/features/series/services/series_service.dart';
@@ -68,16 +69,21 @@ class BrowseContent extends StatelessWidget {
     return const Center(child: CircularProgressIndicator());
   }
 
-  Widget _buildErrorState(LocalizationService l10n) {
+  Widget _buildErrorState(BuildContext context, LocalizationService l10n) {
+    final errorForeground = MbPalette.ensureContrast(
+      context.colors.error,
+      context.colors.background,
+      minimum: 4.5,
+    );
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, color: AppConstants.errorColor, size: 48),
+          Icon(Icons.error_outline, color: errorForeground, size: 48),
           const SizedBox(height: 16),
           Text(
             error ?? 'An unexpected error occurred.',
-            style: AppTypography.sans(color: AppConstants.errorColor),
+            style: AppTypography.sans(color: errorForeground),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
@@ -331,13 +337,13 @@ class BrowseContent extends StatelessWidget {
                   Icon(
                     Icons.business_rounded,
                     size: 64,
-                    color: AppConstants.textMutedColor,
+                    color: context.colors.textMuted,
                   ),
                   const SizedBox(height: 16),
                   Text(
                     l10n.translate('search_publishers_hint'),
                     style: AppTypography.sans(
-                      color: AppConstants.textMutedColor,
+                      color: context.colors.textMuted,
                       fontSize: 16,
                     ),
                   ),
@@ -349,8 +355,8 @@ class BrowseContent extends StatelessWidget {
                     ),
                     label: Text(l10n.translate('collections_and_editions')),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppConstants.accentColor,
-                      side: BorderSide(color: AppConstants.borderColor),
+                      foregroundColor: context.colors.accentForeground,
+                      side: BorderSide(color: context.colors.border),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 10,
@@ -373,13 +379,13 @@ class BrowseContent extends StatelessWidget {
                   Icon(
                     _emptyStateIconFor(browseType),
                     size: 64,
-                    color: AppConstants.textMutedColor,
+                    color: context.colors.textMuted,
                   ),
                   const SizedBox(height: 16),
                   Text(
                     l10n.translate('no_results'),
                     style: AppTypography.sans(
-                      color: AppConstants.textMutedColor,
+                      color: context.colors.textMuted,
                       fontSize: 16,
                     ),
                   ),
@@ -390,7 +396,7 @@ class BrowseContent extends StatelessWidget {
         } else if (isLoading && searchResults.isEmpty) {
           content = _buildLoadingState();
         } else if (error != null && searchResults.isEmpty) {
-          content = _buildErrorState(l10n);
+          content = _buildErrorState(context, l10n);
         } else if (searchResults.isNotEmpty) {
           content = _buildResultsList(l10n);
         } else {

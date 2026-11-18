@@ -6,6 +6,7 @@ import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 
 /// Add-to-library for the wide (desktop) layout: a full-width button that sits
 /// in the sidebar under the information card, instead of floating over the
@@ -25,18 +26,23 @@ class SeriesAddToLibraryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
         key: const Key('add_to_library_button'),
         onPressed: isAdding ? null : onAdd,
+        style: ElevatedButton.styleFrom(
+          disabledBackgroundColor: colors.surfaceRaised,
+          disabledForegroundColor: colors.text,
+        ),
         icon: isAdding
             ? SizedBox(
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: AppConstants.onAccent.withValues(alpha: 0.5),
+                  color: colors.text,
                 ),
               )
             : const Icon(Icons.add_rounded, size: 18),
@@ -64,7 +70,8 @@ class SeriesDetailFAB extends StatelessWidget {
   Widget build(BuildContext context) {
     final isLoggedIn = getIt<ProfileAuthService>().isLoggedIn;
     if (!isLoggedIn) return const SizedBox.shrink();
-    
+    final colors = context.colors;
+
     return StreamBuilder<LibraryEntry?>(
       stream: entryStream,
       builder: (context, snapshot) {
@@ -74,21 +81,15 @@ class SeriesDetailFAB extends StatelessWidget {
             child: FloatingActionButton.extended(
               key: const Key('add_to_library_fab'),
               onPressed: isAdding ? null : onAdd,
-              backgroundColor: isAdding
-                  ? AppConstants.accentColor.withValues(alpha: 0.35)
-                  : AppConstants.accentColor,
-              foregroundColor: isAdding
-                  ? AppConstants.onAccent.withValues(alpha: 0.35)
-                  : AppConstants.onAccent,
+              backgroundColor: isAdding ? colors.surfaceRaised : colors.accent,
+              foregroundColor: isAdding ? colors.text : colors.onAccent,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppConstants.pillRadius),
               ),
               label: Text(
                 LocalizationService().translate('add_to_library').toUpperCase(),
                 style: AppTypography.display(
-                  color: isAdding
-                      ? AppConstants.onAccent.withValues(alpha: 0.35)
-                      : AppConstants.onAccent,
+                  color: isAdding ? colors.text : colors.onAccent,
                   fontSize: 15,
                 ),
               ),
@@ -98,9 +99,7 @@ class SeriesDetailFAB extends StatelessWidget {
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(
-                          AppConstants.onAccent.withValues(alpha: 0.35),
-                        ),
+                        valueColor: AlwaysStoppedAnimation(colors.text),
                       ),
                     )
                   : const Icon(Icons.add_rounded, size: 18),

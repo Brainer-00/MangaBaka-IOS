@@ -3,6 +3,7 @@ import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/motion/app_motion.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/desktop/desktop_layout.dart';
 import 'package:mangabaka_app/desktop/widgets/desktop_dropdown.dart';
 export 'package:mangabaka_app/desktop/widgets/desktop_dropdown.dart';
@@ -40,11 +41,14 @@ class DesktopPageHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final resolvedPadding = padding.resolve(Directionality.of(context));
     final double additionalRight = DesktopLayout.isDesktopPlatform
-        ? (DesktopTokens.windowControlsClearance - resolvedPadding.right)
-            .clamp(0.0, double.infinity)
+        ? (DesktopTokens.windowControlsClearance - resolvedPadding.right).clamp(
+            0.0,
+            double.infinity,
+          )
         : 0.0;
-    final effectivePadding =
-        resolvedPadding.add(EdgeInsets.only(right: additionalRight));
+    final effectivePadding = resolvedPadding.add(
+      EdgeInsets.only(right: additionalRight),
+    );
 
     final titleWidget = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,7 +101,10 @@ class DesktopPageHeader extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    if (leading != null) ...[leading!, const SizedBox(width: 12)],
+                    if (leading != null) ...[
+                      leading!,
+                      const SizedBox(width: 12),
+                    ],
                     Expanded(child: titleWidget),
                   ],
                 ),
@@ -165,6 +172,7 @@ class DesktopCard extends StatelessWidget {
 /// Small caps label over a block of content, with optional trailing controls.
 class DesktopSectionTitle extends StatelessWidget {
   final String title;
+  final Color? color;
   final Widget? trailing;
   final double fontSize;
   final EdgeInsetsGeometry padding;
@@ -172,6 +180,7 @@ class DesktopSectionTitle extends StatelessWidget {
   const DesktopSectionTitle({
     super.key,
     required this.title,
+    this.color,
     this.trailing,
     this.fontSize = 18,
     this.padding = const EdgeInsets.only(bottom: 14),
@@ -184,16 +193,13 @@ class DesktopSectionTitle extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: AppTypography.display(
-        color: AppConstants.textColor,
+        color: color ?? AppConstants.textColor,
         fontSize: fontSize,
       ),
     );
 
     if (trailing == null) {
-      return Padding(
-        padding: padding,
-        child: titleWidget,
-      );
+      return Padding(padding: padding, child: titleWidget);
     }
 
     return Padding(
@@ -203,10 +209,7 @@ class DesktopSectionTitle extends StatelessWidget {
         crossAxisAlignment: WrapCrossAlignment.center,
         spacing: 12,
         runSpacing: 8,
-        children: [
-          titleWidget,
-          trailing!,
-        ],
+        children: [titleWidget, trailing!],
       ),
     );
   }
@@ -336,6 +339,9 @@ class DesktopIconButton extends StatelessWidget {
 /// A pill-shaped labelled button — the desktop toolbar's secondary action.
 class DesktopPillButton extends StatelessWidget {
   final String label;
+  final Color? foregroundColor;
+  final Color? backgroundColor;
+  final Color? hoverColor;
   final IconData? icon;
   final VoidCallback? onPressed;
   final bool primary;
@@ -358,6 +364,9 @@ class DesktopPillButton extends StatelessWidget {
   const DesktopPillButton({
     super.key,
     required this.label,
+    this.foregroundColor,
+    this.backgroundColor,
+    this.hoverColor,
     this.icon,
     this.onPressed,
     this.primary = false,
@@ -368,24 +377,30 @@ class DesktopPillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = danger
-        ? AppConstants.errorColor
-        : primary
-        ? AppConstants.onAccent
-        : AppConstants.textColor;
+    final fg =
+        foregroundColor ??
+        (danger
+            ? AppConstants.errorColor
+            : primary
+            ? AppConstants.onAccent
+            : AppConstants.textColor);
     return DesktopHoverSurface(
       onTap: onPressed,
       tooltip: tooltip,
-      idleColor: danger
-          ? dangerColor
-          : primary
-          ? AppConstants.accentColor
-          : AppConstants.tertiaryBackground,
-      hoverColor: danger
-          ? dangerHoverColor
-          : primary
-          ? Color.lerp(AppConstants.accentColor, Colors.white, 0.15)
-          : AppConstants.borderColor,
+      idleColor:
+          backgroundColor ??
+          (danger
+              ? dangerColor
+              : primary
+              ? AppConstants.accentColor
+              : AppConstants.tertiaryBackground),
+      hoverColor:
+          hoverColor ??
+          (danger
+              ? dangerHoverColor
+              : primary
+              ? Color.lerp(AppConstants.accentColor, Colors.white, 0.15)
+              : AppConstants.borderColor),
       borderRadius: BorderRadius.circular(AppConstants.pillRadius),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
@@ -520,10 +535,7 @@ class DesktopMenuButton<T> extends StatelessWidget {
       icon: icon,
       items: [
         for (final (value, text) in items)
-          DesktopDropdownItem<T>(
-            value: value,
-            label: text,
-          ),
+          DesktopDropdownItem<T>(value: value, label: text),
       ],
       selected: selected,
       onSelected: onSelected,
@@ -594,8 +606,8 @@ class DesktopSidePanel extends StatelessWidget {
     return Container(
       width: width,
       decoration: BoxDecoration(
-        color: AppConstants.primaryBackground,
-        border: Border(right: BorderSide(color: AppConstants.borderColor)),
+        color: context.colors.background,
+        border: Border(right: BorderSide(color: context.colors.border)),
       ),
       child: child,
     );
@@ -609,6 +621,9 @@ class DesktopSettingRow extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget control;
+  final Color? titleColor;
+  final Color? subtitleColor;
+  final Color? iconColor;
 
   const DesktopSettingRow({
     super.key,
@@ -616,6 +631,9 @@ class DesktopSettingRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.control,
+    this.titleColor,
+    this.subtitleColor,
+    this.iconColor,
   });
 
   @override
@@ -624,7 +642,11 @@ class DesktopSettingRow extends StatelessWidget {
       children: [
         SizedBox(
           width: 24,
-          child: Icon(icon, color: AppConstants.textMutedColor, size: 20),
+          child: Icon(
+            icon,
+            color: iconColor ?? AppConstants.textMutedColor,
+            size: 20,
+          ),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -634,7 +656,7 @@ class DesktopSettingRow extends StatelessWidget {
               Text(
                 title.toUpperCase(),
                 style: AppTypography.display(
-                  color: AppConstants.textColor,
+                  color: titleColor ?? AppConstants.textColor,
                   fontSize: 14,
                 ),
               ),
@@ -642,7 +664,7 @@ class DesktopSettingRow extends StatelessWidget {
               Text(
                 subtitle,
                 style: AppTypography.sans(
-                  color: AppConstants.textMutedColor,
+                  color: subtitleColor ?? AppConstants.textMutedColor,
                   fontSize: 12.5,
                 ),
               ),

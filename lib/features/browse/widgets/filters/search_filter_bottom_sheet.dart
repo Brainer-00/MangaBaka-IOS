@@ -3,6 +3,8 @@ import 'package:mangabaka_app/core/motion/app_motion.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/features/browse/models/search_filters.dart';
 import 'package:mangabaka_app/features/browse/models/sort_options.dart';
 import 'package:mangabaka_app/features/series/services/series_search_service.dart';
@@ -27,26 +29,26 @@ class SearchFilterBottomSheet extends StatefulWidget {
     this.isDialog = false,
     this.showLibrarySorts = false,
   });
- 
+
   @override
   State<SearchFilterBottomSheet> createState() =>
       _SearchFilterBottomSheetState();
 }
- 
+
 class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
   late SearchFilters _filters;
   late final SeriesSearchService _searchService;
- 
+
   final List<String> _types = filterSeriesTypes;
   final List<String> _statuses = filterPublicationStatuses;
 
   Map<String, String> _getSortOptions(LocalizationService l10n) =>
       searchSortOptions(l10n, library: widget.showLibrarySorts);
- 
+
   List<Map<String, dynamic>> _genres = [];
   List<Map<String, dynamic>> _tags = [];
   bool _isLoadingMetadata = true;
- 
+
   @override
   void initState() {
     super.initState();
@@ -54,7 +56,7 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
     _searchService = getIt<SeriesSearchService>();
     _loadMetadata();
   }
- 
+
   Future<void> _loadMetadata() async {
     try {
       final results = await Future.wait([
@@ -74,7 +76,7 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
       }
     }
   }
- 
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -82,13 +84,17 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
       builder: (context, _) {
         final l10n = LocalizationService();
         final sortOptions = _getSortOptions(l10n);
- 
+
         return Container(
-          height: widget.isDialog ? null : MediaQuery.of(context).size.height * 0.9,
+          height: widget.isDialog
+              ? null
+              : MediaQuery.of(context).size.height * 0.9,
           decoration: BoxDecoration(
-            color: widget.isDialog ? AppConstants.secondaryBackground : AppConstants.primaryBackground,
-            borderRadius: widget.isDialog 
-                ? BorderRadius.circular(24) 
+            color: widget.isDialog
+                ? context.colors.surface
+                : context.colors.background,
+            borderRadius: widget.isDialog
+                ? BorderRadius.circular(24)
                 : const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
@@ -101,7 +107,7 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: AppConstants.tertiaryBackground,
+                      color: context.colors.border,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -109,31 +115,37 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
               ],
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextButton(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final resetButton = TextButton(
                       onPressed: () =>
                           setState(() => _filters = SearchFilters()),
                       style: TextButton.styleFrom(
-                        foregroundColor: AppConstants.textMutedColor,
+                        foregroundColor: MbPalette.ensureContrast(
+                          context.colors.textMuted,
+                          widget.isDialog
+                              ? context.colors.surface
+                              : context.colors.background,
+                          minimum: 4.5,
+                        ),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 8),
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
                       ),
                       child: Text(l10n.translate('reset').toUpperCase()),
-                    ),
-                    Row(
+                    );
+                    final title = Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           l10n.translate('filters').toUpperCase(),
                           style: AppTypography.display(
-                            color: AppConstants.textColor,
+                            color: context.colors.text,
                             fontSize: 18,
                           ),
                         ),
-                        // Active-filter count as an amber badge: countable
-                        // state gets the accent everywhere in the system.
+                        // Keep the active-filter count beside the title.
                         if (_filters.activeFiltersCount > 0) ...[
                           const SizedBox(width: 8),
                           MbBadge.accent(
@@ -141,8 +153,8 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                           ),
                         ],
                       ],
-                    ),
-                    MbTappable(
+                    );
+                    final applyButton = MbTappable(
                       pressedScale: 0.95,
                       onTap: () {
                         widget.onApply(_filters);
@@ -150,9 +162,11 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 10),
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
-                          color: AppConstants.accentColor,
+                          color: context.colors.accent,
                           borderRadius: BorderRadius.circular(
                             AppConstants.pillRadius,
                           ),
@@ -160,13 +174,30 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                         child: Text(
                           l10n.translate('apply').toUpperCase(),
                           style: AppTypography.display(
-                            color: AppConstants.onAccent,
+                            color: context.colors.onAccent,
                             fontSize: 14,
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    );
+
+                    if (constraints.maxWidth < 390) {
+                      return Column(
+                        children: [
+                          title,
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [resetButton, applyButton],
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [resetButton, title, applyButton],
+                    );
+                  },
                 ),
               ),
               Flexible(
@@ -186,14 +217,16 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                         children: [
                           SearchFilterSortSection(
                             filters: _filters,
-                            onFiltersChanged: (newFilters) => setState(() => _filters = newFilters),
+                            onFiltersChanged: (newFilters) =>
+                                setState(() => _filters = newFilters),
                             l10n: l10n,
                             sortOptions: sortOptions,
                           ),
                           const SizedBox(height: 8),
                           SearchFilterCategoriesSection(
                             filters: _filters,
-                            onFiltersChanged: (newFilters) => setState(() => _filters = newFilters),
+                            onFiltersChanged: (newFilters) =>
+                                setState(() => _filters = newFilters),
                             l10n: l10n,
                             genres: _genres,
                             tags: _tags,
@@ -201,7 +234,8 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                           const SizedBox(height: 8),
                           SearchFilterTypeStatusSection(
                             filters: _filters,
-                            onFiltersChanged: (newFilters) => setState(() => _filters = newFilters),
+                            onFiltersChanged: (newFilters) =>
+                                setState(() => _filters = newFilters),
                             l10n: l10n,
                             types: _types,
                             statuses: _statuses,
@@ -209,7 +243,8 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                           const SizedBox(height: 8),
                           SearchFilterDetailsSection(
                             filters: _filters,
-                            onFiltersChanged: (newFilters) => setState(() => _filters = newFilters),
+                            onFiltersChanged: (newFilters) =>
+                                setState(() => _filters = newFilters),
                             l10n: l10n,
                           ),
                           const SizedBox(height: 32),

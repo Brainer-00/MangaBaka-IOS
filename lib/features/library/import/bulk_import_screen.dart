@@ -6,6 +6,8 @@ import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 import 'package:mangabaka_app/core/widgets/design/mb_cover.dart';
 import 'package:mangabaka_app/core/widgets/design/mb_screen_header.dart';
@@ -171,24 +173,33 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
   }
 
   Future<String?> _askUsername({required String title, required String label}) {
-    final field = TextEditingController();
+    var username = '';
     return showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppConstants.secondaryBackground,
+        backgroundColor: context.colors.surface,
         title: Text(
           title.toUpperCase(),
           style: AppTypography.display(
-            color: AppConstants.textColor,
+            color: context.colors.text,
             fontSize: 18,
           ),
         ),
         content: TextField(
-          controller: field,
           autofocus: true,
+          onChanged: (value) => username = value,
           onSubmitted: (v) => Navigator.pop(context, v),
-          style: AppTypography.sans(color: AppConstants.textColor),
-          decoration: InputDecoration(labelText: label),
+          style: AppTypography.sans(color: context.colors.text),
+          decoration: InputDecoration(
+            labelText: label,
+            labelStyle: AppTypography.sans(
+              color: MbPalette.ensureContrast(
+                context.colors.textMuted,
+                context.colors.surfaceRaised,
+                minimum: 4.5,
+              ),
+            ),
+          ),
         ),
         actions: [
           TextButton(
@@ -196,12 +207,12 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
             child: Text(LocalizationService().translate('cancel')),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, field.text),
+            onPressed: () => Navigator.pop(context, username),
             child: Text(LocalizationService().translate('import_fetch')),
           ),
         ],
       ),
-    ).whenComplete(field.dispose);
+    );
   }
 
   void _clearText() {
@@ -241,7 +252,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
 
     if (DesktopLayout.isActive(context)) {
       return Scaffold(
-        backgroundColor: AppConstants.primaryBackground,
+        backgroundColor: context.colors.background,
         body: ListenableBuilder(
           listenable: _controller,
           builder: (context, _) => !getIt<ProfileAuthService>().isLoggedIn
@@ -267,7 +278,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppConstants.primaryBackground,
+      backgroundColor: context.colors.background,
       appBar: mbScreenAppBar(title: l10n.translate('import_list')),
       body: WidgetUtils.responsiveConstraint(
         maxWidth: 760,
@@ -287,7 +298,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
       child: Text(
         text,
         textAlign: TextAlign.center,
-        style: AppTypography.sans(color: AppConstants.textMutedColor),
+        style: AppTypography.sans(color: context.colors.textMuted),
       ),
     ),
   );
@@ -301,7 +312,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
         Text(
           l10n.translate('import_list_subtitle'),
           style: AppTypography.sans(
-            color: AppConstants.textMutedColor,
+            color: context.colors.textMuted,
             fontSize: 14,
             height: 1.45,
           ),
@@ -313,9 +324,17 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
           maxLines: 16,
           textAlign: TextAlign.left,
           textAlignVertical: TextAlignVertical.top,
-          style: AppTypography.sans(color: AppConstants.textColor),
+          style: AppTypography.sans(color: context.colors.text),
           decoration: InputDecoration(
             hintText: l10n.translate('import_paste_hint'),
+            hintStyle: AppTypography.sans(
+              color: MbPalette.ensureContrast(
+                context.colors.textMuted,
+                context.colors.surfaceRaised,
+                minimum: 4.5,
+              ),
+            ),
+            fillColor: context.colors.surfaceRaised,
             contentPadding: const EdgeInsets.all(18),
             // The global input theme is intentionally pill-shaped for compact
             // fields. This tall editor needs the standard card geometry.
@@ -383,12 +402,12 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
             onChanged: (v) => setState(() => _useStates = v),
             title: Text(
               l10n.translate('import_use_statuses'),
-              style: AppTypography.sans(color: AppConstants.textColor),
+              style: AppTypography.sans(color: context.colors.text),
             ),
             subtitle: Text(
               l10n.translate('import_use_statuses_subtitle'),
               style: AppTypography.sans(
-                color: AppConstants.textMutedColor,
+                color: context.colors.textMuted,
                 fontSize: 12,
               ),
             ),
@@ -409,16 +428,16 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
           child: Text(
             l10n.translate('import_format').toUpperCase(),
             style: AppTypography.monoLabel(
-              color: AppConstants.textMutedColor,
+              color: context.colors.textMuted,
               fontSize: 11.5,
             ),
           ),
         ),
         DropdownButton<ImportFormat>(
           value: _format,
-          dropdownColor: AppConstants.secondaryBackground,
+          dropdownColor: context.colors.surface,
           underline: const SizedBox.shrink(),
-          style: AppTypography.sans(color: AppConstants.textColor),
+          style: AppTypography.sans(color: context.colors.text),
           items: [
             for (final f in ImportFormat.values)
               DropdownMenuItem(
@@ -441,16 +460,16 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
           child: Text(
             l10n.translate('import_add_as').toUpperCase(),
             style: AppTypography.monoLabel(
-              color: AppConstants.textMutedColor,
+              color: context.colors.textMuted,
               fontSize: 11.5,
             ),
           ),
         ),
         DropdownButton<String>(
           value: _controller.state,
-          dropdownColor: AppConstants.secondaryBackground,
+          dropdownColor: context.colors.surface,
           underline: const SizedBox.shrink(),
-          style: AppTypography.sans(color: AppConstants.textColor),
+          style: AppTypography.sans(color: context.colors.text),
           items: [
             for (final s in _states)
               DropdownMenuItem(value: s, child: Text(l10n.translate(s))),
@@ -472,8 +491,8 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
         if (c.isMatching)
           LinearProgressIndicator(
             value: c.progress,
-            color: AppConstants.accentColor,
-            backgroundColor: AppConstants.tertiaryBackground,
+            color: context.colors.progressIndicator,
+            backgroundColor: context.colors.surfaceRaised,
           ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
@@ -486,7 +505,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
                       .replaceAll('{selected}', '${c.selectedCount}')
                       .replaceAll('{total}', '${c.rows.length}'),
                   style: AppTypography.monoLabel(
-                    color: AppConstants.textMutedColor,
+                    color: context.colors.textMuted,
                     fontSize: 11.5,
                   ),
                 ),
@@ -525,11 +544,20 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
                 onPressed: c.selectedCount == 0 || c.isAdding || c.isMatching
                     ? null
                     : _add,
+                style: c.isAdding
+                    ? ElevatedButton.styleFrom(
+                        disabledBackgroundColor: context.colors.accent,
+                        disabledForegroundColor: context.colors.onAccent,
+                      )
+                    : null,
                 child: c.isAdding
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: context.colors.onAccent,
+                        ),
                       )
                     : Text(
                         l10n
@@ -571,12 +599,13 @@ class _RowTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final match = row.match;
     final muted = !row.canSelect;
+    final colors = context.colors;
     final title = match?.getDisplayTitle(
       SettingsManager().defaultTitleLanguage,
     );
 
     return Material(
-      color: AppConstants.secondaryBackground,
+      color: colors.surface,
       borderRadius: BorderRadius.circular(AppConstants.cardRadius),
       child: InkWell(
         onTap: row.canSelect ? onToggle : null,
@@ -599,7 +628,7 @@ class _RowTile extends StatelessWidget {
                           memCacheWidth: 120,
                           contentRating: match.contentRating,
                         )
-                      : Container(color: AppConstants.tertiaryBackground),
+                      : Container(color: colors.surfaceRaised),
                 ),
               ),
               const SizedBox(width: 12),
@@ -613,8 +642,12 @@ class _RowTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.sans(
                         color: muted
-                            ? AppConstants.textMutedColor
-                            : AppConstants.textColor,
+                            ? MbPalette.ensureContrast(
+                                colors.textMuted,
+                                colors.surface,
+                                minimum: 4.5,
+                              )
+                            : colors.text,
                         fontWeight: FontWeight.w600,
                         fontSize: 14.5,
                       ),
@@ -625,7 +658,11 @@ class _RowTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.sans(
-                          color: AppConstants.textMutedColor,
+                          color: MbPalette.ensureContrast(
+                            colors.textMuted,
+                            colors.surface,
+                            minimum: 4.5,
+                          ),
                           fontSize: 12,
                         ),
                       ),
@@ -634,8 +671,12 @@ class _RowTile extends StatelessWidget {
                         _status.toUpperCase(),
                         style: AppTypography.monoLabel(
                           color: row.status == ImportRowStatus.inLibrary
-                              ? AppConstants.accentColor
-                              : AppConstants.textMutedColor,
+                              ? colors.accentOn(colors.surface)
+                              : MbPalette.ensureContrast(
+                                  colors.textMuted,
+                                  colors.surface,
+                                  minimum: 4.5,
+                                ),
                           fontSize: 10.5,
                         ),
                       ),
@@ -647,7 +688,11 @@ class _RowTile extends StatelessWidget {
                   tooltip: l10n.translate('import_change_match'),
                   icon: Icon(
                     Icons.swap_horiz_rounded,
-                    color: AppConstants.textMutedColor,
+                    color: MbPalette.ensureContrast(
+                      colors.textMuted,
+                      colors.surface,
+                      minimum: 3.0,
+                    ),
                   ),
                   onSelected: onChange,
                   itemBuilder: (_) => [
@@ -660,12 +705,32 @@ class _RowTile extends StatelessWidget {
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
+                          style: AppTypography.sans(color: colors.text),
                         ),
                       ),
                   ],
                 ),
               if (row.canSelect)
-                Checkbox(value: row.selected, onChanged: (_) => onToggle())
+                Checkbox(
+                  value: row.selected,
+                  onChanged: (_) => onToggle(),
+                  side: BorderSide(
+                    color: MbPalette.ensureContrast(
+                      colors.border,
+                      colors.surface,
+                      minimum: 3.0,
+                    ),
+                    width: 1.5,
+                  ),
+                  fillColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? colors.accentOn(colors.surface, minimum: 3.0)
+                        : Colors.transparent,
+                  ),
+                  checkColor: MbPalette.readableOn(
+                    colors.accentOn(colors.surface, minimum: 3.0),
+                  ),
+                )
               else
                 const SizedBox(width: 48),
             ],

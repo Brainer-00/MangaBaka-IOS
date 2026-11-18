@@ -1,4 +1,4 @@
-import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/profile/widgets/snapshot/snapshot_list_item.dart';
@@ -53,7 +53,7 @@ class _SnapshotListState extends State<SnapshotList> {
         Text(
           widget.title.toUpperCase(),
           style: AppTypography.display(
-            color: AppConstants.textColor,
+            color: context.colors.text,
             fontSize: 15,
           ),
         ),
@@ -69,7 +69,14 @@ class _SnapshotListState extends State<SnapshotList> {
             separatorBuilder: (context, index) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               if (index >= widget.entries.length) {
-                return const Center(child: CircularProgressIndicator());
+                return Center(
+                  child: CircularProgressIndicator(
+                    color: context.colors.accentOn(
+                      context.colors.background,
+                      minimum: 3,
+                    ),
+                  ),
+                );
               }
               final entry = widget.entries[index];
               return SnapshotListItem(series: entry.series);

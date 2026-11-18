@@ -1,6 +1,7 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
@@ -45,6 +46,12 @@ class ExternalRatingsSection extends StatelessWidget {
   ) {
     final items = <Widget>[];
     final l10n = LocalizationService();
+    final colors = context.colors;
+    final muted = MbPalette.ensureContrast(
+      colors.textMuted,
+      colors.background,
+      minimum: 4.5,
+    );
 
     // Add Combined Average first if available
     final avg = series.combinedAverage;
@@ -58,13 +65,17 @@ class ExternalRatingsSection extends StatelessWidget {
               Icon(
                 Icons.stars_rounded,
                 size: 18,
-                color: AppConstants.starColor,
+                color: MbPalette.ensureContrast(
+                  colors.star,
+                  colors.background,
+                  minimum: 3,
+                ),
               ),
               const SizedBox(width: 8),
               Text(
                 avg.toStringAsFixed(1),
                 style: AppTypography.sans(
-                  color: AppConstants.textColor,
+                  color: colors.text,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
@@ -76,36 +87,25 @@ class ExternalRatingsSection extends StatelessWidget {
 
       if (sources.isNotEmpty) {
         items.add(
-          Text(
-            '•',
-            style: AppTypography.sans(
-              color: AppConstants.textMutedColor.withValues(alpha: 0.5),
-              fontSize: 16,
-            ),
-          ),
+          Text('•', style: AppTypography.sans(color: muted, fontSize: 16)),
         );
       }
     }
 
     for (int i = 0; i < sources.length; i++) {
       final entry = sources[i];
-      items.add(_buildRatingItem(entry.key, entry.value));
+      items.add(_buildRatingItem(context, entry.key, entry.value));
       if (i < sources.length - 1) {
         items.add(
-          Text(
-            '•',
-            style: AppTypography.sans(
-              color: AppConstants.textMutedColor.withValues(alpha: 0.5),
-              fontSize: 16,
-            ),
-          ),
+          Text('•', style: AppTypography.sans(color: muted, fontSize: 16)),
         );
       }
     }
     return items;
   }
 
-  Widget _buildRatingItem(String key, dynamic data) {
+  Widget _buildRatingItem(BuildContext context, String key, dynamic data) {
+    final colors = context.colors;
     final rating = data['rating_normalized'];
     final url = _getUrl(key, data);
     final domain = _getDomain(key);
@@ -123,6 +123,7 @@ class ExternalRatingsSection extends StatelessWidget {
           .translate('open_link')
           .replaceAll('{name}', displayName),
       child: InkWell(
+        hoverColor: colors.accent.withValues(alpha: 0.08),
         onTap: uri == null
             ? null
             : () => ExternalUrlLauncher.launchUri(
@@ -136,12 +137,12 @@ class ExternalRatingsSection extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _getFavicon(key),
+              _getFavicon(context, key),
               const SizedBox(width: 8),
               Text(
                 rating.toString(),
                 style: AppTypography.sans(
-                  color: AppConstants.textColor,
+                  color: colors.text,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
@@ -241,11 +242,17 @@ class ExternalRatingsSection extends StatelessWidget {
     }
   }
 
-  Widget _getFavicon(String key) {
+  Widget _getFavicon(BuildContext context, String key) {
     final domain = _getDomain(key);
+    final colors = context.colors;
+    final starColor = MbPalette.ensureContrast(
+      colors.star,
+      colors.background,
+      minimum: 3,
+    );
 
     if (domain.isEmpty) {
-      return Icon(Icons.star_rounded, size: 16, color: AppConstants.starColor);
+      return Icon(Icons.star_rounded, size: 16, color: starColor);
     }
 
     return ClipRRect(
@@ -254,11 +261,7 @@ class ExternalRatingsSection extends StatelessWidget {
         url: 'https://www.google.com/s2/favicons?sz=64&domain=$domain',
         width: 18,
         height: 18,
-        errorWidget: Icon(
-          Icons.star_rounded,
-          size: 16,
-          color: AppConstants.starColor,
-        ),
+        errorWidget: Icon(Icons.star_rounded, size: 16, color: starColor),
       ),
     );
   }

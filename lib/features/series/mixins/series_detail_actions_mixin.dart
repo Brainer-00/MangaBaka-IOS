@@ -9,6 +9,8 @@ import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/features/series/widgets/progress_update_dialog.dart';
 import 'package:mangabaka_app/features/series/widgets/rating_selection_dialog.dart';
 
@@ -94,68 +96,85 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
         context: context,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        builder: (context) => Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          decoration: BoxDecoration(
-            color: AppConstants.primaryBackground,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 20,
-                offset: const Offset(0, -5),
+        builder: (context) {
+          final colors = context.colors;
+          return Container(
+            key: const Key('series_share_sheet'),
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            decoration: BoxDecoration(
+              color: colors.background,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(32),
               ),
-            ],
-          ),
-          child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(
-                    color: AppConstants.textMutedColor.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                _buildShareOption(
-                  icon: Icons.share_rounded,
-                  title: l10n.translate('share_series'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    final box = this.context.findRenderObject() as RenderBox?;
-                    SharePlus.instance.share(
-                      ShareParams(
-                        text: link,
-                        sharePositionOrigin: box != null
-                            ? box.localToGlobal(Offset.zero) & box.size
-                            : null,
-                      ),
-                    );
-                  },
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Divider(
-                    height: 1,
-                    thickness: 0.5,
-                    color: AppConstants.textColor.withValues(alpha: 0.1),
-                  ),
-                ),
-                _buildShareOption(
-                  icon: Icons.copy_rounded,
-                  title: l10n.translate('copy_link'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    copyToClipboard(link);
-                  },
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 20,
+                  offset: const Offset(0, -5),
                 ),
               ],
             ),
-          ),
-        ),
+            child: Material(
+              color: Colors.transparent,
+              child: SafeArea(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        key: const Key('series_share_handle'),
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(
+                          color: colors.border,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      _buildShareOption(
+                        context: context,
+                        key: const Key('series_share_action'),
+                        icon: Icons.share_rounded,
+                        title: l10n.translate('share_series'),
+                        onTap: () {
+                          Navigator.pop(context);
+                          final box =
+                              this.context.findRenderObject() as RenderBox?;
+                          SharePlus.instance.share(
+                            ShareParams(
+                              text: link,
+                              sharePositionOrigin: box != null
+                                  ? box.localToGlobal(Offset.zero) & box.size
+                                  : null,
+                            ),
+                          );
+                        },
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Divider(
+                          height: 1,
+                          thickness: 0.5,
+                          color: colors.border,
+                        ),
+                      ),
+                      _buildShareOption(
+                        context: context,
+                        key: const Key('series_copy_action'),
+                        icon: Icons.copy_rounded,
+                        title: l10n.translate('copy_link'),
+                        onTap: () {
+                          Navigator.pop(context);
+                          copyToClipboard(link);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       );
     } else {
       AppSnackBar.show(context, l10n.translate('no_sharing_link'));
@@ -163,32 +182,44 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
   }
 
   Widget _buildShareOption({
+    required BuildContext context,
+    Key? key,
     required IconData icon,
     required String title,
     required VoidCallback onTap,
   }) {
+    final colors = context.colors;
+    final iconSurface = Color.alphaBlend(
+      colors.accent.withValues(alpha: 0.1),
+      colors.background,
+    );
     return ListTile(
+      key: key,
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       leading: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: AppConstants.accentColor.withValues(alpha: 0.1),
+          color: colors.accent.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(icon, color: AppConstants.accentColor, size: 24),
+        child: Icon(icon, color: colors.accentOn(iconSurface), size: 24),
       ),
       title: Text(
         title,
         style: AppTypography.sans(
-          color: AppConstants.textColor,
+          color: colors.text,
           fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
       ),
       trailing: Icon(
         Icons.chevron_right_rounded,
-        color: AppConstants.textMutedColor.withValues(alpha: 0.5),
+        color: MbPalette.ensureContrast(
+          colors.textMuted,
+          colors.background,
+          minimum: 3.0,
+        ),
       ),
     );
   }
@@ -197,95 +228,121 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
     final l10n = LocalizationService();
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppConstants.secondaryBackground,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppConstants.largeRadius),
-          side: BorderSide(color: AppConstants.tertiaryBackground, width: 1.5),
-        ),
-        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-        contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppConstants.errorColor.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
+      builder: (context) {
+        final colors = context.colors;
+        final errorSurface = Color.alphaBlend(
+          colors.error.withValues(alpha: 0.1),
+          colors.surface,
+        );
+        return AlertDialog(
+          key: const Key('series_delete_dialog'),
+          backgroundColor: colors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppConstants.largeRadius),
+            side: BorderSide(color: colors.border, width: 1.5),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+          contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colors.error.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.delete_sweep_rounded,
+                  color: MbPalette.ensureContrast(
+                    colors.error,
+                    errorSurface,
+                    minimum: 3.0,
+                  ),
+                  size: 24,
+                ),
               ),
-              child: Icon(
-                Icons.delete_sweep_rounded,
-                color: AppConstants.errorColor,
-                size: 24,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  l10n.translate('delete_from_library').toUpperCase(),
+                  style: AppTypography.display(
+                    color: colors.text,
+                    fontSize: 18,
+                  ),
+                ),
               ),
+            ],
+          ),
+          content: Text(
+            l10n.translate('delete_confirmation'),
+            style: AppTypography.sans(
+              color: MbPalette.ensureContrast(
+                colors.textMuted,
+                colors.surface,
+                minimum: 4.5,
+              ),
+              fontSize: 15,
+              height: 1.4,
             ),
-            const SizedBox(width: 12),
-            Expanded(
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+              ),
               child: Text(
-                l10n.translate('delete_from_library').toUpperCase(),
-                style: AppTypography.display(
-                  color: AppConstants.textColor,
-                  fontSize: 18,
+                l10n.translate('cancel'),
+                style: AppTypography.sans(
+                  color: MbPalette.ensureContrast(
+                    colors.textMuted,
+                    colors.surface,
+                    minimum: 4.5,
+                  ),
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-          ],
-        ),
-        content: Text(
-          l10n.translate('delete_confirmation'),
-          style: AppTypography.sans(
-            color: AppConstants.textMutedColor,
-            fontSize: 15,
-            height: 1.4,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            ),
-            child: Text(
-              l10n.translate('cancel'),
-              style: AppTypography.sans(
-                color: AppConstants.textMutedColor,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          FilledButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await libraryService.deleteEntry(series.id);
-                if (mounted) Navigator.pop(this.context);
-              } catch (e) {
-                if (mounted) {
-                  AppSnackBar.show(
-                    this.context,
-                    LocalizationService().translate('failed_to_delete'),
-                    isError: true,
-                  );
+            const SizedBox(width: 4),
+            FilledButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                try {
+                  await libraryService.deleteEntry(series.id);
+                  if (mounted) Navigator.pop(this.context);
+                } catch (e) {
+                  if (mounted) {
+                    AppSnackBar.show(
+                      this.context,
+                      LocalizationService().translate('failed_to_delete'),
+                      isError: true,
+                    );
+                  }
                 }
-              }
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppConstants.errorColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: colors.error,
+                foregroundColor: MbPalette.readableOn(colors.error),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+                ),
+              ),
+              child: Text(
+                l10n.translate('confirm'),
+                style: AppTypography.sans(fontWeight: FontWeight.bold),
               ),
             ),
-            child: Text(
-              l10n.translate('confirm'),
-              style: AppTypography.sans(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 

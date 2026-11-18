@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mangabaka_app/core/constants/mock_series_data.dart';
@@ -6,6 +7,9 @@ import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
 import 'package:mangabaka_app/features/series/mixins/series_detail_actions_mixin.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
+import 'package:mangabaka_app/core/theme/app_theme.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_presets.dart';
 
 // ─── Fake ────────────────────────────────────────────────────────────────────
 
@@ -14,6 +18,7 @@ class _FakeLibraryService extends Fake implements LibraryService {
   bool throwOnDelete = false;
   String? lastCreatedId;
   String? lastDeletedId;
+  int deleteCalls = 0;
 
   @override
   Future<void> createLibraryEntry(String seriesId, String state) async {
@@ -23,6 +28,7 @@ class _FakeLibraryService extends Fake implements LibraryService {
 
   @override
   Future<void> deleteEntry(String seriesId) async {
+    deleteCalls++;
     if (throwOnDelete) throw Exception('delete failed');
     lastDeletedId = seriesId;
   }
@@ -75,10 +81,29 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  Widget buildWidget(_FakeLibraryService svc, {Series? seriesOverride}) =>
-      MaterialApp(
-        home: _TestWidget(libraryService: svc, seriesOverride: seriesOverride),
-      );
+  Widget buildWidget(
+    _FakeLibraryService svc, {
+    Series? seriesOverride,
+    MbPalette? palette,
+  }) => MaterialApp(
+    theme: palette == null
+        ? null
+        : AppTheme.build(showTooltips: true, palette: palette),
+    home: _TestWidget(libraryService: svc, seriesOverride: seriesOverride),
+  );
+
+  Series shareableSeries() => Series.fromJson({
+    'id': '222',
+    'title': 'The Apothecary Diaries',
+    'links': ['https://mangabaka.org/series/222'],
+  });
+
+  final palettes = <String, MbPalette>{
+    'EirenYu Dark': EirenYuPalette.dark,
+    'EirenYu Light': EirenYuPalette.light,
+    'Nord': ThemePresets.byId('nord')!.dark!,
+    'custom accent': EirenYuPalette.light.withAccent(const Color(0xFF808080)),
+  };
 
   group('SeriesDetailActionsMixin.addSeriesToLibrary', () {
     testWidgets('is a no-op when isAdding is already true', (tester) async {
@@ -93,8 +118,9 @@ void main() {
       expect(svc.lastCreatedId, isNull);
     });
 
-    testWidgets('calls createLibraryEntry with series id and resets isAdding',
-        (tester) async {
+    testWidgets('calls createLibraryEntry with series id and resets isAdding', (
+      tester,
+    ) async {
       final svc = _FakeLibraryService();
       await tester.pumpWidget(buildWidget(svc));
       final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
@@ -106,8 +132,9 @@ void main() {
       expect(state.isAdding, isFalse);
     });
 
-    testWidgets('shows error snackbar and resets isAdding on failure',
-        (tester) async {
+    testWidgets('shows error snackbar and resets isAdding on failure', (
+      tester,
+    ) async {
       final svc = _FakeLibraryService()..throwOnCreate = true;
       await tester.pumpWidget(buildWidget(svc));
       final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
@@ -121,18 +148,162 @@ void main() {
   });
 
   group('SeriesDetailActionsMixin.shareLink', () {
-    testWidgets('shows no_sharing_link snackbar when series has no mangabaka link',
-        (tester) async {
-      // mockSeries222 has links: const [] — no mangabaka link present
+    testWidgets(
+      'shows no_sharing_link snackbar when series has no mangabaka link',
+      (tester) async {
+        // mockSeries222 has links: const [] — no mangabaka link present
+        final svc = _FakeLibraryService();
+        await tester.pumpWidget(buildWidget(svc));
+        final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
+
+        state.shareLink();
+        await tester.pump();
+
+        // LocalizationService not initialised in tests; translate returns the key
+        expect(find.text('no_sharing_link'), findsOneWidget);
+      },
+    );
+
+    for (final entry in palettes.entries) {
+      testWidgets('${entry.key} share sheet uses readable palette colors', (
+        tester,
+      ) async {
+        final colors = entry.value;
+        final svc = _FakeLibraryService();
+        await tester.pumpWidget(
+          buildWidget(svc, seriesOverride: shareableSeries(), palette: colors),
+        );
+        final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
+
+        state.shareLink();
+        await tester.pumpAndSettle();
+
+        final sheet = tester.widget<Container>(
+          find.byKey(const Key('series_share_sheet')),
+        );
+        expect((sheet.decoration! as BoxDecoration).color, colors.background);
+        expect(find.byKey(const Key('series_share_action')), findsOneWidget);
+        expect(find.byKey(const Key('series_copy_action')), findsOneWidget);
+        final handle = tester.widget<Container>(
+          find.byKey(const Key('series_share_handle')),
+        );
+        expect((handle.decoration! as BoxDecoration).color, colors.border);
+        final title = tester.widget<Text>(find.text('share_series'));
+        expect(
+          MbPalette.contrastRatio(title.style!.color!, colors.background),
+          greaterThanOrEqualTo(4.5),
+        );
+        final icon = tester.widget<Icon>(find.byIcon(Icons.share_rounded));
+        final iconSurface = Color.alphaBlend(
+          colors.accent.withValues(alpha: 0.1),
+          colors.background,
+        );
+        expect(
+          MbPalette.contrastRatio(icon.color!, iconSurface),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('share sheet stays open and recolors when the theme changes', (
+      tester,
+    ) async {
+      final palette = ValueNotifier<MbPalette>(EirenYuPalette.dark);
+      addTearDown(palette.dispose);
       final svc = _FakeLibraryService();
-      await tester.pumpWidget(buildWidget(svc));
+      await tester.pumpWidget(
+        ValueListenableBuilder<MbPalette>(
+          valueListenable: palette,
+          builder: (context, colors, _) => MaterialApp(
+            theme: AppTheme.build(showTooltips: true, palette: colors),
+            home: _TestWidget(
+              libraryService: svc,
+              seriesOverride: shareableSeries(),
+            ),
+          ),
+        ),
+      );
       final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
-
       state.shareLink();
-      await tester.pump();
+      await tester.pumpAndSettle();
+      palette.value = EirenYuPalette.light;
+      await tester.pumpAndSettle();
 
-      // LocalizationService not initialised in tests; translate returns the key
-      expect(find.text('no_sharing_link'), findsOneWidget);
+      final sheet = tester.widget<Container>(
+        find.byKey(const Key('series_share_sheet')),
+      );
+      expect(
+        (sheet.decoration! as BoxDecoration).color,
+        EirenYuPalette.light.background,
+      );
+      expect(find.byKey(const Key('series_share_action')), findsOneWidget);
+      expect(find.byKey(const Key('series_copy_action')), findsOneWidget);
+    });
+
+    testWidgets('copy action preserves the selected link in the clipboard', (
+      tester,
+    ) async {
+      String? copiedText;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'Clipboard.setData') {
+              copiedText = (call.arguments as Map)['text'] as String?;
+            }
+            return null;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      final svc = _FakeLibraryService();
+      await tester.pumpWidget(
+        buildWidget(svc, seriesOverride: shareableSeries()),
+      );
+      final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
+      state.shareLink();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('series_copy_action')));
+      await tester.pumpAndSettle();
+
+      expect(copiedText, 'https://mangabaka.org/series/222');
+      expect(find.byType(SnackBar), findsOneWidget);
+    });
+
+    testWidgets('share sheet and delete dialog fit narrow viewports', (
+      tester,
+    ) async {
+      final originalSize = tester.view.physicalSize;
+      final originalDpr = tester.view.devicePixelRatio;
+      addTearDown(() {
+        tester.view.physicalSize = originalSize;
+        tester.view.devicePixelRatio = originalDpr;
+      });
+
+      for (final viewport in const [Size(320, 568), Size(568, 320)]) {
+        tester.view.physicalSize = viewport;
+        tester.view.devicePixelRatio = 1;
+        final svc = _FakeLibraryService();
+        await tester.pumpWidget(
+          buildWidget(svc, seriesOverride: shareableSeries()),
+        );
+        final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
+
+        state.shareLink();
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('series_share_sheet')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+
+        Navigator.of(state.context).pop();
+        await tester.pumpAndSettle();
+        state.showDeleteConfirmationDialog();
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('series_delete_dialog')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+
+        await tester.tap(find.text('cancel'));
+        await tester.pumpAndSettle();
+      }
     });
   });
 
@@ -164,6 +335,79 @@ void main() {
       expect(find.text('confirm'), findsOneWidget);
     });
 
+    for (final entry in palettes.entries) {
+      testWidgets('${entry.key} delete dialog uses readable danger colors', (
+        tester,
+      ) async {
+        final colors = entry.value;
+        final svc = _FakeLibraryService();
+        await tester.pumpWidget(buildWidget(svc, palette: colors));
+        final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
+        state.showDeleteConfirmationDialog();
+        await tester.pumpAndSettle();
+
+        final dialog = tester.widget<AlertDialog>(
+          find.byKey(const Key('series_delete_dialog')),
+        );
+        expect(dialog.backgroundColor, colors.surface);
+        final title = tester.widget<Text>(find.text('DELETE_FROM_LIBRARY'));
+        final body = tester.widget<Text>(find.text('delete_confirmation'));
+        final cancel = tester.widget<Text>(find.text('cancel'));
+        expect(
+          MbPalette.contrastRatio(title.style!.color!, colors.surface),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(
+          MbPalette.contrastRatio(body.style!.color!, colors.surface),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(
+          MbPalette.contrastRatio(cancel.style!.color!, colors.surface),
+          greaterThanOrEqualTo(4.5),
+        );
+        final confirm = tester.widget<FilledButton>(find.byType(FilledButton));
+        expect(confirm.style!.backgroundColor!.resolve({}), colors.error);
+        final dangerForeground = confirm.style!.foregroundColor!.resolve({})!;
+        expect(
+          MbPalette.contrastRatio(dangerForeground, colors.error),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('delete dialog remains open and recolors during theme change', (
+      tester,
+    ) async {
+      final palette = ValueNotifier<MbPalette>(EirenYuPalette.dark);
+      addTearDown(palette.dispose);
+      final svc = _FakeLibraryService();
+      await tester.pumpWidget(
+        ValueListenableBuilder<MbPalette>(
+          valueListenable: palette,
+          builder: (context, colors, _) => MaterialApp(
+            theme: AppTheme.build(showTooltips: true, palette: colors),
+            home: _TestWidget(libraryService: svc),
+          ),
+        ),
+      );
+      final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
+      state.showDeleteConfirmationDialog();
+      await tester.pumpAndSettle();
+      palette.value = EirenYuPalette.light;
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('series_delete_dialog')), findsOneWidget);
+      expect(
+        tester
+            .widget<AlertDialog>(find.byKey(const Key('series_delete_dialog')))
+            .backgroundColor,
+        EirenYuPalette.light.surface,
+      );
+      await tester.tap(find.text('cancel'));
+      await tester.pumpAndSettle();
+      expect(svc.deleteCalls, 0);
+    });
+
     testWidgets('calls deleteEntry when confirm tapped', (tester) async {
       final svc = _FakeLibraryService();
       await tester.pumpWidget(buildWidget(svc));
@@ -176,6 +420,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(svc.lastDeletedId, '222');
+      expect(svc.deleteCalls, 1);
     });
 
     testWidgets('shows error snackbar when deleteEntry throws', (tester) async {

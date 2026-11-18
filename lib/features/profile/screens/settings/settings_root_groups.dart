@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/motion/app_motion.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/features/profile/screens/settings/settings_categories.dart';
 import 'package:mangabaka_app/features/profile/screens/translation_credits_screen.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
@@ -31,6 +32,13 @@ List<Widget> buildSettingsGroups(
             : 'general_settings_subtitle',
       ),
       onTap: () => SettingsCategories.general(context, l10n),
+    ),
+    const SizedBox(height: 16),
+    _category(
+      icon: Icons.palette_outlined,
+      title: l10n.translate('appearance'),
+      subtitle: l10n.translate('appearance_subtitle'),
+      onTap: () => SettingsCategories.appearance(context, l10n),
     ),
     const SizedBox(height: 16),
     _category(
@@ -75,6 +83,7 @@ List<Widget> buildSettingsGroups(
     SettingsGroup(
       children: [
         _externalLink(
+          context: context,
           icon: Icons.code,
           title: l10n.translate('github'),
           url: AppConstants.githubRepoUrl,
@@ -117,6 +126,7 @@ Widget _category({
 
 /// A row that leaves the app, marked with the standard external-link glyph.
 Widget _externalLink({
+  required BuildContext context,
   required IconData icon,
   required String title,
   required String url,
@@ -132,7 +142,7 @@ Widget _externalLink({
     ),
     trailing: Icon(
       Icons.open_in_new,
-      color: AppConstants.textMutedColor,
+      color: context.colors.textMuted,
       size: 18,
     ),
     isFirst: isFirst,

@@ -7,6 +7,8 @@ import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:ui';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
 
 class WidgetUtils {
@@ -44,12 +46,7 @@ class WidgetUtils {
   }) {
     if (url.isEmpty) {
       final iconSize = (width != null && width.isFinite) ? width : 24.0;
-      return errorWidget ??
-          Icon(
-            Icons.broken_image,
-            size: iconSize,
-            color: AppConstants.textMutedColor,
-          );
+      return errorWidget ?? _DefaultImageError(iconSize: iconSize);
     }
 
     final Widget image = url.startsWith('assets/')
@@ -60,12 +57,7 @@ class WidgetUtils {
             fit: fit,
             errorBuilder: (context, error, stackTrace) {
               final iconSize = (width != null && width.isFinite) ? width : 24.0;
-              return errorWidget ??
-                  Icon(
-                    Icons.broken_image,
-                    size: iconSize,
-                    color: AppConstants.textMutedColor,
-                  );
+              return errorWidget ?? _DefaultImageError(iconSize: iconSize);
             },
           )
         : CachedNetworkImage(
@@ -77,22 +69,14 @@ class WidgetUtils {
             memCacheWidth: memCacheWidth,
             memCacheHeight: memCacheHeight,
             placeholder: (context, url) =>
-                placeholder ??
-                Container(color: AppConstants.secondaryBackground),
+                placeholder ?? const _DefaultImagePlaceholder(),
             errorWidget: (context, url, error) {
-              // Surface the failing host + error so image outages (dead CDN,
-              // TLS handshake, cleartext block, rate limit) are diagnosable from
-              // the in-app log rather than a silent broken-image icon.
-              LoggingService.logger.warning(
-                'Image load failed (${error.runtimeType})',
-              );
               final iconSize = (width != null && width.isFinite) ? width : 24.0;
-              return errorWidget ??
-                  Icon(
-                    Icons.broken_image,
-                    size: iconSize,
-                    color: AppConstants.textMutedColor,
-                  );
+              return _NetworkImageFailure(
+                key: ValueKey('$url:${error.runtimeType}'),
+                errorType: error.runtimeType,
+                child: errorWidget ?? _DefaultImageError(iconSize: iconSize),
+              );
             },
             fadeOutDuration: const Duration(milliseconds: 300),
             fadeInDuration: const Duration(milliseconds: 300),
@@ -146,72 +130,147 @@ class WidgetUtils {
 
   static Widget linkList(List<dynamic> links) {
     if (links.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 14),
-          child: Text(
-            'Links'.toUpperCase(),
-            style: AppTypography.monoLabel(
-              color: AppConstants.textMutedColor,
-              fontSize: 11.5,
+    return Builder(
+      builder: (context) {
+        final colors = context.colors;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Text(
+                'Links'.toUpperCase(),
+                style: AppTypography.monoLabel(
+                  color: MbPalette.ensureContrast(
+                    colors.textMuted,
+                    colors.surface,
+                    minimum: 4.5,
+                  ),
+                  fontSize: 11.5,
+                ),
+              ),
             ),
-          ),
-        ),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: links.map<Widget>((l) {
-            String url = '';
-            String displayName = '';
-            String? language;
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: links.map<Widget>((l) {
+                String url = '';
+                String displayName = '';
+                String? language;
 
-            if (l is String) {
-              final uri = ExternalUrlLauncher.parseHttpsUrl(l);
-              if (uri != null) {
-                url = l;
-                final domain = uri.host.replaceFirst('www.', '');
-                displayName = domain.split('.').first;
-                displayName =
-                    displayName[0].toUpperCase() + displayName.substring(1);
+                if (l is String) {
+                  final uri = ExternalUrlLauncher.parseHttpsUrl(l);
+                  if (uri != null) {
+                    url = l;
+                    final domain = uri.host.replaceFirst('www.', '');
+                    displayName = domain.split('.').first;
+                    displayName =
+                        displayName[0].toUpperCase() + displayName.substring(1);
 
-                final langMatch = RegExp(
-                  r'\/([a-z]{2})\/',
-                ).firstMatch(uri.path);
-                if (langMatch != null) {
-                  language = langMatch.group(1)!.toUpperCase();
+                    final langMatch = RegExp(
+                      r'\/([a-z]{2})\/',
+                    ).firstMatch(uri.path);
+                    if (langMatch != null) {
+                      language = langMatch.group(1)!.toUpperCase();
+                    }
+                  }
+                } else if (l.runtimeType.toString() == 'SeriesLink') {
+                  try {
+                    url = l.url;
+                    displayName = l.nameDisplay;
+                    language = l.language?.toString().toUpperCase();
+                  } catch (e) {
+                    return const SizedBox.shrink();
+                  }
                 }
-              }
-            } else if (l.runtimeType.toString() == 'SeriesLink') {
-              try {
-                url = l.url;
-                displayName = l.nameDisplay;
-                language = l.language?.toString().toUpperCase();
-              } catch (e) {
-                return const SizedBox.shrink();
-              }
-            }
 
-            if (url.isEmpty) return const SizedBox.shrink();
-            final uri = ExternalUrlLauncher.parseHttpsUrl(url);
-            if (uri == null) return const SizedBox.shrink();
-            final domain = uri.host.replaceFirst('www.', '');
-            final faviconUrl =
-                'https://www.google.com/s2/favicons?domain=$domain&sz=64';
+                if (url.isEmpty) return const SizedBox.shrink();
+                final uri = ExternalUrlLauncher.parseHttpsUrl(url);
+                if (uri == null) return const SizedBox.shrink();
+                final domain = uri.host.replaceFirst('www.', '');
+                final faviconUrl =
+                    'https://www.google.com/s2/favicons?domain=$domain&sz=64';
 
-            return _HoverableLinkChip(
-              uri: uri,
-              faviconUrl: faviconUrl,
-              displayName: displayName,
-              language: language,
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 16),
-      ],
+                return _HoverableLinkChip(
+                  uri: uri,
+                  faviconUrl: faviconUrl,
+                  displayName: displayName,
+                  language: language,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+          ],
+        );
+      },
     );
   }
+}
+
+/// Reads theme colors during its own build so cached image state can recolor
+/// without changing the image key or restarting the image request.
+class _DefaultImagePlaceholder extends StatelessWidget {
+  const _DefaultImagePlaceholder();
+
+  @override
+  Widget build(BuildContext context) =>
+      Container(color: context.colors.surfaceRaised);
+}
+
+class _DefaultImageError extends StatelessWidget {
+  const _DefaultImageError({required this.iconSize});
+
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      color: colors.surfaceRaised,
+      child: Center(
+        widthFactor: 1,
+        heightFactor: 1,
+        child: Icon(
+          Icons.broken_image,
+          size: iconSize,
+          color: MbPalette.ensureContrast(
+            colors.textMuted,
+            colors.surfaceRaised,
+            minimum: 4.5,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Logs once when this URL enters its failed state. Keeping the error visual in
+/// a child widget prevents a parent theme rebuild from repeating the log.
+class _NetworkImageFailure extends StatefulWidget {
+  const _NetworkImageFailure({
+    super.key,
+    required this.errorType,
+    required this.child,
+  });
+
+  final Type errorType;
+  final Widget child;
+
+  @override
+  State<_NetworkImageFailure> createState() => _NetworkImageFailureState();
+}
+
+class _NetworkImageFailureState extends State<_NetworkImageFailure> {
+  @override
+  void initState() {
+    super.initState();
+    // Surface the failing host + error so image outages (dead CDN, TLS
+    // handshake, cleartext block, rate limit) remain diagnosable in app logs.
+    LoggingService.logger.warning('Image load failed (${widget.errorType})');
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// A reactive tooltip that listens to [SettingsManager] to show or hide itself.
@@ -249,6 +308,7 @@ class _HoverableLinkChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final borderRadius = BorderRadius.circular(AppConstants.cardRadius);
     return WidgetUtils.tooltip(
       message: LocalizationService()
@@ -256,8 +316,8 @@ class _HoverableLinkChip extends StatelessWidget {
           .replaceAll('{name}', displayName),
       child: Container(
         decoration: BoxDecoration(
-          color: AppConstants.secondaryBackground,
-          border: Border.all(color: AppConstants.borderColor, width: 1),
+          color: colors.surface,
+          border: Border.all(color: colors.border, width: 1),
           borderRadius: borderRadius,
         ),
         child: Material(
@@ -265,9 +325,9 @@ class _HoverableLinkChip extends StatelessWidget {
           child: InkWell(
             onTap: () => ExternalUrlLauncher.launchUri(uri),
             borderRadius: borderRadius,
-            hoverColor: AppConstants.accentColor.withValues(alpha: 0.1),
-            splashColor: AppConstants.accentColor.withValues(alpha: 0.1),
-            highlightColor: AppConstants.accentColor.withValues(alpha: 0.05),
+            hoverColor: colors.accent.withValues(alpha: 0.1),
+            splashColor: colors.accent.withValues(alpha: 0.1),
+            highlightColor: colors.accent.withValues(alpha: 0.05),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
@@ -282,7 +342,11 @@ class _HoverableLinkChip extends StatelessWidget {
                       errorWidget: Icon(
                         Icons.link,
                         size: 18,
-                        color: AppConstants.textMutedColor,
+                        color: MbPalette.ensureContrast(
+                          colors.textMuted,
+                          colors.surface,
+                          minimum: 4.5,
+                        ),
                       ),
                     ),
                   ),
@@ -290,7 +354,7 @@ class _HoverableLinkChip extends StatelessWidget {
                   Text(
                     displayName,
                     style: AppTypography.sans(
-                      color: AppConstants.textColor,
+                      color: colors.text,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -303,17 +367,18 @@ class _HoverableLinkChip extends StatelessWidget {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: AppConstants.tertiaryBackground,
-                        border: Border.all(
-                          color: AppConstants.borderColor,
-                          width: 1,
-                        ),
+                        color: colors.surfaceRaised,
+                        border: Border.all(color: colors.border, width: 1),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         language!,
                         style: AppTypography.monoLabel(
-                          color: AppConstants.textMutedColor,
+                          color: MbPalette.ensureContrast(
+                            colors.textMuted,
+                            colors.surfaceRaised,
+                            minimum: 4.5,
+                          ),
                           fontSize: 10,
                         ),
                       ),

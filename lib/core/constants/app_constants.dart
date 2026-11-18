@@ -57,6 +57,8 @@ class AppConstants {
   static const Color warningColor = Color(0xFFFBD24B);
   static const Color errorColor = Color(0xFFF87171);
   static const Color infoColor = Color(0xFF60A5FA);
+  static const Color rereadingColor = Color(0xFF4FA6C8);
+  static const Color consideringColor = Color(0xFF9B8CF4);
   static const Color textColor = Color(0xFFFFFFFF);
   static const Color textMutedColor = Color(0xFF8E8E8E);
 
@@ -104,8 +106,9 @@ class AppConstants {
   static Color getColorForState(String state) {
     switch (state) {
       case 'reading':
-      case 'rereading':
         return successColor;
+      case 'rereading':
+        return rereadingColor;
       case 'completed':
         return textColor;
       case 'paused':
@@ -115,7 +118,7 @@ class AppConstants {
       case 'plan_to_read':
         return infoColor;
       case 'considering':
-        return accentColor;
+        return consideringColor;
       default:
         return textMutedColor;
     }
@@ -124,9 +127,10 @@ class AppConstants {
   static Color getOnColorForState(String state) {
     switch (state) {
       case 'reading':
+        return onAccent;
       case 'rereading':
       case 'considering':
-        return onAccent;
+        return primaryBackground;
       case 'completed':
       case 'paused':
         return primaryBackground;

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/widgets/dotted_border_painter.dart';
 import 'package:mangabaka_app/features/browse/models/search_filters.dart';
 import 'package:mangabaka_app/features/browse/widgets/filters/search_filter_categories_section.dart';
@@ -44,20 +44,21 @@ class SeriesFilterDrawer extends StatelessWidget {
   });
 
   static Map<String, String> sortOptions(LocalizationService l10n) => {
-        'name_asc': l10n.translate('title_asc'),
-        'name_desc': l10n.translate('title_desc'),
-        'popularity_asc': l10n.translate('popularity_asc'),
-        'popularity_desc': l10n.translate('popularity_desc'),
-        'score_desc': l10n.translate('rating_desc'),
-        'score_asc': l10n.translate('rating_asc'),
-        'chapters_desc': l10n.translate('chapters_desc'),
-        'chapters_asc': l10n.translate('chapters_asc'),
-        'random': l10n.translate('random_sort'),
-      };
+    'name_asc': l10n.translate('title_asc'),
+    'name_desc': l10n.translate('title_desc'),
+    'popularity_asc': l10n.translate('popularity_asc'),
+    'popularity_desc': l10n.translate('popularity_desc'),
+    'score_desc': l10n.translate('rating_desc'),
+    'score_asc': l10n.translate('rating_asc'),
+    'chapters_desc': l10n.translate('chapters_desc'),
+    'chapters_asc': l10n.translate('chapters_asc'),
+    'random': l10n.translate('random_sort'),
+  };
 
   @override
   Widget build(BuildContext context) {
     if (!controller.isOpen) return const SizedBox.shrink();
+    final colors = context.colors;
 
     return Stack(
       children: [
@@ -69,7 +70,7 @@ class SeriesFilterDrawer extends StatelessWidget {
                 animation: controller.marchingAnts,
                 builder: (context, _) => CustomPaint(
                   painter: DottedBorderPainter(
-                    color: AppConstants.accentColor,
+                    color: colors.accentOn(colors.background, minimum: 3.0),
                     strokeWidth: 3,
                     gap: 6,
                     // One full 4s lap advances the dashes by 24px — four
@@ -112,13 +113,16 @@ class _Sheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
+    final colors = context.colors;
     final screenHeight = mediaQuery.size.height;
 
     // Collapsed, the sheet should still clear the system navigation bar and
     // leave its header reachable.
     final minSize = screenHeight > 0
-        ? ((_headerHeight + mediaQuery.padding.bottom) / screenHeight)
-            .clamp(0.05, 0.9)
+        ? ((_headerHeight + mediaQuery.padding.bottom) / screenHeight).clamp(
+            0.05,
+            0.9,
+          )
         : 0.12;
 
     return DraggableScrollableSheet(
@@ -131,7 +135,7 @@ class _Sheet extends StatelessWidget {
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
-            color: AppConstants.primaryBackground,
+            color: colors.background,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             boxShadow: [
               BoxShadow(
@@ -140,9 +144,7 @@ class _Sheet extends StatelessWidget {
                 spreadRadius: 2,
               ),
             ],
-            border: Border(
-              top: BorderSide(color: AppConstants.tertiaryBackground, width: 1),
-            ),
+            border: Border(top: BorderSide(color: colors.border, width: 1)),
           ),
           child: ListView(
             controller: scrollController,
@@ -150,8 +152,10 @@ class _Sheet extends StatelessWidget {
             children: [
               _Header(controller: controller, onSearch: onSearch),
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 8.0,
+                ),
                 child: _FilterSections(controller: controller),
               ),
             ],
@@ -170,6 +174,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final l10n = LocalizationService();
     final filters = controller.filters;
     final activeCount = filters?.activeFiltersCount ?? 0;
@@ -183,7 +188,7 @@ class _Header extends StatelessWidget {
             width: 32,
             height: 4,
             decoration: BoxDecoration(
-              color: AppConstants.tertiaryBackground,
+              color: colors.border,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -198,7 +203,7 @@ class _Header extends StatelessWidget {
                 child: Text(
                   l10n.translate('reset').toUpperCase(),
                   style: AppTypography.sans(
-                    color: AppConstants.textMutedColor,
+                    color: colors.textMuted,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.5,
@@ -209,18 +214,16 @@ class _Header extends StatelessWidget {
                 activeCount > 0
                     ? '${l10n.translate('filters')} ($activeCount)'
                     : l10n.translate('filters'),
-                style: AppTypography.display(
-                  color: AppConstants.textColor,
-                  fontSize: 18,
-                ),
+                style: AppTypography.display(color: colors.text, fontSize: 18),
               ),
               TextButton(
                 onPressed: filters == null ? null : () => onSearch(filters),
                 style: TextButton.styleFrom(
-                  backgroundColor:
-                      AppConstants.accentColor.withValues(alpha: 0.15),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  backgroundColor: colors.accent.withValues(alpha: 0.15),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -228,7 +231,12 @@ class _Header extends StatelessWidget {
                 child: Text(
                   l10n.translate('search').toUpperCase(),
                   style: AppTypography.sans(
-                    color: AppConstants.accentColor,
+                    color: colors.accentOn(
+                      Color.alphaBlend(
+                        colors.accent.withValues(alpha: 0.15),
+                        colors.background,
+                      ),
+                    ),
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                     letterSpacing: 0.5,

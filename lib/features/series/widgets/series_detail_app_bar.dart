@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
@@ -103,7 +103,7 @@ class _SeriesDetailAppBarState extends State<SeriesDetailAppBar> {
         return SliverAppBar(
           expandedHeight: metrics.expandedHeight,
           pinned: true,
-          backgroundColor: AppConstants.primaryBackground,
+          backgroundColor: context.colors.background,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           scrolledUnderElevation: 0,
@@ -117,7 +117,7 @@ class _SeriesDetailAppBarState extends State<SeriesDetailAppBar> {
               end: metrics.titleEndPadding,
             ),
             centerTitle: false,
-            title: _buildCollapsedTitle(metrics),
+            title: _buildCollapsedTitle(context, metrics),
             background: SeriesBannerBackground(
               series: widget.series,
               title: widget.title,
@@ -221,7 +221,10 @@ class _SeriesDetailAppBarState extends State<SeriesDetailAppBar> {
     ).animate().fadeIn(delay: delay, duration: 400.ms);
   }
 
-  Widget _buildCollapsedTitle(SeriesAppBarMetrics metrics) {
+  Widget _buildCollapsedTitle(
+    BuildContext context,
+    SeriesAppBarMetrics metrics,
+  ) {
     return IgnorePointer(
       // Fully faded out it is still laid out, and would otherwise swallow taps
       // meant for the banner beneath it.
@@ -231,7 +234,7 @@ class _SeriesDetailAppBarState extends State<SeriesDetailAppBar> {
         child: Text(
           widget.title,
           style: AppTypography.display(
-            color: AppConstants.textColor,
+            color: context.colors.text,
             fontWeight: FontWeight.w600,
             fontSize: 19,
           ),

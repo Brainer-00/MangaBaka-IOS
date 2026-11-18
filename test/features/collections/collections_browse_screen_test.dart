@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
+import 'package:mangabaka_app/core/theme/app_theme.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_presets.dart';
 import 'package:mangabaka_app/desktop/desktop_layout.dart';
 import 'package:mangabaka_app/features/collections/models/edition.dart';
 import 'package:mangabaka_app/features/collections/screens/collections_browse_screen.dart';
@@ -50,7 +53,24 @@ class _FakeCollections extends Fake implements CollectionService {
   }
 }
 
-class _FakePublisherSearch extends Fake implements PublisherSearchService {}
+class _FakePublisherSearch extends Fake implements PublisherSearchService {
+  int calls = 0;
+
+  @override
+  Future<List<Publisher>> searchPublishers({
+    String? query,
+    String? type,
+    bool? closed,
+    int? yearLower,
+    int? yearUpper,
+    int? page,
+    int? limit,
+    String? sortBy,
+  }) async {
+    calls++;
+    return [_publisher];
+  }
+}
 
 final _publisher = Publisher(
   id: '7',
@@ -62,24 +82,40 @@ final _publisher = Publisher(
 
 void main() {
   late _FakeCollections collections;
+  late _FakePublisherSearch publishers;
 
   Future<void> pumpScreen(
     WidgetTester tester, {
     required int pages,
     required int perPage,
     Size size = const Size(900, 700),
+    ValueNotifier<MbPalette>? palette,
+    bool withPublisher = true,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     collections = _FakeCollections(pages: pages, perPage: perPage);
     getIt.registerSingleton<CollectionService>(collections);
-    getIt.registerSingleton<PublisherSearchService>(_FakePublisherSearch());
+    publishers = _FakePublisherSearch();
+    getIt.registerSingleton<PublisherSearchService>(publishers);
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: CollectionsBrowseScreen(initialPublisher: _publisher),
-      ),
+      palette == null
+          ? MaterialApp(
+              home: CollectionsBrowseScreen(
+                initialPublisher: withPublisher ? _publisher : null,
+              ),
+            )
+          : ValueListenableBuilder<MbPalette>(
+              valueListenable: palette,
+              builder: (context, colors, child) => MaterialApp(
+                theme: AppTheme.build(showTooltips: true, palette: colors),
+                home: CollectionsBrowseScreen(
+                  initialPublisher: withPublisher ? _publisher : null,
+                ),
+              ),
+            ),
     );
     await tester.pumpAndSettle();
   }
@@ -97,6 +133,143 @@ void main() {
     await resetServiceLocator();
   });
 
+  group('appearance', () {
+    final palettes = [
+      EirenYuPalette.dark,
+      EirenYuPalette.light,
+      ThemePresets.byId('nord')!.dark!,
+      ThemePresets.byId('catppuccin')!.light!,
+      EirenYuPalette.light.withAccent(const Color(0xFF808080)),
+    ];
+    for (var index = 0; index < palettes.length; index++) {
+      final colors = palettes[index];
+      testWidgets('mobile tab contrast in palette $index', (tester) async {
+        final palette = ValueNotifier<MbPalette>(colors);
+        addTearDown(palette.dispose);
+        await pumpScreen(
+          tester,
+          pages: 1,
+          perPage: 1,
+          size: const Size(375, 700),
+          palette: palette,
+        );
+        final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
+        expect(scaffold.backgroundColor, colors.background);
+        final tabs = tester.widget<TabBar>(find.byType(TabBar));
+        final fill = (tabs.indicator! as BoxDecoration).color!;
+        expect(fill, colors.accent);
+        expect(
+          MbPalette.contrastRatio(tabs.labelColor!, fill),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(
+          MbPalette.contrastRatio(
+            tabs.unselectedLabelColor!,
+            colors.surfaceRaised,
+          ),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(find.text('Collection 1-0'), findsOneWidget);
+        final badge = tester.widget<Container>(
+          find
+              .ancestor(
+                of: find.text('PUBLISHER'),
+                matching: find.byType(Container),
+              )
+              .first,
+        );
+        final badgeFill = (badge.decoration! as BoxDecoration).color!;
+        final badgeLabel = tester.widget<Text>(find.text('PUBLISHER'));
+        expect(
+          MbPalette.contrastRatio(badgeLabel.style!.color!, badgeFill),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('live theme change retains collections and selected tab', (
+      tester,
+    ) async {
+      final palette = ValueNotifier<MbPalette>(EirenYuPalette.dark);
+      addTearDown(palette.dispose);
+      await pumpScreen(
+        tester,
+        pages: 1,
+        perPage: 2,
+        size: const Size(375, 700),
+        palette: palette,
+      );
+      await tester.tap(find.text('EDITIONS').first);
+      await tester.pumpAndSettle();
+      expect(find.text('STANDARD EDITION'), findsOneWidget);
+      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 1);
+      final requests = List<int>.of(collections.requested);
+      palette.value = EirenYuPalette.light;
+      await tester.pumpAndSettle();
+      expect(find.text('STANDARD EDITION'), findsOneWidget);
+      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 1);
+      expect(collections.requested, requests);
+      expect(
+        tester.widget<Scaffold>(find.byType(Scaffold).first).backgroundColor,
+        EirenYuPalette.light.background,
+      );
+      await tester.tap(find.text('STANDARD EDITION'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
+      expect(find.text('Collection 1-0'), findsOneWidget);
+      expect(collections.requested, requests);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('short landscape keeps tabs laid out', (tester) async {
+      final palette = ValueNotifier<MbPalette>(EirenYuPalette.light);
+      addTearDown(palette.dispose);
+      await pumpScreen(
+        tester,
+        pages: 1,
+        perPage: 1,
+        size: const Size(640, 320),
+        palette: palette,
+      );
+      expect(find.byType(TabBar), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('publisher search survives a live theme change', (
+      tester,
+    ) async {
+      final palette = ValueNotifier<MbPalette>(EirenYuPalette.dark);
+      addTearDown(palette.dispose);
+      await pumpScreen(
+        tester,
+        pages: 1,
+        perPage: 1,
+        size: const Size(375, 700),
+        palette: palette,
+        withPublisher: false,
+      );
+      await tester.enterText(find.byType(TextField), 'Publisher');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(find.text('Publisher'), findsNWidgets(2));
+      expect(publishers.calls, 1);
+      palette.value = EirenYuPalette.light;
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'Publisher',
+      );
+      expect(find.text('Publisher'), findsNWidgets(2));
+      expect(publishers.calls, 1);
+      await tester.tap(find.text('Publisher').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Collection 1-0'), findsOneWidget);
+      expect(publishers.calls, 1);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('collections list', () {
     testWidgets('has no "load more" button', (tester) async {
       await pumpScreen(tester, pages: 3, perPage: 10);
@@ -105,8 +278,9 @@ void main() {
       expect(find.widgetWithText(TextButton, 'LOAD_MORE'), findsNothing);
     });
 
-    testWidgets('loads the next page as the end comes into view',
-        (tester) async {
+    testWidgets('loads the next page as the end comes into view', (
+      tester,
+    ) async {
       await pumpScreen(tester, pages: 3, perPage: 10);
       // 10 cards fill well over a 700px window, so only page 1 is needed yet.
       expect(collections.requested, [1]);
@@ -117,8 +291,9 @@ void main() {
       expect(collections.requested, contains(2));
     });
 
-    testWidgets('keeps loading while a short page leaves the window unfilled',
-        (tester) async {
+    testWidgets('keeps loading while a short page leaves the window unfilled', (
+      tester,
+    ) async {
       // One card per page never fills the window, so with nothing to scroll
       // the list must fetch on its own until it does — or runs out.
       await pumpScreen(tester, pages: 4, perPage: 1);
@@ -138,8 +313,7 @@ void main() {
       expect(collections.requested, [1, 2]);
     });
 
-    testWidgets('builds only the visible cards of a long list',
-        (tester) async {
+    testWidgets('builds only the visible cards of a long list', (tester) async {
       await pumpScreen(tester, pages: 1, perPage: 60);
       expect(find.byType(CollectionCard).evaluate().length, lessThan(30));
     });
@@ -148,8 +322,9 @@ void main() {
   group('desktop tabs', () {
     setUp(() => DesktopLayout.debugOverride = true);
 
-    testWidgets('switching crossfades and keeps both tabs mounted',
-        (tester) async {
+    testWidgets('switching crossfades and keeps both tabs mounted', (
+      tester,
+    ) async {
       await pumpScreen(
         tester,
         pages: 1,

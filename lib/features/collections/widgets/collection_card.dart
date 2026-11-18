@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/motion/app_motion.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/features/series/models/series_collection.dart';
 
 /// One collection: its title, who published it as which edition, and the
@@ -26,6 +28,7 @@ class CollectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final col = collection;
     final byline = [
       if (showPublisher && col.publisherName.isNotEmpty) col.publisherName,
@@ -36,7 +39,7 @@ class CollectionCard extends StatelessWidget {
     final card = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppConstants.secondaryBackground,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(AppConstants.largeRadius),
       ),
       child: Column(
@@ -52,7 +55,7 @@ class CollectionCard extends StatelessWidget {
                     Text(
                       col.title,
                       style: AppTypography.sans(
-                        color: AppConstants.textColor,
+                        color: colors.text,
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
@@ -62,7 +65,11 @@ class CollectionCard extends StatelessWidget {
                       Text(
                         byline,
                         style: AppTypography.sans(
-                          color: AppConstants.textMutedColor,
+                          color: MbPalette.ensureContrast(
+                            colors.textMuted,
+                            colors.surface,
+                            minimum: 4.5,
+                          ),
                           fontSize: 13,
                         ),
                       ),
@@ -75,7 +82,7 @@ class CollectionCard extends StatelessWidget {
                 Text(
                   '${col.countMain} VOLS',
                   style: AppTypography.monoLabel(
-                    color: AppConstants.accentColor,
+                    color: colors.accentForeground,
                     fontSize: 11.5,
                   ),
                 ),
@@ -112,13 +119,17 @@ class _Badge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppConstants.tertiaryBackground,
+        color: context.colors.surfaceRaised,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         text.toUpperCase(),
         style: AppTypography.sans(
-          color: AppConstants.textMutedColor,
+          color: MbPalette.ensureContrast(
+            context.colors.textMuted,
+            context.colors.surfaceRaised,
+            minimum: 4.5,
+          ),
           fontSize: 10,
           fontWeight: FontWeight.bold,
           letterSpacing: 0.5,

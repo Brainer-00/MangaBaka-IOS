@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
+import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/widgets/design/mb_cover.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 
@@ -25,7 +26,7 @@ class MixSeedChip extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(right: 8, bottom: 4),
       child: Material(
-        color: AppConstants.secondaryBackground,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
@@ -45,7 +46,7 @@ class MixSeedChip extends StatelessWidget {
                   child: Text(
                     seed.title,
                     style: AppTypography.sans(
-                      color: AppConstants.textColor,
+                      color: context.colors.text,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -88,10 +89,13 @@ class _Thumbnail extends StatelessWidget {
               contentRating: contentRating,
             )
           : Container(
-              color: AppConstants.tertiaryBackground,
+              color: context.colors.surfaceRaised,
               child: Icon(
                 Icons.book_rounded,
-                color: AppConstants.accentColor,
+                color: context.colors.accentOn(
+                  context.colors.surfaceRaised,
+                  minimum: 3.0,
+                ),
                 size: 18,
               ),
             ),
@@ -112,12 +116,16 @@ class _RemoveButton extends StatelessWidget {
         width: 20,
         height: 20,
         decoration: BoxDecoration(
-          color: AppConstants.tertiaryBackground,
+          color: context.colors.surfaceRaised,
           shape: BoxShape.circle,
         ),
         child: Icon(
           Icons.close_rounded,
-          color: AppConstants.textMutedColor,
+          color: MbPalette.ensureContrast(
+            context.colors.textMuted,
+            context.colors.surfaceRaised,
+            minimum: 3.0,
+          ),
           size: 13,
         ),
       ),

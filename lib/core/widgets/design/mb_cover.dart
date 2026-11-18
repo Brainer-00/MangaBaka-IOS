@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
+import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
 
 /// A series cover at the design system's corner radius, with a consistent
@@ -48,7 +48,7 @@ class MbCover extends StatelessWidget {
       child: Container(
         width: width,
         height: h,
-        color: AppConstants.tertiaryBackground,
+        color: context.colors.surfaceRaised,
         child: WidgetUtils.networkImage(
           url: url,
           width: width,
