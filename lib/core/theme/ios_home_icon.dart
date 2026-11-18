@@ -6,6 +6,18 @@ import 'package:flutter/widgets.dart';
 import 'package:mangabaka_app/core/theme/ios_icon_variants.dart';
 import 'package:mangabaka_app/core/theme/theme_controller.dart';
 
+class IosHomeIconScope extends InheritedWidget {
+  const IosHomeIconScope({super.key, required this.icon, required super.child});
+  final IosHomeIcon icon;
+
+  static void request(BuildContext context) {
+    context.getInheritedWidgetOfExactType<IosHomeIconScope>()?.icon.request();
+  }
+
+  @override
+  bool updateShouldNotify(IosHomeIconScope oldWidget) => icon != oldWidget.icon;
+}
+
 class IosHomeIcon with WidgetsBindingObserver {
   IosHomeIcon(this.theme, {MethodChannel? channel})
     : _channel = channel ?? const MethodChannel('eirenyu/home_icon');
@@ -14,21 +26,28 @@ class IosHomeIcon with WidgetsBindingObserver {
   final MethodChannel _channel;
   bool _active = true;
   bool _disposed = false;
+  bool _started = false;
   bool _working = false;
+  bool _pending = false;
   int _revision = 0;
   String? _desired;
   String? _lastSuccessfulName;
   bool _hasSuccessfulSet = false;
 
   void start() {
-    if (defaultTargetPlatform != TargetPlatform.iOS) return;
+    if (_started || defaultTargetPlatform != TargetPlatform.iOS) return;
+    _started = true;
+    _active =
+        WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
-    theme.addListener(_changed);
-    _changed();
+    unawaited(_reconcile());
   }
 
-  void _changed() {
+  void request() {
+    if (!_started || _disposed) return;
     _desired = iosIconForColor(theme.currentLogoColor.toARGB32());
+    _pending = true;
     _revision++;
     if (_active) unawaited(_reconcile());
   }
@@ -42,39 +61,49 @@ class IosHomeIcon with WidgetsBindingObserver {
   Future<void> _reconcile() async {
     if (_working || !_active || _disposed) return;
     _working = true;
+    var observedRevision = _revision;
     try {
-      if (await _channel.invokeMethod<bool>('supported') != true) return;
+      if (await _channel.invokeMethod<bool>('supported') != true) {
+        _pending = false;
+        return;
+      }
       while (_active && !_disposed) {
-        final revision = _revision;
+        observedRevision = _revision;
         final actual = await _channel.invokeMethod<String>('current');
         if (!_active || _disposed) break;
-        if (revision != _revision) continue;
-        if (actual == _desired) {
+        if (observedRevision != _revision) continue;
+        if (!_pending) break;
+        if (_hasSuccessfulSet && actual == _lastSuccessfulName) {
           _hasSuccessfulSet = false;
+        }
+        final effective = _hasSuccessfulSet ? _lastSuccessfulName : actual;
+        if (effective == _desired) {
+          _pending = false;
           break;
         }
-        // UIKit may report the previous icon briefly after a successful
-        // completion. That completion is authoritative for this selection.
-        if (_hasSuccessfulSet && _lastSuccessfulName == _desired) break;
         final desired = _desired;
+        // Consume this request before awaiting UIKit. A newer request remains
+        // pending even if the app becomes inactive while the dialog is open.
+        _pending = false;
         await _channel.invokeMethod<void>('set', desired);
         _lastSuccessfulName = desired;
         _hasSuccessfulSet = true;
-        // The confirmation dialog can suspend the app. Recheck on resume.
-        if (!_active || _disposed) break;
       }
     } on PlatformException catch (error) {
+      if (_revision == observedRevision) _pending = false;
       debugPrint('Home icon change failed: $error');
     } on MissingPluginException {
-      // An older native host can run the new Dart code during development.
+      _pending = false;
     } finally {
       _working = false;
+      if (_active && !_disposed && _pending && _revision != observedRevision) {
+        unawaited(_reconcile());
+      }
     }
   }
 
   void dispose() {
     _disposed = true;
-    theme.removeListener(_changed);
-    WidgetsBinding.instance.removeObserver(this);
+    if (_started) WidgetsBinding.instance.removeObserver(this);
   }
 }

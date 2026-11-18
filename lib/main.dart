@@ -164,13 +164,16 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
               );
               return LogoColorScope(
                 color: _themes.currentLogoColor,
-                child: _startupDismissed == null
-                    ? content
-                    : EirenYuStartup(
-                        resolveColor: () => _themes.currentLogoColor,
-                        onDismissed: _onStartupDismissed,
-                        child: content,
-                      ),
+                child: IosHomeIconScope(
+                  icon: _homeIcon,
+                  child: _startupDismissed == null
+                      ? content
+                      : EirenYuStartup(
+                          resolveColor: () => _themes.currentLogoColor,
+                          onDismissed: _onStartupDismissed,
+                          child: content,
+                        ),
+                ),
               );
             },
             home: AnnotatedRegion<SystemUiOverlayStyle>(

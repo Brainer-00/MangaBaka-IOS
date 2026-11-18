@@ -40,6 +40,81 @@ void main() {
   });
 
   test(
+    'new selection survives background while previous request fails',
+    () async {
+      final settings = SettingsManager();
+      final theme = ThemeController()..init();
+      final first = Completer<void>();
+      final requests = <String?>[];
+      String? actual;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'supported') return true;
+            if (call.method == 'current') return actual;
+            if (call.method == 'set') {
+              requests.add(call.arguments as String?);
+              if (requests.length == 1) {
+                await first.future;
+                throw PlatformException(code: 'cancelled');
+              }
+              actual = call.arguments as String?;
+            }
+            return null;
+          });
+      final coordinator = IosHomeIcon(theme, channel: channel)..start();
+      await settings.setMatchLogoToAccent(false);
+      await settings.setManualLogoColor(0xFF22D3EE);
+      coordinator.request();
+      await Future<void>.delayed(Duration.zero);
+      coordinator.didChangeAppLifecycleState(AppLifecycleState.inactive);
+      await settings.setManualLogoColor(0xFF4CC9FF);
+      coordinator.request();
+      first.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(requests, ['IconCyan']);
+      coordinator.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await Future<void>.delayed(Duration.zero);
+      expect(requests, ['IconCyan', 'IconHorizonBlue']);
+      coordinator.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await Future<void>.delayed(Duration.zero);
+      expect(requests.length, 2);
+      coordinator.dispose();
+      theme.dispose();
+    },
+  );
+
+  test(
+    'launch and resume observe mismatch without requesting a change',
+    () async {
+      final settings = SettingsManager();
+      await settings.setMatchLogoToAccent(false);
+      await settings.setManualLogoColor(0xFF4CC9FF);
+      final theme = ThemeController()..init();
+      final calls = <MethodCall>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            if (call.method == 'supported') return true;
+            if (call.method == 'current') return null;
+            return null;
+          });
+      final coordinator = IosHomeIcon(theme, channel: channel)..start();
+      await Future<void>.delayed(Duration.zero);
+      coordinator.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await Future<void>.delayed(Duration.zero);
+      expect(calls.where((call) => call.method == 'set'), isEmpty);
+      coordinator.request();
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        calls.where((call) => call.method == 'set').single.arguments,
+        'IconHorizonBlue',
+      );
+      coordinator.dispose();
+      theme.dispose();
+    },
+  );
+
+  test(
     'rapid changes finish at latest icon and avoid redundant sets',
     () async {
       final settings = SettingsManager();
@@ -65,10 +140,13 @@ void main() {
       final coordinator = IosHomeIcon(theme, channel: channel)..start();
       await settings.setMatchLogoToAccent(false);
       await settings.setManualLogoColor(0xFF22D3EE);
+      coordinator.request();
       await Future<void>.delayed(Duration.zero);
       expect(calls, ['IconCyan']);
       await settings.setManualLogoColor(0xFF4CC9FF);
+      coordinator.request();
       await settings.setManualLogoColor(0xFF8B7CF6);
+      coordinator.request();
       firstChange.complete();
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(calls, ['IconCyan', 'IconTwilightLavender']);
@@ -143,12 +221,14 @@ void main() {
       final coordinator = IosHomeIcon(theme, channel: channel)..start();
       await settings.setMatchLogoToAccent(false);
       await settings.setManualLogoColor(0xFF22D3EE);
+      coordinator.request();
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(requests, ['IconCyan']);
       coordinator.didChangeAppLifecycleState(AppLifecycleState.resumed);
       await Future<void>.delayed(Duration.zero);
       expect(requests, ['IconCyan']);
       await settings.setManualLogoColor(0xFF4CC9FF);
+      coordinator.request();
       await Future<void>.delayed(Duration.zero);
       expect(requests, ['IconCyan', 'IconHorizonBlue']);
       coordinator.dispose();

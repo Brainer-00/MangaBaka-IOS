@@ -612,6 +612,10 @@ void main() {
     await settings.setMatchLogoToAccent(false);
     await settings.setManualLogoColor(EirenYuPalette.horizonBlue.toARGB32());
     await settings.setAccentOverride(0xFFFAFCFE);
+    final prefs = await SharedPreferences.getInstance();
+    SettingsManager.resetForTesting();
+    await prefs.reload();
+    await settings.init();
     await _pumpIOSRoot(tester);
 
     final artwork = find.byType(EirenYuLaunchArtwork);
@@ -658,6 +662,29 @@ void main() {
     expect(artwork, findsNothing);
     expect(metadata.refreshCalls, 1);
     expect(updates.checkForUpdateCalls, 0);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets('cold iOS reveal uses the saved matching custom accent', (
+    tester,
+  ) async {
+    final settings = SettingsManager();
+    await settings.setHasCompletedOnboarding(true);
+    await settings.setMatchLogoToAccent(true);
+    await settings.setAccentOverride(0xFF123456);
+    final prefs = await SharedPreferences.getInstance();
+    SettingsManager.resetForTesting();
+    await prefs.reload();
+    await settings.init();
+    await _pumpIOSRoot(tester);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 540));
+    expect(find.byType(MainScreen), findsOneWidget);
+    final artwork = tester.widget<EirenYuLaunchArtwork>(
+      find.byType(EirenYuLaunchArtwork),
+    );
+    expect(artwork.color, const Color(0xFF123456));
+    expect(artwork.progress, inExclusiveRange(0, 1));
+    await tester.pump(const Duration(milliseconds: 800));
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets(

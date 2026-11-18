@@ -5,6 +5,7 @@ import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/settings/settings_enums.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/ios_home_icon.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/theme/theme_presets.dart';
 import 'package:mangabaka_app/core/widgets/design/eirenyu_mark.dart';
@@ -71,7 +72,10 @@ class AppearanceSettings extends StatelessWidget {
                   key: Key('appearance_mode_${mode.name}'),
                   label: Text(_t('appearance_mode_${mode.name}')),
                   selected: settings.themeMode == mode,
-                  onSelected: (_) => settings.setThemeMode(mode),
+                  onSelected: (_) {
+                    settings.setThemeMode(mode);
+                    IosHomeIconScope.request(context);
+                  },
                 ),
             ],
           ),
@@ -103,7 +107,10 @@ class AppearanceSettings extends StatelessWidget {
               child: EirenYuMark(key: Key('appearance_logo_preview'), size: 56),
             ),
             value: settings.matchLogoToAccent,
-            onChanged: settings.setMatchLogoToAccent,
+            onChanged: (value) {
+              settings.setMatchLogoToAccent(value);
+              IosHomeIconScope.request(context);
+            },
           ),
           if (!settings.matchLogoToAccent) ...[
             const SizedBox(height: 12),
@@ -147,7 +154,10 @@ class AppearanceSettings extends StatelessWidget {
               index,
               color,
               selected: selected == color.toARGB32(),
-              onPressed: () => settings.setManualLogoColor(color.toARGB32()),
+              onPressed: () {
+                settings.setManualLogoColor(color.toARGB32());
+                IosHomeIconScope.request(context);
+              },
             ),
         ],
       ),
@@ -260,9 +270,14 @@ class AppearanceSettings extends StatelessWidget {
                                       ? presets[index].dark!
                                       : presets[index].light!)
                                   .accent,
-                        () => dark
-                            ? settings.setDarkThemeId(presets[index].id)
-                            : settings.setLightThemeId(presets[index].id),
+                        () {
+                          if (dark) {
+                            settings.setDarkThemeId(presets[index].id);
+                          } else {
+                            settings.setLightThemeId(presets[index].id);
+                          }
+                          IosHomeIconScope.request(context);
+                        },
                         brightness,
                       ),
                     ),
@@ -375,7 +390,10 @@ class AppearanceSettings extends StatelessWidget {
           key: const Key('appearance_accent_default'),
           label: Text(_t('appearance_theme_default')),
           selected: selected == null,
-          onSelected: (_) => settings.setAccentOverride(null),
+          onSelected: (_) {
+            settings.setAccentOverride(null);
+            IosHomeIconScope.request(context);
+          },
         ),
         for (var i = 0; i < ThemePresets.accentSwatches.length; i++)
           _swatch(
@@ -418,7 +436,10 @@ class AppearanceSettings extends StatelessWidget {
       button: true,
       child: InkWell(
         key: Key(key),
-        onTap: () => settings.setAccentOverride(swatch.toARGB32()),
+        onTap: () {
+          settings.setAccentOverride(swatch.toARGB32());
+          IosHomeIconScope.request(context);
+        },
         borderRadius: BorderRadius.circular(24),
         child: Container(
           width: 48,
@@ -460,7 +481,10 @@ class AppearanceSettings extends StatelessWidget {
         ),
       ),
     );
-    if (color != null) await settings.setAccentOverride(color.toARGB32());
+    if (color != null && context.mounted) {
+      settings.setAccentOverride(color.toARGB32());
+      IosHomeIconScope.request(context);
+    }
   }
 }
 

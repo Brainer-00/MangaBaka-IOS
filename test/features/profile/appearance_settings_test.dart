@@ -8,6 +8,7 @@ import 'package:mangabaka_app/core/settings/settings_enums.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/theme/app_theme.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/ios_home_icon.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/theme/theme_controller.dart';
 import 'package:mangabaka_app/core/theme/theme_presets.dart';
@@ -52,6 +53,84 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'explicit mode changes request the resolved icon while system brightness stays read-only',
+    (tester) async {
+      final settings = SettingsManager();
+      await settings.setDarkThemeId('default');
+      final theme = ThemeController()..init();
+      const channel = MethodChannel('eirenyu/home_icon');
+      String? nativeIcon;
+      final requests = <String?>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            switch (call.method) {
+              case 'supported':
+                return true;
+              case 'current':
+                return nativeIcon;
+              case 'set':
+                nativeIcon = call.arguments as String?;
+                requests.add(nativeIcon);
+                return null;
+            }
+            throw StateError(call.method);
+          });
+      final dispatcher = tester.binding.platformDispatcher;
+      dispatcher.platformBrightnessTestValue = Brightness.dark;
+      final icon = IosHomeIcon(theme, channel: channel)..start();
+      addTearDown(() {
+        icon.dispose();
+        theme.dispose();
+        dispatcher.clearPlatformBrightnessTestValue();
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: IosHomeIconScope(
+            icon: icon,
+            child: const Scaffold(
+              body: SingleChildScrollView(child: AppearanceSettings()),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(requests, isEmpty);
+
+      Future<void> choose(String mode) async {
+        await tester.tap(find.byKey(Key('appearance_mode_$mode')));
+        await tester.pumpAndSettle();
+      }
+
+      await choose('light');
+      expect(requests, isEmpty);
+      await choose('dark');
+      expect(requests, ['IconEmerald']);
+      await choose('system');
+      expect(requests, ['IconEmerald']);
+      dispatcher.platformBrightnessTestValue = Brightness.light;
+      await tester.pumpAndSettle();
+      expect(requests, ['IconEmerald']);
+      await choose('light');
+      expect(requests, ['IconEmerald', null]);
+
+      await settings.setManualLogoColor(0xFF4CC9FF);
+      await settings.setMatchLogoToAccent(false);
+      icon.request();
+      await tester.pumpAndSettle();
+      expect(requests, ['IconEmerald', null, 'IconHorizonBlue']);
+      await choose('dark');
+      await choose('system');
+      dispatcher.platformBrightnessTestValue = Brightness.dark;
+      await tester.pumpAndSettle();
+      expect(requests, ['IconEmerald', null, 'IconHorizonBlue']);
+      expect(settings.manualLogoColor, 0xFF4CC9FF);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
 
   testWidgets('mode filters real preset variants and keeps separate choices', (
     tester,
