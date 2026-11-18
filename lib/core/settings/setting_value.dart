@@ -31,7 +31,10 @@ abstract class SettingValue<T> {
   /// absent or holds something unusable.
   void load(SharedPreferences prefs);
 
-  Future<void> persist(SharedPreferences prefs);
+  Future<bool> persist(SharedPreferences prefs, [T? selected]) =>
+      _persistValue(prefs, selected ?? value);
+
+  Future<bool> _persistValue(SharedPreferences prefs, T selected);
 }
 
 class BoolSetting extends SettingValue<bool> {
@@ -44,7 +47,8 @@ class BoolSetting extends SettingValue<bool> {
   }
 
   @override
-  Future<void> persist(SharedPreferences prefs) => prefs.setBool(key, _value);
+  Future<bool> _persistValue(SharedPreferences prefs, bool selected) =>
+      prefs.setBool(key, selected);
 }
 
 class IntSetting extends SettingValue<int> {
@@ -65,7 +69,8 @@ class IntSetting extends SettingValue<int> {
   }
 
   @override
-  Future<void> persist(SharedPreferences prefs) => prefs.setInt(key, _value);
+  Future<bool> _persistValue(SharedPreferences prefs, int selected) =>
+      prefs.setInt(key, selected);
 
   int _clamp(int v) {
     if (min != null && v < min!) return min!;
@@ -84,7 +89,8 @@ class StringSetting extends SettingValue<String> {
   }
 
   @override
-  Future<void> persist(SharedPreferences prefs) => prefs.setString(key, _value);
+  Future<bool> _persistValue(SharedPreferences prefs, String selected) =>
+      prefs.setString(key, selected);
 }
 
 /// A list of strings, treated as absent when stored empty.
@@ -120,8 +126,8 @@ class StringListSetting extends SettingValue<List<String>> {
   }
 
   @override
-  Future<void> persist(SharedPreferences prefs) =>
-      prefs.setStringList(key, _value);
+  Future<bool> _persistValue(SharedPreferences prefs, List<String> selected) =>
+      prefs.setStringList(key, selected);
 
   @override
   void reset() => _value = List<String>.from(defaultValue);
@@ -145,6 +151,6 @@ class EnumSetting<T extends Enum> extends SettingValue<T> {
   }
 
   @override
-  Future<void> persist(SharedPreferences prefs) =>
-      prefs.setInt(key, _value.index);
+  Future<bool> _persistValue(SharedPreferences prefs, T selected) =>
+      prefs.setInt(key, selected.index);
 }

@@ -79,7 +79,7 @@ class _RailLogo extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: context.colors.accent.withValues(alpha: 0.12),
+            color: context.logoColor.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(AppConstants.denseRadius),
           ),
           child: const EirenYuMark(size: 36),

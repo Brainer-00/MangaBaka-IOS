@@ -37,16 +37,17 @@ class AppBootstrap {
     await dotenv.load();
     setupServiceLocator();
 
-    // Auth first: the metadata fetch and the initial library sync both read
-    // the session it restores. On iOS, establish that this is not a fresh
-    // installation before allowing retained Keychain state to be read.
-    await InstallationSessionGuard().restoreSessionIfSafe(
-      getIt<ProfileAuthService>().init,
-    );
-    await getIt<MetadataService>().init();
-
-    // Independent of each other, so they overlap.
-    await Future.wait([SettingsManager().init(), LocalizationService().init()]);
+    // Cached metadata, settings and translations load independently from
+    // session restoration. Still resolve all four before mounting a route,
+    // and let the iOS install guard run before auth can read Keychain state.
+    await Future.wait<void>([
+      InstallationSessionGuard().restoreSessionIfSafe(
+        getIt<ProfileAuthService>().init,
+      ),
+      getIt<MetadataService>().init(),
+      SettingsManager().init(),
+      LocalizationService().init(),
+    ]);
 
     AppTheme.applySystemOverlay();
   }

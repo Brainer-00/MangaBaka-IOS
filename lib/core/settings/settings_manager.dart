@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:mangabaka_app/core/settings/setting_value.dart';
 import 'package:mangabaka_app/core/settings/settings_enums.dart';
 import 'package:mangabaka_app/core/settings/settings_keys.dart';
@@ -21,6 +22,8 @@ class SettingsManager extends ChangeNotifier {
   SettingsManager._internal();
 
   SharedPreferences? _prefs;
+  final _pendingWrites = <String, Future<void>>{};
+
   Future<SharedPreferences> _getPrefs() async =>
       _prefs ??= await SharedPreferences.getInstance();
 
@@ -221,21 +224,41 @@ class SettingsManager extends ChangeNotifier {
   @visibleForTesting
   static void resetForTesting() {
     _instance._prefs = null;
+    _instance._pendingWrites.clear();
     for (final setting in _instance._all) {
       setting.reset();
     }
   }
 
-  /// Applies [value], notifies the UI immediately, and persists in the background.
+  /// Applies [value] immediately and persists each key in selection order.
   Future<void> _apply<T>(SettingValue<T> setting, T value) async {
-    if (!setting.set(value)) return;
-    notifyListeners();
-    try {
-      final prefs = await _getPrefs();
-      await setting.persist(prefs);
-    } catch (_) {
-      // In-memory update succeeded; ignore disk persistence errors in background
+    final key = setting.key;
+    if (!setting.set(value)) {
+      await _pendingWrites[key];
+      return;
     }
+
+    // Capture the validated value and reserve its place before notifying
+    // listeners, which can synchronously make another selection.
+    final selected = setting.value;
+    final previousWrite = _pendingWrites[key] ?? Future<void>.value();
+    final write = previousWrite.then((_) async {
+      try {
+        if (!await setting.persist(await _getPrefs(), selected)) {
+          LoggingService.logger.warning('Preference write rejected for $key');
+        }
+      } catch (error, stackTrace) {
+        LoggingService.logger.warning(
+          'Could not save preference $key',
+          error,
+          stackTrace,
+        );
+      }
+    });
+    _pendingWrites[key] = write;
+    notifyListeners();
+    await write;
+    if (identical(_pendingWrites[key], write)) _pendingWrites.remove(key);
   }
 
   // ─── Appearance ──────────────────────────────────────────────────────────

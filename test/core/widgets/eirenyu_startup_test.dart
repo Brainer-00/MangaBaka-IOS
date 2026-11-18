@@ -117,6 +117,7 @@ void main() {
         addTearDown(focus.dispose);
         final semantics = tester.ensureSemantics();
         try {
+          tester.binding.resetFirstFrameSent();
           await tester.pumpWidget(
             _startupHost(
               bundle: bundle,
@@ -135,11 +136,15 @@ void main() {
           }
           if (stall) {
             expect(dismissed, 0);
+            expect(tester.binding.sendFramesToEngine, isFalse);
             expect(focus.canRequestFocus, isFalse);
             expect(find.bySemanticsLabel('Destination'), findsNothing);
             await tester.tap(find.text('Destination'), warnIfMissed: false);
             expect(taps, 0);
-            await tester.pump(const Duration(milliseconds: 251));
+            await tester.pump(const Duration(milliseconds: 1249));
+            expect(dismissed, 0);
+            expect(tester.binding.sendFramesToEngine, isFalse);
+            await tester.pump(const Duration(milliseconds: 1));
           }
           await tester.pump();
           expect(dismissed, 1);
@@ -155,6 +160,26 @@ void main() {
       },
     );
   }
+
+  testWidgets('disposing during preparation releases the first-frame hold', (
+    tester,
+  ) async {
+    final bundle = _LaunchBundle(stall: true);
+    tester.binding.resetFirstFrameSent();
+    var dismissed = 0;
+    await tester.pumpWidget(
+      _startupHost(
+        bundle: bundle,
+        onDismissed: () => dismissed++,
+        child: const Text('Destination'),
+      ),
+    );
+    expect(tester.binding.sendFramesToEngine, isFalse);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.binding.sendFramesToEngine, isTrue);
+    await tester.pump(const Duration(seconds: 2));
+    expect(dismissed, 0);
+  });
 
   testWidgets('Reduce Motion shows the destination without decoding the logo', (
     tester,

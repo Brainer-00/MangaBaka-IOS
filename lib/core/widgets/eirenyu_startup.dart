@@ -27,7 +27,9 @@ class EirenYuStartup extends StatefulWidget {
 
 class _EirenYuStartupState extends State<EirenYuStartup>
     with SingleTickerProviderStateMixin {
-  static const _prepareBudget = Duration(milliseconds: 250);
+  // Leave headroom for a one-second cold asset load. Only the neutral frame
+  // holds the engine's first frame; the reveal layers can finish behind it.
+  static const _prepareBudget = Duration(milliseconds: 1250);
   static const _duration = Duration(milliseconds: 1320);
   static const _playBudget = Duration(milliseconds: 1650);
   static const _fillEnd = 0.86;
@@ -41,7 +43,7 @@ class _EirenYuStartupState extends State<EirenYuStartup>
   bool _started = false;
   bool _holdingFirstFrame = false;
   bool _visible = true;
-  bool _ready = false;
+  bool _neutralReady = false;
   Color? _launchColor;
 
   @override
@@ -82,35 +84,40 @@ class _EirenYuStartupState extends State<EirenYuStartup>
     );
     _binding.deferFirstFrame();
     _holdingFirstFrame = true;
-    _deadline = Timer(_prepareBudget, _dismiss);
+    _deadline = Timer(
+      _prepareBudget,
+      () => _skip(TimeoutException('Preparing launch artwork')),
+    );
     unawaited(_prepare());
   }
 
   Future<void> _prepare() async {
     try {
-      await Future.wait([
-        for (final image in [
-          _neutral,
-          EirenYuMark.symbolImage,
-          EirenYuMark.dotImage,
-        ])
-          precacheImage(image, context, onError: (error, _) => _skip(error)),
+      final neutralReady = _precache(_neutral);
+      final masksReady = Future.wait([
+        _precache(EirenYuMark.symbolImage),
+        _precache(EirenYuMark.dotImage),
       ]);
+      await neutralReady;
       if (!mounted || !_visible) return;
 
+      setState(() => _neutralReady = true);
+      _releaseFirstFrame();
+      // Submit the neutral frame and finish decoding both masks before
+      // starting the animation clock.
+      await Future.wait([_binding.endOfFrame, masksReady]);
+      if (!mounted || !_visible) return;
       _deadline?.cancel();
       _deadline = Timer(_playBudget, _dismiss);
-      setState(() => _ready = true);
-      _releaseFirstFrame();
-      // Submit the prepared neutral frame before starting the animation clock.
-      await _binding.endOfFrame;
-      if (!mounted || !_visible) return;
       setState(() => _launchColor = widget.resolveColor());
       _motion.forward();
     } catch (error) {
       _skip(error);
     }
   }
+
+  Future<void> _precache(ImageProvider image) =>
+      precacheImage(image, context, onError: (error, _) => _skip(error));
 
   void _skip(Object error) {
     if (!mounted || !_visible) return;
@@ -165,7 +172,7 @@ class _EirenYuStartupState extends State<EirenYuStartup>
                   child: ColoredBox(
                     color: EirenYuPalette.obsidian,
                     child: Center(
-                      child: _ready
+                      child: _neutralReady
                           ? RepaintBoundary(
                               child: AnimatedBuilder(
                                 animation: _motion,

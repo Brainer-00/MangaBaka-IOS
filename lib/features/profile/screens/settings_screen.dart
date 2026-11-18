@@ -112,7 +112,7 @@ class _BrandHeader extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: context.colors.accent.withValues(alpha: 0.12),
+                color: context.logoColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(AppConstants.cardRadius),
               ),
               child: const EirenYuMark(size: 44),
