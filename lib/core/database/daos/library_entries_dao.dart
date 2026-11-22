@@ -104,34 +104,68 @@ class LibraryEntriesDao extends DatabaseAccessor<AppDatabase>
     if (entries.isEmpty) return;
     try {
       await db.transaction(() async {
-        final uniqueSeriesIds = entries
-            .map((e) => e.series.id)
-            .toSet()
-            .toList();
+        for (final entry in entries) {
+          final conflictingId =
+              await (select(libraryEntriesTable)..where(
+                    (t) =>
+                        t.id.equals(entry.id) &
+                        t.seriesId.isNotValue(entry.series.id),
+                  ))
+                  .getSingleOrNull();
+          if (conflictingId != null) {
+            throw StateError('Library entry ID belongs to another series');
+          }
+          // A different entry ID is a new identity, so none of the old
+          // account-specific values may be carried into it.
+          await (delete(libraryEntriesTable)..where(
+                (t) =>
+                    t.seriesId.equals(entry.series.id) &
+                    t.id.isNotValue(entry.id),
+              ))
+              .go();
+          Value<T> field<T>(String key, T value) {
+            return value != null || entry.explicitlyClears(key)
+                ? Value(value)
+                : const Value.absent();
+          }
 
-        // Delete any existing entries for these series to prevent duplicates
-        await (delete(
-          db.libraryEntriesTable,
-        )..where((t) => t.seriesId.isIn(uniqueSeriesIds))).go();
-
-        await db.batch((batch) {
-          batch.insertAll(
-            db.libraryEntriesTable,
-            entries.map(
-              (e) => LibraryEntriesTableCompanion.insert(
-                id: e.id,
-                state: e.state,
-                note: Value(e.note),
-                progressChapter: Value(e.progressChapter),
-                progressVolume: Value(e.progressVolume),
-                numberOfRereads: Value(e.numberOfRereads),
-                rating: Value(e.rating),
-                seriesId: e.series.id,
-              ),
-            ),
-            mode: InsertMode.insertOrReplace,
+          final listIds = entry.listIds;
+          final changes = LibraryEntriesTableCompanion(
+            id: Value(entry.id),
+            state: entry.state.isEmpty
+                ? const Value.absent()
+                : Value(entry.state),
+            note: field('note', entry.note),
+            progressChapter: field('progress_chapter', entry.progressChapter),
+            progressVolume: field('progress_volume', entry.progressVolume),
+            numberOfRereads: field('number_of_rereads', entry.numberOfRereads),
+            rating: field('rating', entry.rating),
+            priority: field('priority', entry.priority),
+            startDate: field('start_date', entry.startDate),
+            finishDate: field('finish_date', entry.finishDate),
+            readLink: field('read_link', entry.readLink),
+            isPrivate: field('is_private', entry.isPrivate),
+            listIdsJson: listIds == null
+                ? const Value.absent()
+                : Value(jsonEncode(listIds)),
           );
-        });
+          // Merge only within the same entry identity.
+          final updated =
+              await (update(libraryEntriesTable)..where(
+                    (t) =>
+                        t.seriesId.equals(entry.series.id) &
+                        t.id.equals(entry.id),
+                  ))
+                  .write(changes);
+          if (updated == 0) {
+            await into(libraryEntriesTable).insert(
+              changes.copyWith(
+                seriesId: Value(entry.series.id),
+                state: Value(entry.state),
+              ),
+            );
+          }
+        }
       });
     } catch (e) {
       _logger.severe('Failed to upsert library entries (${e.runtimeType})');

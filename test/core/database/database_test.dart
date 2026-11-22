@@ -22,8 +22,85 @@ void main() {
   });
 
   group('AppDatabase', () {
-    test('initializes with correct schema version', () async {
-      expect(db.schemaVersion, 3);
+    test('creates the complete v4 schema on a fresh database', () async {
+      final version = await db.customSelect('PRAGMA user_version').getSingle();
+      expect(version.read<int>('user_version'), 4);
+      final columns = await db
+          .customSelect('PRAGMA table_info(library_entries_table)')
+          .get();
+      expect(
+        columns.map((row) => row.read<String>('name')),
+        containsAll([
+          'priority',
+          'start_date',
+          'finish_date',
+          'read_link',
+          'is_private',
+          'list_ids_json',
+        ]),
+      );
+    });
+
+    test('upgrades a populated v3 library without losing rows', () async {
+      // The series schema is shared by v3 and v4. Use the actual generated
+      // schema for it and spell out the old library schema below.
+      final seriesSchema = await db
+          .customSelect(
+            "SELECT sql FROM sqlite_master WHERE name = 'series_table'",
+          )
+          .getSingle();
+      final raw = sqlite3.openInMemory();
+      raw.execute(seriesSchema.read<String>('sql'));
+      raw.execute('''
+        CREATE TABLE library_entries_table (
+          id TEXT NOT NULL PRIMARY KEY,
+          state TEXT NOT NULL,
+          note TEXT,
+          progress_chapter INTEGER,
+          progress_volume INTEGER,
+          number_of_rereads INTEGER,
+          rating INTEGER,
+          series_id TEXT NOT NULL REFERENCES series_table(id)
+        );
+        INSERT INTO series_table (id, title, cover_url, description) VALUES
+          ('1', 'One', 'cover1', 'first'), ('2', 'Two', 'cover2', 'second');
+        INSERT INTO library_entries_table VALUES
+          ('e1', 'reading', 'keep this note', 12, 3, 2, 86, '1'),
+          ('e2', 'completed', NULL, NULL, 0, NULL, NULL, '2');
+        PRAGMA user_version = 3;
+      ''');
+      final upgraded = AppDatabase.forTesting(NativeDatabase.opened(raw));
+      addTearDown(upgraded.close);
+
+      final joined = await upgraded.libraryEntriesDao
+          .watchAllEntriesWithSeries()
+          .first;
+      final rows = {for (final row in joined) row.libraryEntry.id: row};
+      expect(rows.keys, unorderedEquals(['e1', 'e2']));
+      final first = rows['e1']!.libraryEntry;
+      expect(rows['e1']!.series.title, 'One');
+      expect(rows['e2']!.series.title, 'Two');
+      expect(first.seriesId, '1');
+      expect(first.state, 'reading');
+      expect(first.note, 'keep this note');
+      expect(first.progressChapter, 12);
+      expect(first.progressVolume, 3);
+      expect(first.numberOfRereads, 2);
+      expect(first.rating, 86);
+      expect(rows['e2']!.libraryEntry.progressVolume, 0);
+      expect(rows['e2']!.libraryEntry.rating, isNull);
+      expect([
+        first.priority,
+        first.startDate,
+        first.finishDate,
+        first.readLink,
+        first.isPrivate,
+        first.listIdsJson,
+      ], everyElement(isNull));
+      expect(
+        await upgraded.customSelect('PRAGMA foreign_key_check').get(),
+        isEmpty,
+      );
     });
 
     test('can insert and retrieve a series via custom query', () async {
@@ -139,8 +216,7 @@ void main() {
         // Wrap it in Drift NativeDatabase
         final upgradeDb = AppDatabase.forTesting(NativeDatabase.opened(rawDb));
 
-        // Verify schema version is 3
-        expect(upgradeDb.schemaVersion, 3);
+        expect(upgradeDb.schemaVersion, 4);
 
         // Let's verify our v1 data is still there!
         final retrievedSeries = await (upgradeDb.select(

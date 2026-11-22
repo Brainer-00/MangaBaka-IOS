@@ -1649,6 +1649,75 @@ class $LibraryEntriesTableTable extends LibraryEntriesTable
       'REFERENCES series_table (id)',
     ),
   );
+  static const VerificationMeta _priorityMeta = const VerificationMeta(
+    'priority',
+  );
+  @override
+  late final GeneratedColumn<double> priority = GeneratedColumn<double>(
+    'priority',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _startDateMeta = const VerificationMeta(
+    'startDate',
+  );
+  @override
+  late final GeneratedColumn<String> startDate = GeneratedColumn<String>(
+    'start_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _finishDateMeta = const VerificationMeta(
+    'finishDate',
+  );
+  @override
+  late final GeneratedColumn<String> finishDate = GeneratedColumn<String>(
+    'finish_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _readLinkMeta = const VerificationMeta(
+    'readLink',
+  );
+  @override
+  late final GeneratedColumn<String> readLink = GeneratedColumn<String>(
+    'read_link',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isPrivateMeta = const VerificationMeta(
+    'isPrivate',
+  );
+  @override
+  late final GeneratedColumn<bool> isPrivate = GeneratedColumn<bool>(
+    'is_private',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_private" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _listIdsJsonMeta = const VerificationMeta(
+    'listIdsJson',
+  );
+  @override
+  late final GeneratedColumn<String> listIdsJson = GeneratedColumn<String>(
+    'list_ids_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1659,6 +1728,12 @@ class $LibraryEntriesTableTable extends LibraryEntriesTable
     numberOfRereads,
     rating,
     seriesId,
+    priority,
+    startDate,
+    finishDate,
+    readLink,
+    isPrivate,
+    listIdsJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1732,6 +1807,45 @@ class $LibraryEntriesTableTable extends LibraryEntriesTable
     } else if (isInserting) {
       context.missing(_seriesIdMeta);
     }
+    if (data.containsKey('priority')) {
+      context.handle(
+        _priorityMeta,
+        priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta),
+      );
+    }
+    if (data.containsKey('start_date')) {
+      context.handle(
+        _startDateMeta,
+        startDate.isAcceptableOrUnknown(data['start_date']!, _startDateMeta),
+      );
+    }
+    if (data.containsKey('finish_date')) {
+      context.handle(
+        _finishDateMeta,
+        finishDate.isAcceptableOrUnknown(data['finish_date']!, _finishDateMeta),
+      );
+    }
+    if (data.containsKey('read_link')) {
+      context.handle(
+        _readLinkMeta,
+        readLink.isAcceptableOrUnknown(data['read_link']!, _readLinkMeta),
+      );
+    }
+    if (data.containsKey('is_private')) {
+      context.handle(
+        _isPrivateMeta,
+        isPrivate.isAcceptableOrUnknown(data['is_private']!, _isPrivateMeta),
+      );
+    }
+    if (data.containsKey('list_ids_json')) {
+      context.handle(
+        _listIdsJsonMeta,
+        listIdsJson.isAcceptableOrUnknown(
+          data['list_ids_json']!,
+          _listIdsJsonMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1776,6 +1890,30 @@ class $LibraryEntriesTableTable extends LibraryEntriesTable
         DriftSqlType.string,
         data['${effectivePrefix}series_id'],
       )!,
+      priority: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}priority'],
+      ),
+      startDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}start_date'],
+      ),
+      finishDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}finish_date'],
+      ),
+      readLink: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}read_link'],
+      ),
+      isPrivate: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_private'],
+      ),
+      listIdsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}list_ids_json'],
+      ),
     );
   }
 
@@ -1795,6 +1933,15 @@ class LibraryEntriesTableData extends DataClass
   final int? numberOfRereads;
   final int? rating;
   final String seriesId;
+  final double? priority;
+  final String? startDate;
+  final String? finishDate;
+  final String? readLink;
+  final bool? isPrivate;
+
+  /// Account-specific list IDs encoded as JSON. SQL NULL means unknown; '[]'
+  /// means the server confirmed that the entry belongs to no lists.
+  final String? listIdsJson;
   const LibraryEntriesTableData({
     required this.id,
     required this.state,
@@ -1804,6 +1951,12 @@ class LibraryEntriesTableData extends DataClass
     this.numberOfRereads,
     this.rating,
     required this.seriesId,
+    this.priority,
+    this.startDate,
+    this.finishDate,
+    this.readLink,
+    this.isPrivate,
+    this.listIdsJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1826,6 +1979,24 @@ class LibraryEntriesTableData extends DataClass
       map['rating'] = Variable<int>(rating);
     }
     map['series_id'] = Variable<String>(seriesId);
+    if (!nullToAbsent || priority != null) {
+      map['priority'] = Variable<double>(priority);
+    }
+    if (!nullToAbsent || startDate != null) {
+      map['start_date'] = Variable<String>(startDate);
+    }
+    if (!nullToAbsent || finishDate != null) {
+      map['finish_date'] = Variable<String>(finishDate);
+    }
+    if (!nullToAbsent || readLink != null) {
+      map['read_link'] = Variable<String>(readLink);
+    }
+    if (!nullToAbsent || isPrivate != null) {
+      map['is_private'] = Variable<bool>(isPrivate);
+    }
+    if (!nullToAbsent || listIdsJson != null) {
+      map['list_ids_json'] = Variable<String>(listIdsJson);
+    }
     return map;
   }
 
@@ -1847,6 +2018,24 @@ class LibraryEntriesTableData extends DataClass
           ? const Value.absent()
           : Value(rating),
       seriesId: Value(seriesId),
+      priority: priority == null && nullToAbsent
+          ? const Value.absent()
+          : Value(priority),
+      startDate: startDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(startDate),
+      finishDate: finishDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(finishDate),
+      readLink: readLink == null && nullToAbsent
+          ? const Value.absent()
+          : Value(readLink),
+      isPrivate: isPrivate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(isPrivate),
+      listIdsJson: listIdsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(listIdsJson),
     );
   }
 
@@ -1864,6 +2053,12 @@ class LibraryEntriesTableData extends DataClass
       numberOfRereads: serializer.fromJson<int?>(json['numberOfRereads']),
       rating: serializer.fromJson<int?>(json['rating']),
       seriesId: serializer.fromJson<String>(json['seriesId']),
+      priority: serializer.fromJson<double?>(json['priority']),
+      startDate: serializer.fromJson<String?>(json['startDate']),
+      finishDate: serializer.fromJson<String?>(json['finishDate']),
+      readLink: serializer.fromJson<String?>(json['readLink']),
+      isPrivate: serializer.fromJson<bool?>(json['isPrivate']),
+      listIdsJson: serializer.fromJson<String?>(json['listIdsJson']),
     );
   }
   @override
@@ -1878,6 +2073,12 @@ class LibraryEntriesTableData extends DataClass
       'numberOfRereads': serializer.toJson<int?>(numberOfRereads),
       'rating': serializer.toJson<int?>(rating),
       'seriesId': serializer.toJson<String>(seriesId),
+      'priority': serializer.toJson<double?>(priority),
+      'startDate': serializer.toJson<String?>(startDate),
+      'finishDate': serializer.toJson<String?>(finishDate),
+      'readLink': serializer.toJson<String?>(readLink),
+      'isPrivate': serializer.toJson<bool?>(isPrivate),
+      'listIdsJson': serializer.toJson<String?>(listIdsJson),
     };
   }
 
@@ -1890,6 +2091,12 @@ class LibraryEntriesTableData extends DataClass
     Value<int?> numberOfRereads = const Value.absent(),
     Value<int?> rating = const Value.absent(),
     String? seriesId,
+    Value<double?> priority = const Value.absent(),
+    Value<String?> startDate = const Value.absent(),
+    Value<String?> finishDate = const Value.absent(),
+    Value<String?> readLink = const Value.absent(),
+    Value<bool?> isPrivate = const Value.absent(),
+    Value<String?> listIdsJson = const Value.absent(),
   }) => LibraryEntriesTableData(
     id: id ?? this.id,
     state: state ?? this.state,
@@ -1905,6 +2112,12 @@ class LibraryEntriesTableData extends DataClass
         : this.numberOfRereads,
     rating: rating.present ? rating.value : this.rating,
     seriesId: seriesId ?? this.seriesId,
+    priority: priority.present ? priority.value : this.priority,
+    startDate: startDate.present ? startDate.value : this.startDate,
+    finishDate: finishDate.present ? finishDate.value : this.finishDate,
+    readLink: readLink.present ? readLink.value : this.readLink,
+    isPrivate: isPrivate.present ? isPrivate.value : this.isPrivate,
+    listIdsJson: listIdsJson.present ? listIdsJson.value : this.listIdsJson,
   );
   LibraryEntriesTableData copyWithCompanion(LibraryEntriesTableCompanion data) {
     return LibraryEntriesTableData(
@@ -1922,6 +2135,16 @@ class LibraryEntriesTableData extends DataClass
           : this.numberOfRereads,
       rating: data.rating.present ? data.rating.value : this.rating,
       seriesId: data.seriesId.present ? data.seriesId.value : this.seriesId,
+      priority: data.priority.present ? data.priority.value : this.priority,
+      startDate: data.startDate.present ? data.startDate.value : this.startDate,
+      finishDate: data.finishDate.present
+          ? data.finishDate.value
+          : this.finishDate,
+      readLink: data.readLink.present ? data.readLink.value : this.readLink,
+      isPrivate: data.isPrivate.present ? data.isPrivate.value : this.isPrivate,
+      listIdsJson: data.listIdsJson.present
+          ? data.listIdsJson.value
+          : this.listIdsJson,
     );
   }
 
@@ -1935,7 +2158,13 @@ class LibraryEntriesTableData extends DataClass
           ..write('progressVolume: $progressVolume, ')
           ..write('numberOfRereads: $numberOfRereads, ')
           ..write('rating: $rating, ')
-          ..write('seriesId: $seriesId')
+          ..write('seriesId: $seriesId, ')
+          ..write('priority: $priority, ')
+          ..write('startDate: $startDate, ')
+          ..write('finishDate: $finishDate, ')
+          ..write('readLink: $readLink, ')
+          ..write('isPrivate: $isPrivate, ')
+          ..write('listIdsJson: $listIdsJson')
           ..write(')'))
         .toString();
   }
@@ -1950,6 +2179,12 @@ class LibraryEntriesTableData extends DataClass
     numberOfRereads,
     rating,
     seriesId,
+    priority,
+    startDate,
+    finishDate,
+    readLink,
+    isPrivate,
+    listIdsJson,
   );
   @override
   bool operator ==(Object other) =>
@@ -1962,7 +2197,13 @@ class LibraryEntriesTableData extends DataClass
           other.progressVolume == this.progressVolume &&
           other.numberOfRereads == this.numberOfRereads &&
           other.rating == this.rating &&
-          other.seriesId == this.seriesId);
+          other.seriesId == this.seriesId &&
+          other.priority == this.priority &&
+          other.startDate == this.startDate &&
+          other.finishDate == this.finishDate &&
+          other.readLink == this.readLink &&
+          other.isPrivate == this.isPrivate &&
+          other.listIdsJson == this.listIdsJson);
 }
 
 class LibraryEntriesTableCompanion
@@ -1975,6 +2216,12 @@ class LibraryEntriesTableCompanion
   final Value<int?> numberOfRereads;
   final Value<int?> rating;
   final Value<String> seriesId;
+  final Value<double?> priority;
+  final Value<String?> startDate;
+  final Value<String?> finishDate;
+  final Value<String?> readLink;
+  final Value<bool?> isPrivate;
+  final Value<String?> listIdsJson;
   final Value<int> rowid;
   const LibraryEntriesTableCompanion({
     this.id = const Value.absent(),
@@ -1985,6 +2232,12 @@ class LibraryEntriesTableCompanion
     this.numberOfRereads = const Value.absent(),
     this.rating = const Value.absent(),
     this.seriesId = const Value.absent(),
+    this.priority = const Value.absent(),
+    this.startDate = const Value.absent(),
+    this.finishDate = const Value.absent(),
+    this.readLink = const Value.absent(),
+    this.isPrivate = const Value.absent(),
+    this.listIdsJson = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LibraryEntriesTableCompanion.insert({
@@ -1996,6 +2249,12 @@ class LibraryEntriesTableCompanion
     this.numberOfRereads = const Value.absent(),
     this.rating = const Value.absent(),
     required String seriesId,
+    this.priority = const Value.absent(),
+    this.startDate = const Value.absent(),
+    this.finishDate = const Value.absent(),
+    this.readLink = const Value.absent(),
+    this.isPrivate = const Value.absent(),
+    this.listIdsJson = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        state = Value(state),
@@ -2009,6 +2268,12 @@ class LibraryEntriesTableCompanion
     Expression<int>? numberOfRereads,
     Expression<int>? rating,
     Expression<String>? seriesId,
+    Expression<double>? priority,
+    Expression<String>? startDate,
+    Expression<String>? finishDate,
+    Expression<String>? readLink,
+    Expression<bool>? isPrivate,
+    Expression<String>? listIdsJson,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2020,6 +2285,12 @@ class LibraryEntriesTableCompanion
       if (numberOfRereads != null) 'number_of_rereads': numberOfRereads,
       if (rating != null) 'rating': rating,
       if (seriesId != null) 'series_id': seriesId,
+      if (priority != null) 'priority': priority,
+      if (startDate != null) 'start_date': startDate,
+      if (finishDate != null) 'finish_date': finishDate,
+      if (readLink != null) 'read_link': readLink,
+      if (isPrivate != null) 'is_private': isPrivate,
+      if (listIdsJson != null) 'list_ids_json': listIdsJson,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2033,6 +2304,12 @@ class LibraryEntriesTableCompanion
     Value<int?>? numberOfRereads,
     Value<int?>? rating,
     Value<String>? seriesId,
+    Value<double?>? priority,
+    Value<String?>? startDate,
+    Value<String?>? finishDate,
+    Value<String?>? readLink,
+    Value<bool?>? isPrivate,
+    Value<String?>? listIdsJson,
     Value<int>? rowid,
   }) {
     return LibraryEntriesTableCompanion(
@@ -2044,6 +2321,12 @@ class LibraryEntriesTableCompanion
       numberOfRereads: numberOfRereads ?? this.numberOfRereads,
       rating: rating ?? this.rating,
       seriesId: seriesId ?? this.seriesId,
+      priority: priority ?? this.priority,
+      startDate: startDate ?? this.startDate,
+      finishDate: finishDate ?? this.finishDate,
+      readLink: readLink ?? this.readLink,
+      isPrivate: isPrivate ?? this.isPrivate,
+      listIdsJson: listIdsJson ?? this.listIdsJson,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2075,6 +2358,24 @@ class LibraryEntriesTableCompanion
     if (seriesId.present) {
       map['series_id'] = Variable<String>(seriesId.value);
     }
+    if (priority.present) {
+      map['priority'] = Variable<double>(priority.value);
+    }
+    if (startDate.present) {
+      map['start_date'] = Variable<String>(startDate.value);
+    }
+    if (finishDate.present) {
+      map['finish_date'] = Variable<String>(finishDate.value);
+    }
+    if (readLink.present) {
+      map['read_link'] = Variable<String>(readLink.value);
+    }
+    if (isPrivate.present) {
+      map['is_private'] = Variable<bool>(isPrivate.value);
+    }
+    if (listIdsJson.present) {
+      map['list_ids_json'] = Variable<String>(listIdsJson.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2092,6 +2393,12 @@ class LibraryEntriesTableCompanion
           ..write('numberOfRereads: $numberOfRereads, ')
           ..write('rating: $rating, ')
           ..write('seriesId: $seriesId, ')
+          ..write('priority: $priority, ')
+          ..write('startDate: $startDate, ')
+          ..write('finishDate: $finishDate, ')
+          ..write('readLink: $readLink, ')
+          ..write('isPrivate: $isPrivate, ')
+          ..write('listIdsJson: $listIdsJson, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2918,6 +3225,12 @@ typedef $$LibraryEntriesTableTableCreateCompanionBuilder =
       Value<int?> numberOfRereads,
       Value<int?> rating,
       required String seriesId,
+      Value<double?> priority,
+      Value<String?> startDate,
+      Value<String?> finishDate,
+      Value<String?> readLink,
+      Value<bool?> isPrivate,
+      Value<String?> listIdsJson,
       Value<int> rowid,
     });
 typedef $$LibraryEntriesTableTableUpdateCompanionBuilder =
@@ -2930,6 +3243,12 @@ typedef $$LibraryEntriesTableTableUpdateCompanionBuilder =
       Value<int?> numberOfRereads,
       Value<int?> rating,
       Value<String> seriesId,
+      Value<double?> priority,
+      Value<String?> startDate,
+      Value<String?> finishDate,
+      Value<String?> readLink,
+      Value<bool?> isPrivate,
+      Value<String?> listIdsJson,
       Value<int> rowid,
     });
 
@@ -3008,6 +3327,36 @@ class $$LibraryEntriesTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<double> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get finishDate => $composableBuilder(
+    column: $table.finishDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get readLink => $composableBuilder(
+    column: $table.readLink,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isPrivate => $composableBuilder(
+    column: $table.isPrivate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get listIdsJson => $composableBuilder(
+    column: $table.listIdsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$SeriesTableTableFilterComposer get seriesId {
     final $$SeriesTableTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -3076,6 +3425,36 @@ class $$LibraryEntriesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get finishDate => $composableBuilder(
+    column: $table.finishDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get readLink => $composableBuilder(
+    column: $table.readLink,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isPrivate => $composableBuilder(
+    column: $table.isPrivate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get listIdsJson => $composableBuilder(
+    column: $table.listIdsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$SeriesTableTableOrderingComposer get seriesId {
     final $$SeriesTableTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -3135,6 +3514,28 @@ class $$LibraryEntriesTableTableAnnotationComposer
 
   GeneratedColumn<int> get rating =>
       $composableBuilder(column: $table.rating, builder: (column) => column);
+
+  GeneratedColumn<double> get priority =>
+      $composableBuilder(column: $table.priority, builder: (column) => column);
+
+  GeneratedColumn<String> get startDate =>
+      $composableBuilder(column: $table.startDate, builder: (column) => column);
+
+  GeneratedColumn<String> get finishDate => $composableBuilder(
+    column: $table.finishDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get readLink =>
+      $composableBuilder(column: $table.readLink, builder: (column) => column);
+
+  GeneratedColumn<bool> get isPrivate =>
+      $composableBuilder(column: $table.isPrivate, builder: (column) => column);
+
+  GeneratedColumn<String> get listIdsJson => $composableBuilder(
+    column: $table.listIdsJson,
+    builder: (column) => column,
+  );
 
   $$SeriesTableTableAnnotationComposer get seriesId {
     final $$SeriesTableTableAnnotationComposer composer = $composerBuilder(
@@ -3204,6 +3605,12 @@ class $$LibraryEntriesTableTableTableManager
                 Value<int?> numberOfRereads = const Value.absent(),
                 Value<int?> rating = const Value.absent(),
                 Value<String> seriesId = const Value.absent(),
+                Value<double?> priority = const Value.absent(),
+                Value<String?> startDate = const Value.absent(),
+                Value<String?> finishDate = const Value.absent(),
+                Value<String?> readLink = const Value.absent(),
+                Value<bool?> isPrivate = const Value.absent(),
+                Value<String?> listIdsJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LibraryEntriesTableCompanion(
                 id: id,
@@ -3214,6 +3621,12 @@ class $$LibraryEntriesTableTableTableManager
                 numberOfRereads: numberOfRereads,
                 rating: rating,
                 seriesId: seriesId,
+                priority: priority,
+                startDate: startDate,
+                finishDate: finishDate,
+                readLink: readLink,
+                isPrivate: isPrivate,
+                listIdsJson: listIdsJson,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3226,6 +3639,12 @@ class $$LibraryEntriesTableTableTableManager
                 Value<int?> numberOfRereads = const Value.absent(),
                 Value<int?> rating = const Value.absent(),
                 required String seriesId,
+                Value<double?> priority = const Value.absent(),
+                Value<String?> startDate = const Value.absent(),
+                Value<String?> finishDate = const Value.absent(),
+                Value<String?> readLink = const Value.absent(),
+                Value<bool?> isPrivate = const Value.absent(),
+                Value<String?> listIdsJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LibraryEntriesTableCompanion.insert(
                 id: id,
@@ -3236,6 +3655,12 @@ class $$LibraryEntriesTableTableTableManager
                 numberOfRereads: numberOfRereads,
                 rating: rating,
                 seriesId: seriesId,
+                priority: priority,
+                startDate: startDate,
+                finishDate: finishDate,
+                readLink: readLink,
+                isPrivate: isPrivate,
+                listIdsJson: listIdsJson,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

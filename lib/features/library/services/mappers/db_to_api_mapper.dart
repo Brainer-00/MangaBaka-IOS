@@ -1,9 +1,22 @@
 import 'dart:convert';
 import 'package:mangabaka_app/core/database/database.dart' as db;
-import 'package:mangabaka_app/features/library/models/library_entry.dart' as api;
+import 'package:mangabaka_app/features/library/models/library_entry.dart'
+    as api;
 import 'package:mangabaka_app/features/series/models/series.dart' as api;
 
 class DbToApiMapper {
+  static List<int>? _decodeListIds(String? value) {
+    if (value == null) return null;
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is! List || decoded.any((id) => id is! int || id <= 0)) {
+        return null;
+      }
+      return decoded.cast<int>();
+    } on FormatException {
+      return null;
+    }
+  }
   // ── JSON decode helpers ───────────────────────────────────────────────────
 
   static List<String> _decodeStringArray(String? jsonStr) {
@@ -46,13 +59,19 @@ class DbToApiMapper {
       progressVolume: dbEntry.libraryEntry.progressVolume,
       numberOfRereads: dbEntry.libraryEntry.numberOfRereads,
       rating: dbEntry.libraryEntry.rating,
+      priority: dbEntry.libraryEntry.priority,
+      startDate: dbEntry.libraryEntry.startDate,
+      finishDate: dbEntry.libraryEntry.finishDate,
+      readLink: dbEntry.libraryEntry.readLink,
+      isPrivate: dbEntry.libraryEntry.isPrivate,
+      listIds: _decodeListIds(dbEntry.libraryEntry.listIdsJson),
       series: seriesFromDb(dbEntry.series),
     );
   }
 
   static api.Series seriesFromDb(db.SeriesTableData dbSeries) {
     final source = _decodeJsonObject(dbSeries.source);
-    
+
     // Calculate combined average if source data is available
     String rating = dbSeries.rating ?? '';
     if (source != null && source.isNotEmpty) {
@@ -61,7 +80,9 @@ class DbToApiMapper {
           .map((v) => (v['rating_normalized'] as num).toDouble())
           .toList();
       if (normalizedRatings.isNotEmpty) {
-        final avg = normalizedRatings.reduce((a, b) => a + b) / normalizedRatings.length;
+        final avg =
+            normalizedRatings.reduce((a, b) => a + b) /
+            normalizedRatings.length;
         rating = avg.toStringAsFixed(1);
       }
     }

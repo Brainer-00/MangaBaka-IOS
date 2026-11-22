@@ -32,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -279,6 +279,18 @@ class AppDatabase extends _$AppDatabase {
             libraryEntriesTable,
             libraryColumnNames,
           );
+          // Existing rows keep their data. New fields remain unknown until read
+          // from the account's library.
+          for (final column in [
+            libraryEntriesTable.priority,
+            libraryEntriesTable.startDate,
+            libraryEntriesTable.finishDate,
+            libraryEntriesTable.readLink,
+            libraryEntriesTable.isPrivate,
+            libraryEntriesTable.listIdsJson,
+          ]) {
+            await addIfMissing(column, libraryEntriesTable, libraryColumnNames);
+          }
         } catch (e) {
           LoggingService.logger.severe(
             'Critical failure during database migration (${e.runtimeType})',
