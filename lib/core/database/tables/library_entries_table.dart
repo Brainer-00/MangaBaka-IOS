@@ -1,7 +1,7 @@
 import 'package:drift/drift.dart';
 import 'series_table.dart';
 
-class LibraryEntriesTable extends Table {
+mixin LibraryEntryColumns on Table {
   TextColumn get id => text()();
   TextColumn get state => text()();
   TextColumn get note => text().nullable()();
@@ -9,7 +9,6 @@ class LibraryEntriesTable extends Table {
   IntColumn get progressVolume => integer().nullable()();
   IntColumn get numberOfRereads => integer().nullable()();
   IntColumn get rating => integer().nullable()();
-  TextColumn get seriesId => text().references(SeriesTable, #id)();
   RealColumn get priority => real().nullable()();
   TextColumn get startDate => text().nullable()();
   TextColumn get finishDate => text().nullable()();
@@ -19,6 +18,12 @@ class LibraryEntriesTable extends Table {
   /// Account-specific list IDs encoded as JSON. SQL NULL means unknown; '[]'
   /// means the server confirmed that the entry belongs to no lists.
   TextColumn get listIdsJson => text().nullable()();
+}
+
+/// Temporary ownerless storage used by the existing application readers.
+/// Owned cache operations never read or promote these rows.
+class LibraryEntriesTable extends Table with LibraryEntryColumns {
+  TextColumn get seriesId => text().references(SeriesTable, #id)();
 
   @override
   Set<Column> get primaryKey => {id};

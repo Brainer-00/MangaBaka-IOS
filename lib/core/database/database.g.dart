@@ -1635,6 +1635,75 @@ class $LibraryEntriesTableTable extends LibraryEntriesTable
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _priorityMeta = const VerificationMeta(
+    'priority',
+  );
+  @override
+  late final GeneratedColumn<double> priority = GeneratedColumn<double>(
+    'priority',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _startDateMeta = const VerificationMeta(
+    'startDate',
+  );
+  @override
+  late final GeneratedColumn<String> startDate = GeneratedColumn<String>(
+    'start_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _finishDateMeta = const VerificationMeta(
+    'finishDate',
+  );
+  @override
+  late final GeneratedColumn<String> finishDate = GeneratedColumn<String>(
+    'finish_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _readLinkMeta = const VerificationMeta(
+    'readLink',
+  );
+  @override
+  late final GeneratedColumn<String> readLink = GeneratedColumn<String>(
+    'read_link',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isPrivateMeta = const VerificationMeta(
+    'isPrivate',
+  );
+  @override
+  late final GeneratedColumn<bool> isPrivate = GeneratedColumn<bool>(
+    'is_private',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_private" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _listIdsJsonMeta = const VerificationMeta(
+    'listIdsJson',
+  );
+  @override
+  late final GeneratedColumn<String> listIdsJson = GeneratedColumn<String>(
+    'list_ids_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _seriesIdMeta = const VerificationMeta(
     'seriesId',
   );
@@ -1648,6 +1717,1143 @@ class $LibraryEntriesTableTable extends LibraryEntriesTable
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'REFERENCES series_table (id)',
     ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    state,
+    note,
+    progressChapter,
+    progressVolume,
+    numberOfRereads,
+    rating,
+    priority,
+    startDate,
+    finishDate,
+    readLink,
+    isPrivate,
+    listIdsJson,
+    seriesId,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'library_entries_table';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LibraryEntriesTableData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stateMeta);
+    }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
+    if (data.containsKey('progress_chapter')) {
+      context.handle(
+        _progressChapterMeta,
+        progressChapter.isAcceptableOrUnknown(
+          data['progress_chapter']!,
+          _progressChapterMeta,
+        ),
+      );
+    }
+    if (data.containsKey('progress_volume')) {
+      context.handle(
+        _progressVolumeMeta,
+        progressVolume.isAcceptableOrUnknown(
+          data['progress_volume']!,
+          _progressVolumeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('number_of_rereads')) {
+      context.handle(
+        _numberOfRereadsMeta,
+        numberOfRereads.isAcceptableOrUnknown(
+          data['number_of_rereads']!,
+          _numberOfRereadsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('rating')) {
+      context.handle(
+        _ratingMeta,
+        rating.isAcceptableOrUnknown(data['rating']!, _ratingMeta),
+      );
+    }
+    if (data.containsKey('priority')) {
+      context.handle(
+        _priorityMeta,
+        priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta),
+      );
+    }
+    if (data.containsKey('start_date')) {
+      context.handle(
+        _startDateMeta,
+        startDate.isAcceptableOrUnknown(data['start_date']!, _startDateMeta),
+      );
+    }
+    if (data.containsKey('finish_date')) {
+      context.handle(
+        _finishDateMeta,
+        finishDate.isAcceptableOrUnknown(data['finish_date']!, _finishDateMeta),
+      );
+    }
+    if (data.containsKey('read_link')) {
+      context.handle(
+        _readLinkMeta,
+        readLink.isAcceptableOrUnknown(data['read_link']!, _readLinkMeta),
+      );
+    }
+    if (data.containsKey('is_private')) {
+      context.handle(
+        _isPrivateMeta,
+        isPrivate.isAcceptableOrUnknown(data['is_private']!, _isPrivateMeta),
+      );
+    }
+    if (data.containsKey('list_ids_json')) {
+      context.handle(
+        _listIdsJsonMeta,
+        listIdsJson.isAcceptableOrUnknown(
+          data['list_ids_json']!,
+          _listIdsJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('series_id')) {
+      context.handle(
+        _seriesIdMeta,
+        seriesId.isAcceptableOrUnknown(data['series_id']!, _seriesIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_seriesIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LibraryEntriesTableData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LibraryEntriesTableData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      state: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state'],
+      )!,
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      ),
+      progressChapter: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}progress_chapter'],
+      ),
+      progressVolume: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}progress_volume'],
+      ),
+      numberOfRereads: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}number_of_rereads'],
+      ),
+      rating: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rating'],
+      ),
+      priority: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}priority'],
+      ),
+      startDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}start_date'],
+      ),
+      finishDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}finish_date'],
+      ),
+      readLink: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}read_link'],
+      ),
+      isPrivate: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_private'],
+      ),
+      listIdsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}list_ids_json'],
+      ),
+      seriesId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}series_id'],
+      )!,
+    );
+  }
+
+  @override
+  $LibraryEntriesTableTable createAlias(String alias) {
+    return $LibraryEntriesTableTable(attachedDatabase, alias);
+  }
+}
+
+class LibraryEntriesTableData extends DataClass
+    implements Insertable<LibraryEntriesTableData> {
+  final String id;
+  final String state;
+  final String? note;
+  final int? progressChapter;
+  final int? progressVolume;
+  final int? numberOfRereads;
+  final int? rating;
+  final double? priority;
+  final String? startDate;
+  final String? finishDate;
+  final String? readLink;
+  final bool? isPrivate;
+
+  /// Account-specific list IDs encoded as JSON. SQL NULL means unknown; '[]'
+  /// means the server confirmed that the entry belongs to no lists.
+  final String? listIdsJson;
+  final String seriesId;
+  const LibraryEntriesTableData({
+    required this.id,
+    required this.state,
+    this.note,
+    this.progressChapter,
+    this.progressVolume,
+    this.numberOfRereads,
+    this.rating,
+    this.priority,
+    this.startDate,
+    this.finishDate,
+    this.readLink,
+    this.isPrivate,
+    this.listIdsJson,
+    required this.seriesId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['state'] = Variable<String>(state);
+    if (!nullToAbsent || note != null) {
+      map['note'] = Variable<String>(note);
+    }
+    if (!nullToAbsent || progressChapter != null) {
+      map['progress_chapter'] = Variable<int>(progressChapter);
+    }
+    if (!nullToAbsent || progressVolume != null) {
+      map['progress_volume'] = Variable<int>(progressVolume);
+    }
+    if (!nullToAbsent || numberOfRereads != null) {
+      map['number_of_rereads'] = Variable<int>(numberOfRereads);
+    }
+    if (!nullToAbsent || rating != null) {
+      map['rating'] = Variable<int>(rating);
+    }
+    if (!nullToAbsent || priority != null) {
+      map['priority'] = Variable<double>(priority);
+    }
+    if (!nullToAbsent || startDate != null) {
+      map['start_date'] = Variable<String>(startDate);
+    }
+    if (!nullToAbsent || finishDate != null) {
+      map['finish_date'] = Variable<String>(finishDate);
+    }
+    if (!nullToAbsent || readLink != null) {
+      map['read_link'] = Variable<String>(readLink);
+    }
+    if (!nullToAbsent || isPrivate != null) {
+      map['is_private'] = Variable<bool>(isPrivate);
+    }
+    if (!nullToAbsent || listIdsJson != null) {
+      map['list_ids_json'] = Variable<String>(listIdsJson);
+    }
+    map['series_id'] = Variable<String>(seriesId);
+    return map;
+  }
+
+  LibraryEntriesTableCompanion toCompanion(bool nullToAbsent) {
+    return LibraryEntriesTableCompanion(
+      id: Value(id),
+      state: Value(state),
+      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      progressChapter: progressChapter == null && nullToAbsent
+          ? const Value.absent()
+          : Value(progressChapter),
+      progressVolume: progressVolume == null && nullToAbsent
+          ? const Value.absent()
+          : Value(progressVolume),
+      numberOfRereads: numberOfRereads == null && nullToAbsent
+          ? const Value.absent()
+          : Value(numberOfRereads),
+      rating: rating == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rating),
+      priority: priority == null && nullToAbsent
+          ? const Value.absent()
+          : Value(priority),
+      startDate: startDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(startDate),
+      finishDate: finishDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(finishDate),
+      readLink: readLink == null && nullToAbsent
+          ? const Value.absent()
+          : Value(readLink),
+      isPrivate: isPrivate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(isPrivate),
+      listIdsJson: listIdsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(listIdsJson),
+      seriesId: Value(seriesId),
+    );
+  }
+
+  factory LibraryEntriesTableData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LibraryEntriesTableData(
+      id: serializer.fromJson<String>(json['id']),
+      state: serializer.fromJson<String>(json['state']),
+      note: serializer.fromJson<String?>(json['note']),
+      progressChapter: serializer.fromJson<int?>(json['progressChapter']),
+      progressVolume: serializer.fromJson<int?>(json['progressVolume']),
+      numberOfRereads: serializer.fromJson<int?>(json['numberOfRereads']),
+      rating: serializer.fromJson<int?>(json['rating']),
+      priority: serializer.fromJson<double?>(json['priority']),
+      startDate: serializer.fromJson<String?>(json['startDate']),
+      finishDate: serializer.fromJson<String?>(json['finishDate']),
+      readLink: serializer.fromJson<String?>(json['readLink']),
+      isPrivate: serializer.fromJson<bool?>(json['isPrivate']),
+      listIdsJson: serializer.fromJson<String?>(json['listIdsJson']),
+      seriesId: serializer.fromJson<String>(json['seriesId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'state': serializer.toJson<String>(state),
+      'note': serializer.toJson<String?>(note),
+      'progressChapter': serializer.toJson<int?>(progressChapter),
+      'progressVolume': serializer.toJson<int?>(progressVolume),
+      'numberOfRereads': serializer.toJson<int?>(numberOfRereads),
+      'rating': serializer.toJson<int?>(rating),
+      'priority': serializer.toJson<double?>(priority),
+      'startDate': serializer.toJson<String?>(startDate),
+      'finishDate': serializer.toJson<String?>(finishDate),
+      'readLink': serializer.toJson<String?>(readLink),
+      'isPrivate': serializer.toJson<bool?>(isPrivate),
+      'listIdsJson': serializer.toJson<String?>(listIdsJson),
+      'seriesId': serializer.toJson<String>(seriesId),
+    };
+  }
+
+  LibraryEntriesTableData copyWith({
+    String? id,
+    String? state,
+    Value<String?> note = const Value.absent(),
+    Value<int?> progressChapter = const Value.absent(),
+    Value<int?> progressVolume = const Value.absent(),
+    Value<int?> numberOfRereads = const Value.absent(),
+    Value<int?> rating = const Value.absent(),
+    Value<double?> priority = const Value.absent(),
+    Value<String?> startDate = const Value.absent(),
+    Value<String?> finishDate = const Value.absent(),
+    Value<String?> readLink = const Value.absent(),
+    Value<bool?> isPrivate = const Value.absent(),
+    Value<String?> listIdsJson = const Value.absent(),
+    String? seriesId,
+  }) => LibraryEntriesTableData(
+    id: id ?? this.id,
+    state: state ?? this.state,
+    note: note.present ? note.value : this.note,
+    progressChapter: progressChapter.present
+        ? progressChapter.value
+        : this.progressChapter,
+    progressVolume: progressVolume.present
+        ? progressVolume.value
+        : this.progressVolume,
+    numberOfRereads: numberOfRereads.present
+        ? numberOfRereads.value
+        : this.numberOfRereads,
+    rating: rating.present ? rating.value : this.rating,
+    priority: priority.present ? priority.value : this.priority,
+    startDate: startDate.present ? startDate.value : this.startDate,
+    finishDate: finishDate.present ? finishDate.value : this.finishDate,
+    readLink: readLink.present ? readLink.value : this.readLink,
+    isPrivate: isPrivate.present ? isPrivate.value : this.isPrivate,
+    listIdsJson: listIdsJson.present ? listIdsJson.value : this.listIdsJson,
+    seriesId: seriesId ?? this.seriesId,
+  );
+  LibraryEntriesTableData copyWithCompanion(LibraryEntriesTableCompanion data) {
+    return LibraryEntriesTableData(
+      id: data.id.present ? data.id.value : this.id,
+      state: data.state.present ? data.state.value : this.state,
+      note: data.note.present ? data.note.value : this.note,
+      progressChapter: data.progressChapter.present
+          ? data.progressChapter.value
+          : this.progressChapter,
+      progressVolume: data.progressVolume.present
+          ? data.progressVolume.value
+          : this.progressVolume,
+      numberOfRereads: data.numberOfRereads.present
+          ? data.numberOfRereads.value
+          : this.numberOfRereads,
+      rating: data.rating.present ? data.rating.value : this.rating,
+      priority: data.priority.present ? data.priority.value : this.priority,
+      startDate: data.startDate.present ? data.startDate.value : this.startDate,
+      finishDate: data.finishDate.present
+          ? data.finishDate.value
+          : this.finishDate,
+      readLink: data.readLink.present ? data.readLink.value : this.readLink,
+      isPrivate: data.isPrivate.present ? data.isPrivate.value : this.isPrivate,
+      listIdsJson: data.listIdsJson.present
+          ? data.listIdsJson.value
+          : this.listIdsJson,
+      seriesId: data.seriesId.present ? data.seriesId.value : this.seriesId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LibraryEntriesTableData(')
+          ..write('id: $id, ')
+          ..write('state: $state, ')
+          ..write('note: $note, ')
+          ..write('progressChapter: $progressChapter, ')
+          ..write('progressVolume: $progressVolume, ')
+          ..write('numberOfRereads: $numberOfRereads, ')
+          ..write('rating: $rating, ')
+          ..write('priority: $priority, ')
+          ..write('startDate: $startDate, ')
+          ..write('finishDate: $finishDate, ')
+          ..write('readLink: $readLink, ')
+          ..write('isPrivate: $isPrivate, ')
+          ..write('listIdsJson: $listIdsJson, ')
+          ..write('seriesId: $seriesId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    state,
+    note,
+    progressChapter,
+    progressVolume,
+    numberOfRereads,
+    rating,
+    priority,
+    startDate,
+    finishDate,
+    readLink,
+    isPrivate,
+    listIdsJson,
+    seriesId,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LibraryEntriesTableData &&
+          other.id == this.id &&
+          other.state == this.state &&
+          other.note == this.note &&
+          other.progressChapter == this.progressChapter &&
+          other.progressVolume == this.progressVolume &&
+          other.numberOfRereads == this.numberOfRereads &&
+          other.rating == this.rating &&
+          other.priority == this.priority &&
+          other.startDate == this.startDate &&
+          other.finishDate == this.finishDate &&
+          other.readLink == this.readLink &&
+          other.isPrivate == this.isPrivate &&
+          other.listIdsJson == this.listIdsJson &&
+          other.seriesId == this.seriesId);
+}
+
+class LibraryEntriesTableCompanion
+    extends UpdateCompanion<LibraryEntriesTableData> {
+  final Value<String> id;
+  final Value<String> state;
+  final Value<String?> note;
+  final Value<int?> progressChapter;
+  final Value<int?> progressVolume;
+  final Value<int?> numberOfRereads;
+  final Value<int?> rating;
+  final Value<double?> priority;
+  final Value<String?> startDate;
+  final Value<String?> finishDate;
+  final Value<String?> readLink;
+  final Value<bool?> isPrivate;
+  final Value<String?> listIdsJson;
+  final Value<String> seriesId;
+  final Value<int> rowid;
+  const LibraryEntriesTableCompanion({
+    this.id = const Value.absent(),
+    this.state = const Value.absent(),
+    this.note = const Value.absent(),
+    this.progressChapter = const Value.absent(),
+    this.progressVolume = const Value.absent(),
+    this.numberOfRereads = const Value.absent(),
+    this.rating = const Value.absent(),
+    this.priority = const Value.absent(),
+    this.startDate = const Value.absent(),
+    this.finishDate = const Value.absent(),
+    this.readLink = const Value.absent(),
+    this.isPrivate = const Value.absent(),
+    this.listIdsJson = const Value.absent(),
+    this.seriesId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LibraryEntriesTableCompanion.insert({
+    required String id,
+    required String state,
+    this.note = const Value.absent(),
+    this.progressChapter = const Value.absent(),
+    this.progressVolume = const Value.absent(),
+    this.numberOfRereads = const Value.absent(),
+    this.rating = const Value.absent(),
+    this.priority = const Value.absent(),
+    this.startDate = const Value.absent(),
+    this.finishDate = const Value.absent(),
+    this.readLink = const Value.absent(),
+    this.isPrivate = const Value.absent(),
+    this.listIdsJson = const Value.absent(),
+    required String seriesId,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       state = Value(state),
+       seriesId = Value(seriesId);
+  static Insertable<LibraryEntriesTableData> custom({
+    Expression<String>? id,
+    Expression<String>? state,
+    Expression<String>? note,
+    Expression<int>? progressChapter,
+    Expression<int>? progressVolume,
+    Expression<int>? numberOfRereads,
+    Expression<int>? rating,
+    Expression<double>? priority,
+    Expression<String>? startDate,
+    Expression<String>? finishDate,
+    Expression<String>? readLink,
+    Expression<bool>? isPrivate,
+    Expression<String>? listIdsJson,
+    Expression<String>? seriesId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (state != null) 'state': state,
+      if (note != null) 'note': note,
+      if (progressChapter != null) 'progress_chapter': progressChapter,
+      if (progressVolume != null) 'progress_volume': progressVolume,
+      if (numberOfRereads != null) 'number_of_rereads': numberOfRereads,
+      if (rating != null) 'rating': rating,
+      if (priority != null) 'priority': priority,
+      if (startDate != null) 'start_date': startDate,
+      if (finishDate != null) 'finish_date': finishDate,
+      if (readLink != null) 'read_link': readLink,
+      if (isPrivate != null) 'is_private': isPrivate,
+      if (listIdsJson != null) 'list_ids_json': listIdsJson,
+      if (seriesId != null) 'series_id': seriesId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LibraryEntriesTableCompanion copyWith({
+    Value<String>? id,
+    Value<String>? state,
+    Value<String?>? note,
+    Value<int?>? progressChapter,
+    Value<int?>? progressVolume,
+    Value<int?>? numberOfRereads,
+    Value<int?>? rating,
+    Value<double?>? priority,
+    Value<String?>? startDate,
+    Value<String?>? finishDate,
+    Value<String?>? readLink,
+    Value<bool?>? isPrivate,
+    Value<String?>? listIdsJson,
+    Value<String>? seriesId,
+    Value<int>? rowid,
+  }) {
+    return LibraryEntriesTableCompanion(
+      id: id ?? this.id,
+      state: state ?? this.state,
+      note: note ?? this.note,
+      progressChapter: progressChapter ?? this.progressChapter,
+      progressVolume: progressVolume ?? this.progressVolume,
+      numberOfRereads: numberOfRereads ?? this.numberOfRereads,
+      rating: rating ?? this.rating,
+      priority: priority ?? this.priority,
+      startDate: startDate ?? this.startDate,
+      finishDate: finishDate ?? this.finishDate,
+      readLink: readLink ?? this.readLink,
+      isPrivate: isPrivate ?? this.isPrivate,
+      listIdsJson: listIdsJson ?? this.listIdsJson,
+      seriesId: seriesId ?? this.seriesId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
+    if (progressChapter.present) {
+      map['progress_chapter'] = Variable<int>(progressChapter.value);
+    }
+    if (progressVolume.present) {
+      map['progress_volume'] = Variable<int>(progressVolume.value);
+    }
+    if (numberOfRereads.present) {
+      map['number_of_rereads'] = Variable<int>(numberOfRereads.value);
+    }
+    if (rating.present) {
+      map['rating'] = Variable<int>(rating.value);
+    }
+    if (priority.present) {
+      map['priority'] = Variable<double>(priority.value);
+    }
+    if (startDate.present) {
+      map['start_date'] = Variable<String>(startDate.value);
+    }
+    if (finishDate.present) {
+      map['finish_date'] = Variable<String>(finishDate.value);
+    }
+    if (readLink.present) {
+      map['read_link'] = Variable<String>(readLink.value);
+    }
+    if (isPrivate.present) {
+      map['is_private'] = Variable<bool>(isPrivate.value);
+    }
+    if (listIdsJson.present) {
+      map['list_ids_json'] = Variable<String>(listIdsJson.value);
+    }
+    if (seriesId.present) {
+      map['series_id'] = Variable<String>(seriesId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LibraryEntriesTableCompanion(')
+          ..write('id: $id, ')
+          ..write('state: $state, ')
+          ..write('note: $note, ')
+          ..write('progressChapter: $progressChapter, ')
+          ..write('progressVolume: $progressVolume, ')
+          ..write('numberOfRereads: $numberOfRereads, ')
+          ..write('rating: $rating, ')
+          ..write('priority: $priority, ')
+          ..write('startDate: $startDate, ')
+          ..write('finishDate: $finishDate, ')
+          ..write('readLink: $readLink, ')
+          ..write('isPrivate: $isPrivate, ')
+          ..write('listIdsJson: $listIdsJson, ')
+          ..write('seriesId: $seriesId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LibraryCacheStatesTable extends LibraryCacheStates
+    with TableInfo<$LibraryCacheStatesTable, LibraryCacheState> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LibraryCacheStatesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerIdMeta = const VerificationMeta(
+    'ownerId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerId = GeneratedColumn<String>(
+    'owner_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _initializedMeta = const VerificationMeta(
+    'initialized',
+  );
+  @override
+  late final GeneratedColumn<bool> initialized = GeneratedColumn<bool>(
+    'initialized',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("initialized" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _watermarkMeta = const VerificationMeta(
+    'watermark',
+  );
+  @override
+  late final GeneratedColumn<String> watermark = GeneratedColumn<String>(
+    'watermark',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _generationMeta = const VerificationMeta(
+    'generation',
+  );
+  @override
+  late final GeneratedColumn<int> generation = GeneratedColumn<int>(
+    'generation',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _activeMeta = const VerificationMeta('active');
+  @override
+  late final GeneratedColumn<bool> active = GeneratedColumn<bool>(
+    'active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("active" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    ownerId,
+    initialized,
+    watermark,
+    generation,
+    active,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'library_cache_states';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LibraryCacheState> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_id')) {
+      context.handle(
+        _ownerIdMeta,
+        ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('initialized')) {
+      context.handle(
+        _initializedMeta,
+        initialized.isAcceptableOrUnknown(
+          data['initialized']!,
+          _initializedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('watermark')) {
+      context.handle(
+        _watermarkMeta,
+        watermark.isAcceptableOrUnknown(data['watermark']!, _watermarkMeta),
+      );
+    }
+    if (data.containsKey('generation')) {
+      context.handle(
+        _generationMeta,
+        generation.isAcceptableOrUnknown(data['generation']!, _generationMeta),
+      );
+    }
+    if (data.containsKey('active')) {
+      context.handle(
+        _activeMeta,
+        active.isAcceptableOrUnknown(data['active']!, _activeMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {ownerId};
+  @override
+  LibraryCacheState map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LibraryCacheState(
+      ownerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_id'],
+      )!,
+      initialized: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}initialized'],
+      )!,
+      watermark: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}watermark'],
+      ),
+      generation: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}generation'],
+      )!,
+      active: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}active'],
+      )!,
+    );
+  }
+
+  @override
+  $LibraryCacheStatesTable createAlias(String alias) {
+    return $LibraryCacheStatesTable(attachedDatabase, alias);
+  }
+}
+
+class LibraryCacheState extends DataClass
+    implements Insertable<LibraryCacheState> {
+  final String ownerId;
+  final bool initialized;
+  final String? watermark;
+  final int generation;
+  final bool active;
+  const LibraryCacheState({
+    required this.ownerId,
+    required this.initialized,
+    this.watermark,
+    required this.generation,
+    required this.active,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_id'] = Variable<String>(ownerId);
+    map['initialized'] = Variable<bool>(initialized);
+    if (!nullToAbsent || watermark != null) {
+      map['watermark'] = Variable<String>(watermark);
+    }
+    map['generation'] = Variable<int>(generation);
+    map['active'] = Variable<bool>(active);
+    return map;
+  }
+
+  LibraryCacheStatesCompanion toCompanion(bool nullToAbsent) {
+    return LibraryCacheStatesCompanion(
+      ownerId: Value(ownerId),
+      initialized: Value(initialized),
+      watermark: watermark == null && nullToAbsent
+          ? const Value.absent()
+          : Value(watermark),
+      generation: Value(generation),
+      active: Value(active),
+    );
+  }
+
+  factory LibraryCacheState.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LibraryCacheState(
+      ownerId: serializer.fromJson<String>(json['ownerId']),
+      initialized: serializer.fromJson<bool>(json['initialized']),
+      watermark: serializer.fromJson<String?>(json['watermark']),
+      generation: serializer.fromJson<int>(json['generation']),
+      active: serializer.fromJson<bool>(json['active']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerId': serializer.toJson<String>(ownerId),
+      'initialized': serializer.toJson<bool>(initialized),
+      'watermark': serializer.toJson<String?>(watermark),
+      'generation': serializer.toJson<int>(generation),
+      'active': serializer.toJson<bool>(active),
+    };
+  }
+
+  LibraryCacheState copyWith({
+    String? ownerId,
+    bool? initialized,
+    Value<String?> watermark = const Value.absent(),
+    int? generation,
+    bool? active,
+  }) => LibraryCacheState(
+    ownerId: ownerId ?? this.ownerId,
+    initialized: initialized ?? this.initialized,
+    watermark: watermark.present ? watermark.value : this.watermark,
+    generation: generation ?? this.generation,
+    active: active ?? this.active,
+  );
+  LibraryCacheState copyWithCompanion(LibraryCacheStatesCompanion data) {
+    return LibraryCacheState(
+      ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      initialized: data.initialized.present
+          ? data.initialized.value
+          : this.initialized,
+      watermark: data.watermark.present ? data.watermark.value : this.watermark,
+      generation: data.generation.present
+          ? data.generation.value
+          : this.generation,
+      active: data.active.present ? data.active.value : this.active,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LibraryCacheState(')
+          ..write('ownerId: $ownerId, ')
+          ..write('initialized: $initialized, ')
+          ..write('watermark: $watermark, ')
+          ..write('generation: $generation, ')
+          ..write('active: $active')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(ownerId, initialized, watermark, generation, active);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LibraryCacheState &&
+          other.ownerId == this.ownerId &&
+          other.initialized == this.initialized &&
+          other.watermark == this.watermark &&
+          other.generation == this.generation &&
+          other.active == this.active);
+}
+
+class LibraryCacheStatesCompanion extends UpdateCompanion<LibraryCacheState> {
+  final Value<String> ownerId;
+  final Value<bool> initialized;
+  final Value<String?> watermark;
+  final Value<int> generation;
+  final Value<bool> active;
+  final Value<int> rowid;
+  const LibraryCacheStatesCompanion({
+    this.ownerId = const Value.absent(),
+    this.initialized = const Value.absent(),
+    this.watermark = const Value.absent(),
+    this.generation = const Value.absent(),
+    this.active = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LibraryCacheStatesCompanion.insert({
+    required String ownerId,
+    this.initialized = const Value.absent(),
+    this.watermark = const Value.absent(),
+    this.generation = const Value.absent(),
+    this.active = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : ownerId = Value(ownerId);
+  static Insertable<LibraryCacheState> custom({
+    Expression<String>? ownerId,
+    Expression<bool>? initialized,
+    Expression<String>? watermark,
+    Expression<int>? generation,
+    Expression<bool>? active,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerId != null) 'owner_id': ownerId,
+      if (initialized != null) 'initialized': initialized,
+      if (watermark != null) 'watermark': watermark,
+      if (generation != null) 'generation': generation,
+      if (active != null) 'active': active,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LibraryCacheStatesCompanion copyWith({
+    Value<String>? ownerId,
+    Value<bool>? initialized,
+    Value<String?>? watermark,
+    Value<int>? generation,
+    Value<bool>? active,
+    Value<int>? rowid,
+  }) {
+    return LibraryCacheStatesCompanion(
+      ownerId: ownerId ?? this.ownerId,
+      initialized: initialized ?? this.initialized,
+      watermark: watermark ?? this.watermark,
+      generation: generation ?? this.generation,
+      active: active ?? this.active,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerId.present) {
+      map['owner_id'] = Variable<String>(ownerId.value);
+    }
+    if (initialized.present) {
+      map['initialized'] = Variable<bool>(initialized.value);
+    }
+    if (watermark.present) {
+      map['watermark'] = Variable<String>(watermark.value);
+    }
+    if (generation.present) {
+      map['generation'] = Variable<int>(generation.value);
+    }
+    if (active.present) {
+      map['active'] = Variable<bool>(active.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LibraryCacheStatesCompanion(')
+          ..write('ownerId: $ownerId, ')
+          ..write('initialized: $initialized, ')
+          ..write('watermark: $watermark, ')
+          ..write('generation: $generation, ')
+          ..write('active: $active, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $OwnedLibraryEntriesTable extends OwnedLibraryEntries
+    with TableInfo<$OwnedLibraryEntriesTable, OwnedLibraryEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $OwnedLibraryEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  @override
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _progressChapterMeta = const VerificationMeta(
+    'progressChapter',
+  );
+  @override
+  late final GeneratedColumn<int> progressChapter = GeneratedColumn<int>(
+    'progress_chapter',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _progressVolumeMeta = const VerificationMeta(
+    'progressVolume',
+  );
+  @override
+  late final GeneratedColumn<int> progressVolume = GeneratedColumn<int>(
+    'progress_volume',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _numberOfRereadsMeta = const VerificationMeta(
+    'numberOfRereads',
+  );
+  @override
+  late final GeneratedColumn<int> numberOfRereads = GeneratedColumn<int>(
+    'number_of_rereads',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _ratingMeta = const VerificationMeta('rating');
+  @override
+  late final GeneratedColumn<int> rating = GeneratedColumn<int>(
+    'rating',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _priorityMeta = const VerificationMeta(
     'priority',
@@ -1718,6 +2924,34 @@ class $LibraryEntriesTableTable extends LibraryEntriesTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _ownerIdMeta = const VerificationMeta(
+    'ownerId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerId = GeneratedColumn<String>(
+    'owner_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES library_cache_states (owner_id)',
+    ),
+  );
+  static const VerificationMeta _seriesIdMeta = const VerificationMeta(
+    'seriesId',
+  );
+  @override
+  late final GeneratedColumn<String> seriesId = GeneratedColumn<String>(
+    'series_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES series_table (id)',
+    ),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1727,22 +2961,23 @@ class $LibraryEntriesTableTable extends LibraryEntriesTable
     progressVolume,
     numberOfRereads,
     rating,
-    seriesId,
     priority,
     startDate,
     finishDate,
     readLink,
     isPrivate,
     listIdsJson,
+    ownerId,
+    seriesId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
-  static const String $name = 'library_entries_table';
+  static const String $name = 'owned_library_entries';
   @override
   VerificationContext validateIntegrity(
-    Insertable<LibraryEntriesTableData> instance, {
+    Insertable<OwnedLibraryEntry> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -1799,14 +3034,6 @@ class $LibraryEntriesTableTable extends LibraryEntriesTable
         rating.isAcceptableOrUnknown(data['rating']!, _ratingMeta),
       );
     }
-    if (data.containsKey('series_id')) {
-      context.handle(
-        _seriesIdMeta,
-        seriesId.isAcceptableOrUnknown(data['series_id']!, _seriesIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_seriesIdMeta);
-    }
     if (data.containsKey('priority')) {
       context.handle(
         _priorityMeta,
@@ -1846,18 +3073,35 @@ class $LibraryEntriesTableTable extends LibraryEntriesTable
         ),
       );
     }
+    if (data.containsKey('owner_id')) {
+      context.handle(
+        _ownerIdMeta,
+        ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('series_id')) {
+      context.handle(
+        _seriesIdMeta,
+        seriesId.isAcceptableOrUnknown(data['series_id']!, _seriesIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_seriesIdMeta);
+    }
     return context;
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {id};
+  Set<GeneratedColumn> get $primaryKey => {ownerId, id};
   @override
-  LibraryEntriesTableData map(
-    Map<String, dynamic> data, {
-    String? tablePrefix,
-  }) {
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {ownerId, seriesId},
+  ];
+  @override
+  OwnedLibraryEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return LibraryEntriesTableData(
+    return OwnedLibraryEntry(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}id'],
@@ -1886,10 +3130,6 @@ class $LibraryEntriesTableTable extends LibraryEntriesTable
         DriftSqlType.int,
         data['${effectivePrefix}rating'],
       ),
-      seriesId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}series_id'],
-      )!,
       priority: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}priority'],
@@ -1914,17 +3154,25 @@ class $LibraryEntriesTableTable extends LibraryEntriesTable
         DriftSqlType.string,
         data['${effectivePrefix}list_ids_json'],
       ),
+      ownerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_id'],
+      )!,
+      seriesId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}series_id'],
+      )!,
     );
   }
 
   @override
-  $LibraryEntriesTableTable createAlias(String alias) {
-    return $LibraryEntriesTableTable(attachedDatabase, alias);
+  $OwnedLibraryEntriesTable createAlias(String alias) {
+    return $OwnedLibraryEntriesTable(attachedDatabase, alias);
   }
 }
 
-class LibraryEntriesTableData extends DataClass
-    implements Insertable<LibraryEntriesTableData> {
+class OwnedLibraryEntry extends DataClass
+    implements Insertable<OwnedLibraryEntry> {
   final String id;
   final String state;
   final String? note;
@@ -1932,7 +3180,6 @@ class LibraryEntriesTableData extends DataClass
   final int? progressVolume;
   final int? numberOfRereads;
   final int? rating;
-  final String seriesId;
   final double? priority;
   final String? startDate;
   final String? finishDate;
@@ -1942,7 +3189,9 @@ class LibraryEntriesTableData extends DataClass
   /// Account-specific list IDs encoded as JSON. SQL NULL means unknown; '[]'
   /// means the server confirmed that the entry belongs to no lists.
   final String? listIdsJson;
-  const LibraryEntriesTableData({
+  final String ownerId;
+  final String seriesId;
+  const OwnedLibraryEntry({
     required this.id,
     required this.state,
     this.note,
@@ -1950,13 +3199,14 @@ class LibraryEntriesTableData extends DataClass
     this.progressVolume,
     this.numberOfRereads,
     this.rating,
-    required this.seriesId,
     this.priority,
     this.startDate,
     this.finishDate,
     this.readLink,
     this.isPrivate,
     this.listIdsJson,
+    required this.ownerId,
+    required this.seriesId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1978,7 +3228,6 @@ class LibraryEntriesTableData extends DataClass
     if (!nullToAbsent || rating != null) {
       map['rating'] = Variable<int>(rating);
     }
-    map['series_id'] = Variable<String>(seriesId);
     if (!nullToAbsent || priority != null) {
       map['priority'] = Variable<double>(priority);
     }
@@ -1997,11 +3246,13 @@ class LibraryEntriesTableData extends DataClass
     if (!nullToAbsent || listIdsJson != null) {
       map['list_ids_json'] = Variable<String>(listIdsJson);
     }
+    map['owner_id'] = Variable<String>(ownerId);
+    map['series_id'] = Variable<String>(seriesId);
     return map;
   }
 
-  LibraryEntriesTableCompanion toCompanion(bool nullToAbsent) {
-    return LibraryEntriesTableCompanion(
+  OwnedLibraryEntriesCompanion toCompanion(bool nullToAbsent) {
+    return OwnedLibraryEntriesCompanion(
       id: Value(id),
       state: Value(state),
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
@@ -2017,7 +3268,6 @@ class LibraryEntriesTableData extends DataClass
       rating: rating == null && nullToAbsent
           ? const Value.absent()
           : Value(rating),
-      seriesId: Value(seriesId),
       priority: priority == null && nullToAbsent
           ? const Value.absent()
           : Value(priority),
@@ -2036,15 +3286,17 @@ class LibraryEntriesTableData extends DataClass
       listIdsJson: listIdsJson == null && nullToAbsent
           ? const Value.absent()
           : Value(listIdsJson),
+      ownerId: Value(ownerId),
+      seriesId: Value(seriesId),
     );
   }
 
-  factory LibraryEntriesTableData.fromJson(
+  factory OwnedLibraryEntry.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return LibraryEntriesTableData(
+    return OwnedLibraryEntry(
       id: serializer.fromJson<String>(json['id']),
       state: serializer.fromJson<String>(json['state']),
       note: serializer.fromJson<String?>(json['note']),
@@ -2052,13 +3304,14 @@ class LibraryEntriesTableData extends DataClass
       progressVolume: serializer.fromJson<int?>(json['progressVolume']),
       numberOfRereads: serializer.fromJson<int?>(json['numberOfRereads']),
       rating: serializer.fromJson<int?>(json['rating']),
-      seriesId: serializer.fromJson<String>(json['seriesId']),
       priority: serializer.fromJson<double?>(json['priority']),
       startDate: serializer.fromJson<String?>(json['startDate']),
       finishDate: serializer.fromJson<String?>(json['finishDate']),
       readLink: serializer.fromJson<String?>(json['readLink']),
       isPrivate: serializer.fromJson<bool?>(json['isPrivate']),
       listIdsJson: serializer.fromJson<String?>(json['listIdsJson']),
+      ownerId: serializer.fromJson<String>(json['ownerId']),
+      seriesId: serializer.fromJson<String>(json['seriesId']),
     );
   }
   @override
@@ -2072,17 +3325,18 @@ class LibraryEntriesTableData extends DataClass
       'progressVolume': serializer.toJson<int?>(progressVolume),
       'numberOfRereads': serializer.toJson<int?>(numberOfRereads),
       'rating': serializer.toJson<int?>(rating),
-      'seriesId': serializer.toJson<String>(seriesId),
       'priority': serializer.toJson<double?>(priority),
       'startDate': serializer.toJson<String?>(startDate),
       'finishDate': serializer.toJson<String?>(finishDate),
       'readLink': serializer.toJson<String?>(readLink),
       'isPrivate': serializer.toJson<bool?>(isPrivate),
       'listIdsJson': serializer.toJson<String?>(listIdsJson),
+      'ownerId': serializer.toJson<String>(ownerId),
+      'seriesId': serializer.toJson<String>(seriesId),
     };
   }
 
-  LibraryEntriesTableData copyWith({
+  OwnedLibraryEntry copyWith({
     String? id,
     String? state,
     Value<String?> note = const Value.absent(),
@@ -2090,14 +3344,15 @@ class LibraryEntriesTableData extends DataClass
     Value<int?> progressVolume = const Value.absent(),
     Value<int?> numberOfRereads = const Value.absent(),
     Value<int?> rating = const Value.absent(),
-    String? seriesId,
     Value<double?> priority = const Value.absent(),
     Value<String?> startDate = const Value.absent(),
     Value<String?> finishDate = const Value.absent(),
     Value<String?> readLink = const Value.absent(),
     Value<bool?> isPrivate = const Value.absent(),
     Value<String?> listIdsJson = const Value.absent(),
-  }) => LibraryEntriesTableData(
+    String? ownerId,
+    String? seriesId,
+  }) => OwnedLibraryEntry(
     id: id ?? this.id,
     state: state ?? this.state,
     note: note.present ? note.value : this.note,
@@ -2111,16 +3366,17 @@ class LibraryEntriesTableData extends DataClass
         ? numberOfRereads.value
         : this.numberOfRereads,
     rating: rating.present ? rating.value : this.rating,
-    seriesId: seriesId ?? this.seriesId,
     priority: priority.present ? priority.value : this.priority,
     startDate: startDate.present ? startDate.value : this.startDate,
     finishDate: finishDate.present ? finishDate.value : this.finishDate,
     readLink: readLink.present ? readLink.value : this.readLink,
     isPrivate: isPrivate.present ? isPrivate.value : this.isPrivate,
     listIdsJson: listIdsJson.present ? listIdsJson.value : this.listIdsJson,
+    ownerId: ownerId ?? this.ownerId,
+    seriesId: seriesId ?? this.seriesId,
   );
-  LibraryEntriesTableData copyWithCompanion(LibraryEntriesTableCompanion data) {
-    return LibraryEntriesTableData(
+  OwnedLibraryEntry copyWithCompanion(OwnedLibraryEntriesCompanion data) {
+    return OwnedLibraryEntry(
       id: data.id.present ? data.id.value : this.id,
       state: data.state.present ? data.state.value : this.state,
       note: data.note.present ? data.note.value : this.note,
@@ -2134,7 +3390,6 @@ class LibraryEntriesTableData extends DataClass
           ? data.numberOfRereads.value
           : this.numberOfRereads,
       rating: data.rating.present ? data.rating.value : this.rating,
-      seriesId: data.seriesId.present ? data.seriesId.value : this.seriesId,
       priority: data.priority.present ? data.priority.value : this.priority,
       startDate: data.startDate.present ? data.startDate.value : this.startDate,
       finishDate: data.finishDate.present
@@ -2145,12 +3400,14 @@ class LibraryEntriesTableData extends DataClass
       listIdsJson: data.listIdsJson.present
           ? data.listIdsJson.value
           : this.listIdsJson,
+      ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      seriesId: data.seriesId.present ? data.seriesId.value : this.seriesId,
     );
   }
 
   @override
   String toString() {
-    return (StringBuffer('LibraryEntriesTableData(')
+    return (StringBuffer('OwnedLibraryEntry(')
           ..write('id: $id, ')
           ..write('state: $state, ')
           ..write('note: $note, ')
@@ -2158,13 +3415,14 @@ class LibraryEntriesTableData extends DataClass
           ..write('progressVolume: $progressVolume, ')
           ..write('numberOfRereads: $numberOfRereads, ')
           ..write('rating: $rating, ')
-          ..write('seriesId: $seriesId, ')
           ..write('priority: $priority, ')
           ..write('startDate: $startDate, ')
           ..write('finishDate: $finishDate, ')
           ..write('readLink: $readLink, ')
           ..write('isPrivate: $isPrivate, ')
-          ..write('listIdsJson: $listIdsJson')
+          ..write('listIdsJson: $listIdsJson, ')
+          ..write('ownerId: $ownerId, ')
+          ..write('seriesId: $seriesId')
           ..write(')'))
         .toString();
   }
@@ -2178,18 +3436,19 @@ class LibraryEntriesTableData extends DataClass
     progressVolume,
     numberOfRereads,
     rating,
-    seriesId,
     priority,
     startDate,
     finishDate,
     readLink,
     isPrivate,
     listIdsJson,
+    ownerId,
+    seriesId,
   );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is LibraryEntriesTableData &&
+      (other is OwnedLibraryEntry &&
           other.id == this.id &&
           other.state == this.state &&
           other.note == this.note &&
@@ -2197,17 +3456,17 @@ class LibraryEntriesTableData extends DataClass
           other.progressVolume == this.progressVolume &&
           other.numberOfRereads == this.numberOfRereads &&
           other.rating == this.rating &&
-          other.seriesId == this.seriesId &&
           other.priority == this.priority &&
           other.startDate == this.startDate &&
           other.finishDate == this.finishDate &&
           other.readLink == this.readLink &&
           other.isPrivate == this.isPrivate &&
-          other.listIdsJson == this.listIdsJson);
+          other.listIdsJson == this.listIdsJson &&
+          other.ownerId == this.ownerId &&
+          other.seriesId == this.seriesId);
 }
 
-class LibraryEntriesTableCompanion
-    extends UpdateCompanion<LibraryEntriesTableData> {
+class OwnedLibraryEntriesCompanion extends UpdateCompanion<OwnedLibraryEntry> {
   final Value<String> id;
   final Value<String> state;
   final Value<String?> note;
@@ -2215,15 +3474,16 @@ class LibraryEntriesTableCompanion
   final Value<int?> progressVolume;
   final Value<int?> numberOfRereads;
   final Value<int?> rating;
-  final Value<String> seriesId;
   final Value<double?> priority;
   final Value<String?> startDate;
   final Value<String?> finishDate;
   final Value<String?> readLink;
   final Value<bool?> isPrivate;
   final Value<String?> listIdsJson;
+  final Value<String> ownerId;
+  final Value<String> seriesId;
   final Value<int> rowid;
-  const LibraryEntriesTableCompanion({
+  const OwnedLibraryEntriesCompanion({
     this.id = const Value.absent(),
     this.state = const Value.absent(),
     this.note = const Value.absent(),
@@ -2231,16 +3491,17 @@ class LibraryEntriesTableCompanion
     this.progressVolume = const Value.absent(),
     this.numberOfRereads = const Value.absent(),
     this.rating = const Value.absent(),
-    this.seriesId = const Value.absent(),
     this.priority = const Value.absent(),
     this.startDate = const Value.absent(),
     this.finishDate = const Value.absent(),
     this.readLink = const Value.absent(),
     this.isPrivate = const Value.absent(),
     this.listIdsJson = const Value.absent(),
+    this.ownerId = const Value.absent(),
+    this.seriesId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
-  LibraryEntriesTableCompanion.insert({
+  OwnedLibraryEntriesCompanion.insert({
     required String id,
     required String state,
     this.note = const Value.absent(),
@@ -2248,18 +3509,20 @@ class LibraryEntriesTableCompanion
     this.progressVolume = const Value.absent(),
     this.numberOfRereads = const Value.absent(),
     this.rating = const Value.absent(),
-    required String seriesId,
     this.priority = const Value.absent(),
     this.startDate = const Value.absent(),
     this.finishDate = const Value.absent(),
     this.readLink = const Value.absent(),
     this.isPrivate = const Value.absent(),
     this.listIdsJson = const Value.absent(),
+    required String ownerId,
+    required String seriesId,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        state = Value(state),
+       ownerId = Value(ownerId),
        seriesId = Value(seriesId);
-  static Insertable<LibraryEntriesTableData> custom({
+  static Insertable<OwnedLibraryEntry> custom({
     Expression<String>? id,
     Expression<String>? state,
     Expression<String>? note,
@@ -2267,13 +3530,14 @@ class LibraryEntriesTableCompanion
     Expression<int>? progressVolume,
     Expression<int>? numberOfRereads,
     Expression<int>? rating,
-    Expression<String>? seriesId,
     Expression<double>? priority,
     Expression<String>? startDate,
     Expression<String>? finishDate,
     Expression<String>? readLink,
     Expression<bool>? isPrivate,
     Expression<String>? listIdsJson,
+    Expression<String>? ownerId,
+    Expression<String>? seriesId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2284,18 +3548,19 @@ class LibraryEntriesTableCompanion
       if (progressVolume != null) 'progress_volume': progressVolume,
       if (numberOfRereads != null) 'number_of_rereads': numberOfRereads,
       if (rating != null) 'rating': rating,
-      if (seriesId != null) 'series_id': seriesId,
       if (priority != null) 'priority': priority,
       if (startDate != null) 'start_date': startDate,
       if (finishDate != null) 'finish_date': finishDate,
       if (readLink != null) 'read_link': readLink,
       if (isPrivate != null) 'is_private': isPrivate,
       if (listIdsJson != null) 'list_ids_json': listIdsJson,
+      if (ownerId != null) 'owner_id': ownerId,
+      if (seriesId != null) 'series_id': seriesId,
       if (rowid != null) 'rowid': rowid,
     });
   }
 
-  LibraryEntriesTableCompanion copyWith({
+  OwnedLibraryEntriesCompanion copyWith({
     Value<String>? id,
     Value<String>? state,
     Value<String?>? note,
@@ -2303,16 +3568,17 @@ class LibraryEntriesTableCompanion
     Value<int?>? progressVolume,
     Value<int?>? numberOfRereads,
     Value<int?>? rating,
-    Value<String>? seriesId,
     Value<double?>? priority,
     Value<String?>? startDate,
     Value<String?>? finishDate,
     Value<String?>? readLink,
     Value<bool?>? isPrivate,
     Value<String?>? listIdsJson,
+    Value<String>? ownerId,
+    Value<String>? seriesId,
     Value<int>? rowid,
   }) {
-    return LibraryEntriesTableCompanion(
+    return OwnedLibraryEntriesCompanion(
       id: id ?? this.id,
       state: state ?? this.state,
       note: note ?? this.note,
@@ -2320,13 +3586,14 @@ class LibraryEntriesTableCompanion
       progressVolume: progressVolume ?? this.progressVolume,
       numberOfRereads: numberOfRereads ?? this.numberOfRereads,
       rating: rating ?? this.rating,
-      seriesId: seriesId ?? this.seriesId,
       priority: priority ?? this.priority,
       startDate: startDate ?? this.startDate,
       finishDate: finishDate ?? this.finishDate,
       readLink: readLink ?? this.readLink,
       isPrivate: isPrivate ?? this.isPrivate,
       listIdsJson: listIdsJson ?? this.listIdsJson,
+      ownerId: ownerId ?? this.ownerId,
+      seriesId: seriesId ?? this.seriesId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2355,9 +3622,6 @@ class LibraryEntriesTableCompanion
     if (rating.present) {
       map['rating'] = Variable<int>(rating.value);
     }
-    if (seriesId.present) {
-      map['series_id'] = Variable<String>(seriesId.value);
-    }
     if (priority.present) {
       map['priority'] = Variable<double>(priority.value);
     }
@@ -2376,6 +3640,12 @@ class LibraryEntriesTableCompanion
     if (listIdsJson.present) {
       map['list_ids_json'] = Variable<String>(listIdsJson.value);
     }
+    if (ownerId.present) {
+      map['owner_id'] = Variable<String>(ownerId.value);
+    }
+    if (seriesId.present) {
+      map['series_id'] = Variable<String>(seriesId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2384,7 +3654,7 @@ class LibraryEntriesTableCompanion
 
   @override
   String toString() {
-    return (StringBuffer('LibraryEntriesTableCompanion(')
+    return (StringBuffer('OwnedLibraryEntriesCompanion(')
           ..write('id: $id, ')
           ..write('state: $state, ')
           ..write('note: $note, ')
@@ -2392,13 +3662,14 @@ class LibraryEntriesTableCompanion
           ..write('progressVolume: $progressVolume, ')
           ..write('numberOfRereads: $numberOfRereads, ')
           ..write('rating: $rating, ')
-          ..write('seriesId: $seriesId, ')
           ..write('priority: $priority, ')
           ..write('startDate: $startDate, ')
           ..write('finishDate: $finishDate, ')
           ..write('readLink: $readLink, ')
           ..write('isPrivate: $isPrivate, ')
           ..write('listIdsJson: $listIdsJson, ')
+          ..write('ownerId: $ownerId, ')
+          ..write('seriesId: $seriesId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2411,8 +3682,15 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SeriesTableTable seriesTable = $SeriesTableTable(this);
   late final $LibraryEntriesTableTable libraryEntriesTable =
       $LibraryEntriesTableTable(this);
+  late final $LibraryCacheStatesTable libraryCacheStates =
+      $LibraryCacheStatesTable(this);
+  late final $OwnedLibraryEntriesTable ownedLibraryEntries =
+      $OwnedLibraryEntriesTable(this);
   late final SeriesDao seriesDao = SeriesDao(this as AppDatabase);
   late final LibraryEntriesDao libraryEntriesDao = LibraryEntriesDao(
+    this as AppDatabase,
+  );
+  late final OwnedLibraryDao ownedLibraryDao = OwnedLibraryDao(
     this as AppDatabase,
   );
   @override
@@ -2422,6 +3700,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     seriesTable,
     libraryEntriesTable,
+    libraryCacheStates,
+    ownedLibraryEntries,
   ];
 }
 
@@ -2514,6 +3794,27 @@ final class $$SeriesTableTableReferences
 
     final cache = $_typedResult.readTableOrNull(
       _libraryEntriesTableRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$OwnedLibraryEntriesTable, List<OwnedLibraryEntry>>
+  _ownedLibraryEntriesRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.ownedLibraryEntries,
+        aliasName: 'series_table__id__owned_library_entries__series_id',
+      );
+
+  $$OwnedLibraryEntriesTableProcessedTableManager get ownedLibraryEntriesRefs {
+    final manager = $$OwnedLibraryEntriesTableTableManager(
+      $_db,
+      $_db.ownedLibraryEntries,
+    ).filter((f) => f.seriesId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _ownedLibraryEntriesRefsTable($_db),
     );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
@@ -2691,6 +3992,31 @@ class $$SeriesTableTableFilterComposer
           }) => $$LibraryEntriesTableTableFilterComposer(
             $db: $db,
             $table: $db.libraryEntriesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> ownedLibraryEntriesRefs(
+    Expression<bool> Function($$OwnedLibraryEntriesTableFilterComposer f) f,
+  ) {
+    final $$OwnedLibraryEntriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.ownedLibraryEntries,
+      getReferencedColumn: (t) => t.seriesId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OwnedLibraryEntriesTableFilterComposer(
+            $db: $db,
+            $table: $db.ownedLibraryEntries,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3001,6 +4327,32 @@ class $$SeriesTableTableAnnotationComposer
         );
     return f(composer);
   }
+
+  Expression<T> ownedLibraryEntriesRefs<T extends Object>(
+    Expression<T> Function($$OwnedLibraryEntriesTableAnnotationComposer a) f,
+  ) {
+    final $$OwnedLibraryEntriesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.ownedLibraryEntries,
+          getReferencedColumn: (t) => t.seriesId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$OwnedLibraryEntriesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.ownedLibraryEntries,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$SeriesTableTableTableManager
@@ -3016,7 +4368,10 @@ class $$SeriesTableTableTableManager
           $$SeriesTableTableUpdateCompanionBuilder,
           (SeriesTableData, $$SeriesTableTableReferences),
           SeriesTableData,
-          PrefetchHooks Function({bool libraryEntriesTableRefs})
+          PrefetchHooks Function({
+            bool libraryEntriesTableRefs,
+            bool ownedLibraryEntriesRefs,
+          })
         > {
   $$SeriesTableTableTableManager(_$AppDatabase db, $SeriesTableTable table)
     : super(
@@ -3165,38 +4520,66 @@ class $$SeriesTableTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({libraryEntriesTableRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [
-                if (libraryEntriesTableRefs) db.libraryEntriesTable,
-              ],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (libraryEntriesTableRefs)
-                    await $_getPrefetchedData<
-                      SeriesTableData,
-                      $SeriesTableTable,
-                      LibraryEntriesTableData
-                    >(
-                      currentTable: table,
-                      referencedTable: $$SeriesTableTableReferences
-                          ._libraryEntriesTableRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$SeriesTableTableReferences(
-                            db,
-                            table,
-                            p0,
-                          ).libraryEntriesTableRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.seriesId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({
+                libraryEntriesTableRefs = false,
+                ownedLibraryEntriesRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (libraryEntriesTableRefs) db.libraryEntriesTable,
+                    if (ownedLibraryEntriesRefs) db.ownedLibraryEntries,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (libraryEntriesTableRefs)
+                        await $_getPrefetchedData<
+                          SeriesTableData,
+                          $SeriesTableTable,
+                          LibraryEntriesTableData
+                        >(
+                          currentTable: table,
+                          referencedTable: $$SeriesTableTableReferences
+                              ._libraryEntriesTableRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$SeriesTableTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).libraryEntriesTableRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.seriesId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (ownedLibraryEntriesRefs)
+                        await $_getPrefetchedData<
+                          SeriesTableData,
+                          $SeriesTableTable,
+                          OwnedLibraryEntry
+                        >(
+                          currentTable: table,
+                          referencedTable: $$SeriesTableTableReferences
+                              ._ownedLibraryEntriesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$SeriesTableTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).ownedLibraryEntriesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.seriesId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -3213,7 +4596,10 @@ typedef $$SeriesTableTableProcessedTableManager =
       $$SeriesTableTableUpdateCompanionBuilder,
       (SeriesTableData, $$SeriesTableTableReferences),
       SeriesTableData,
-      PrefetchHooks Function({bool libraryEntriesTableRefs})
+      PrefetchHooks Function({
+        bool libraryEntriesTableRefs,
+        bool ownedLibraryEntriesRefs,
+      })
     >;
 typedef $$LibraryEntriesTableTableCreateCompanionBuilder =
     LibraryEntriesTableCompanion Function({
@@ -3224,13 +4610,13 @@ typedef $$LibraryEntriesTableTableCreateCompanionBuilder =
       Value<int?> progressVolume,
       Value<int?> numberOfRereads,
       Value<int?> rating,
-      required String seriesId,
       Value<double?> priority,
       Value<String?> startDate,
       Value<String?> finishDate,
       Value<String?> readLink,
       Value<bool?> isPrivate,
       Value<String?> listIdsJson,
+      required String seriesId,
       Value<int> rowid,
     });
 typedef $$LibraryEntriesTableTableUpdateCompanionBuilder =
@@ -3242,13 +4628,13 @@ typedef $$LibraryEntriesTableTableUpdateCompanionBuilder =
       Value<int?> progressVolume,
       Value<int?> numberOfRereads,
       Value<int?> rating,
-      Value<String> seriesId,
       Value<double?> priority,
       Value<String?> startDate,
       Value<String?> finishDate,
       Value<String?> readLink,
       Value<bool?> isPrivate,
       Value<String?> listIdsJson,
+      Value<String> seriesId,
       Value<int> rowid,
     });
 
@@ -3604,13 +4990,13 @@ class $$LibraryEntriesTableTableTableManager
                 Value<int?> progressVolume = const Value.absent(),
                 Value<int?> numberOfRereads = const Value.absent(),
                 Value<int?> rating = const Value.absent(),
-                Value<String> seriesId = const Value.absent(),
                 Value<double?> priority = const Value.absent(),
                 Value<String?> startDate = const Value.absent(),
                 Value<String?> finishDate = const Value.absent(),
                 Value<String?> readLink = const Value.absent(),
                 Value<bool?> isPrivate = const Value.absent(),
                 Value<String?> listIdsJson = const Value.absent(),
+                Value<String> seriesId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LibraryEntriesTableCompanion(
                 id: id,
@@ -3620,13 +5006,13 @@ class $$LibraryEntriesTableTableTableManager
                 progressVolume: progressVolume,
                 numberOfRereads: numberOfRereads,
                 rating: rating,
-                seriesId: seriesId,
                 priority: priority,
                 startDate: startDate,
                 finishDate: finishDate,
                 readLink: readLink,
                 isPrivate: isPrivate,
                 listIdsJson: listIdsJson,
+                seriesId: seriesId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3638,13 +5024,13 @@ class $$LibraryEntriesTableTableTableManager
                 Value<int?> progressVolume = const Value.absent(),
                 Value<int?> numberOfRereads = const Value.absent(),
                 Value<int?> rating = const Value.absent(),
-                required String seriesId,
                 Value<double?> priority = const Value.absent(),
                 Value<String?> startDate = const Value.absent(),
                 Value<String?> finishDate = const Value.absent(),
                 Value<String?> readLink = const Value.absent(),
                 Value<bool?> isPrivate = const Value.absent(),
                 Value<String?> listIdsJson = const Value.absent(),
+                required String seriesId,
                 Value<int> rowid = const Value.absent(),
               }) => LibraryEntriesTableCompanion.insert(
                 id: id,
@@ -3654,13 +5040,13 @@ class $$LibraryEntriesTableTableTableManager
                 progressVolume: progressVolume,
                 numberOfRereads: numberOfRereads,
                 rating: rating,
-                seriesId: seriesId,
                 priority: priority,
                 startDate: startDate,
                 finishDate: finishDate,
                 readLink: readLink,
                 isPrivate: isPrivate,
                 listIdsJson: listIdsJson,
+                seriesId: seriesId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -3735,6 +5121,968 @@ typedef $$LibraryEntriesTableTableProcessedTableManager =
       LibraryEntriesTableData,
       PrefetchHooks Function({bool seriesId})
     >;
+typedef $$LibraryCacheStatesTableCreateCompanionBuilder =
+    LibraryCacheStatesCompanion Function({
+      required String ownerId,
+      Value<bool> initialized,
+      Value<String?> watermark,
+      Value<int> generation,
+      Value<bool> active,
+      Value<int> rowid,
+    });
+typedef $$LibraryCacheStatesTableUpdateCompanionBuilder =
+    LibraryCacheStatesCompanion Function({
+      Value<String> ownerId,
+      Value<bool> initialized,
+      Value<String?> watermark,
+      Value<int> generation,
+      Value<bool> active,
+      Value<int> rowid,
+    });
+
+final class $$LibraryCacheStatesTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $LibraryCacheStatesTable,
+          LibraryCacheState
+        > {
+  $$LibraryCacheStatesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<$OwnedLibraryEntriesTable, List<OwnedLibraryEntry>>
+  _ownedLibraryEntriesRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.ownedLibraryEntries,
+        aliasName:
+            'library_cache_states__owner_id__owned_library_entries__owner_id',
+      );
+
+  $$OwnedLibraryEntriesTableProcessedTableManager get ownedLibraryEntriesRefs {
+    final manager =
+        $$OwnedLibraryEntriesTableTableManager(
+          $_db,
+          $_db.ownedLibraryEntries,
+        ).filter(
+          (f) => f.ownerId.ownerId.sqlEquals($_itemColumn<String>('owner_id')!),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _ownedLibraryEntriesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$LibraryCacheStatesTableFilterComposer
+    extends Composer<_$AppDatabase, $LibraryCacheStatesTable> {
+  $$LibraryCacheStatesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get initialized => $composableBuilder(
+    column: $table.initialized,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get watermark => $composableBuilder(
+    column: $table.watermark,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get generation => $composableBuilder(
+    column: $table.generation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get active => $composableBuilder(
+    column: $table.active,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> ownedLibraryEntriesRefs(
+    Expression<bool> Function($$OwnedLibraryEntriesTableFilterComposer f) f,
+  ) {
+    final $$OwnedLibraryEntriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.ownerId,
+      referencedTable: $db.ownedLibraryEntries,
+      getReferencedColumn: (t) => t.ownerId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OwnedLibraryEntriesTableFilterComposer(
+            $db: $db,
+            $table: $db.ownedLibraryEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$LibraryCacheStatesTableOrderingComposer
+    extends Composer<_$AppDatabase, $LibraryCacheStatesTable> {
+  $$LibraryCacheStatesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get initialized => $composableBuilder(
+    column: $table.initialized,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get watermark => $composableBuilder(
+    column: $table.watermark,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get generation => $composableBuilder(
+    column: $table.generation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get active => $composableBuilder(
+    column: $table.active,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LibraryCacheStatesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LibraryCacheStatesTable> {
+  $$LibraryCacheStatesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerId =>
+      $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<bool> get initialized => $composableBuilder(
+    column: $table.initialized,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get watermark =>
+      $composableBuilder(column: $table.watermark, builder: (column) => column);
+
+  GeneratedColumn<int> get generation => $composableBuilder(
+    column: $table.generation,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get active =>
+      $composableBuilder(column: $table.active, builder: (column) => column);
+
+  Expression<T> ownedLibraryEntriesRefs<T extends Object>(
+    Expression<T> Function($$OwnedLibraryEntriesTableAnnotationComposer a) f,
+  ) {
+    final $$OwnedLibraryEntriesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.ownerId,
+          referencedTable: $db.ownedLibraryEntries,
+          getReferencedColumn: (t) => t.ownerId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$OwnedLibraryEntriesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.ownedLibraryEntries,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+}
+
+class $$LibraryCacheStatesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LibraryCacheStatesTable,
+          LibraryCacheState,
+          $$LibraryCacheStatesTableFilterComposer,
+          $$LibraryCacheStatesTableOrderingComposer,
+          $$LibraryCacheStatesTableAnnotationComposer,
+          $$LibraryCacheStatesTableCreateCompanionBuilder,
+          $$LibraryCacheStatesTableUpdateCompanionBuilder,
+          (LibraryCacheState, $$LibraryCacheStatesTableReferences),
+          LibraryCacheState,
+          PrefetchHooks Function({bool ownedLibraryEntriesRefs})
+        > {
+  $$LibraryCacheStatesTableTableManager(
+    _$AppDatabase db,
+    $LibraryCacheStatesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LibraryCacheStatesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LibraryCacheStatesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LibraryCacheStatesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerId = const Value.absent(),
+                Value<bool> initialized = const Value.absent(),
+                Value<String?> watermark = const Value.absent(),
+                Value<int> generation = const Value.absent(),
+                Value<bool> active = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LibraryCacheStatesCompanion(
+                ownerId: ownerId,
+                initialized: initialized,
+                watermark: watermark,
+                generation: generation,
+                active: active,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerId,
+                Value<bool> initialized = const Value.absent(),
+                Value<String?> watermark = const Value.absent(),
+                Value<int> generation = const Value.absent(),
+                Value<bool> active = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LibraryCacheStatesCompanion.insert(
+                ownerId: ownerId,
+                initialized: initialized,
+                watermark: watermark,
+                generation: generation,
+                active: active,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LibraryCacheStatesTable, LibraryCacheState>(
+                    table,
+                  ),
+                  $$LibraryCacheStatesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({ownedLibraryEntriesRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (ownedLibraryEntriesRefs) db.ownedLibraryEntries,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (ownedLibraryEntriesRefs)
+                    await $_getPrefetchedData<
+                      LibraryCacheState,
+                      $LibraryCacheStatesTable,
+                      OwnedLibraryEntry
+                    >(
+                      currentTable: table,
+                      referencedTable: $$LibraryCacheStatesTableReferences
+                          ._ownedLibraryEntriesRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$LibraryCacheStatesTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).ownedLibraryEntriesRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where(
+                            (e) => e.ownerId == item.ownerId,
+                          ),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$LibraryCacheStatesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LibraryCacheStatesTable,
+      LibraryCacheState,
+      $$LibraryCacheStatesTableFilterComposer,
+      $$LibraryCacheStatesTableOrderingComposer,
+      $$LibraryCacheStatesTableAnnotationComposer,
+      $$LibraryCacheStatesTableCreateCompanionBuilder,
+      $$LibraryCacheStatesTableUpdateCompanionBuilder,
+      (LibraryCacheState, $$LibraryCacheStatesTableReferences),
+      LibraryCacheState,
+      PrefetchHooks Function({bool ownedLibraryEntriesRefs})
+    >;
+typedef $$OwnedLibraryEntriesTableCreateCompanionBuilder =
+    OwnedLibraryEntriesCompanion Function({
+      required String id,
+      required String state,
+      Value<String?> note,
+      Value<int?> progressChapter,
+      Value<int?> progressVolume,
+      Value<int?> numberOfRereads,
+      Value<int?> rating,
+      Value<double?> priority,
+      Value<String?> startDate,
+      Value<String?> finishDate,
+      Value<String?> readLink,
+      Value<bool?> isPrivate,
+      Value<String?> listIdsJson,
+      required String ownerId,
+      required String seriesId,
+      Value<int> rowid,
+    });
+typedef $$OwnedLibraryEntriesTableUpdateCompanionBuilder =
+    OwnedLibraryEntriesCompanion Function({
+      Value<String> id,
+      Value<String> state,
+      Value<String?> note,
+      Value<int?> progressChapter,
+      Value<int?> progressVolume,
+      Value<int?> numberOfRereads,
+      Value<int?> rating,
+      Value<double?> priority,
+      Value<String?> startDate,
+      Value<String?> finishDate,
+      Value<String?> readLink,
+      Value<bool?> isPrivate,
+      Value<String?> listIdsJson,
+      Value<String> ownerId,
+      Value<String> seriesId,
+      Value<int> rowid,
+    });
+
+final class $$OwnedLibraryEntriesTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $OwnedLibraryEntriesTable,
+          OwnedLibraryEntry
+        > {
+  $$OwnedLibraryEntriesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LibraryCacheStatesTable _ownerIdTable(_$AppDatabase db) =>
+      db.libraryCacheStates.createAlias(
+        'owned_library_entries__owner_id__library_cache_states__owner_id',
+      );
+
+  $$LibraryCacheStatesTableProcessedTableManager get ownerId {
+    final $_column = $_itemColumn<String>('owner_id')!;
+
+    final manager = $$LibraryCacheStatesTableTableManager(
+      $_db,
+      $_db.libraryCacheStates,
+    ).filter((f) => f.ownerId.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_ownerIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $SeriesTableTable _seriesIdTable(_$AppDatabase db) => db.seriesTable
+      .createAlias('owned_library_entries__series_id__series_table__id');
+
+  $$SeriesTableTableProcessedTableManager get seriesId {
+    final $_column = $_itemColumn<String>('series_id')!;
+
+    final manager = $$SeriesTableTableTableManager(
+      $_db,
+      $_db.seriesTable,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_seriesIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$OwnedLibraryEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $OwnedLibraryEntriesTable> {
+  $$OwnedLibraryEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get progressChapter => $composableBuilder(
+    column: $table.progressChapter,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get progressVolume => $composableBuilder(
+    column: $table.progressVolume,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get numberOfRereads => $composableBuilder(
+    column: $table.numberOfRereads,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rating => $composableBuilder(
+    column: $table.rating,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get finishDate => $composableBuilder(
+    column: $table.finishDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get readLink => $composableBuilder(
+    column: $table.readLink,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isPrivate => $composableBuilder(
+    column: $table.isPrivate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get listIdsJson => $composableBuilder(
+    column: $table.listIdsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LibraryCacheStatesTableFilterComposer get ownerId {
+    final $$LibraryCacheStatesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.ownerId,
+      referencedTable: $db.libraryCacheStates,
+      getReferencedColumn: (t) => t.ownerId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LibraryCacheStatesTableFilterComposer(
+            $db: $db,
+            $table: $db.libraryCacheStates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$SeriesTableTableFilterComposer get seriesId {
+    final $$SeriesTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.seriesId,
+      referencedTable: $db.seriesTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SeriesTableTableFilterComposer(
+            $db: $db,
+            $table: $db.seriesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$OwnedLibraryEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $OwnedLibraryEntriesTable> {
+  $$OwnedLibraryEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get progressChapter => $composableBuilder(
+    column: $table.progressChapter,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get progressVolume => $composableBuilder(
+    column: $table.progressVolume,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get numberOfRereads => $composableBuilder(
+    column: $table.numberOfRereads,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rating => $composableBuilder(
+    column: $table.rating,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get finishDate => $composableBuilder(
+    column: $table.finishDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get readLink => $composableBuilder(
+    column: $table.readLink,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isPrivate => $composableBuilder(
+    column: $table.isPrivate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get listIdsJson => $composableBuilder(
+    column: $table.listIdsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LibraryCacheStatesTableOrderingComposer get ownerId {
+    final $$LibraryCacheStatesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.ownerId,
+      referencedTable: $db.libraryCacheStates,
+      getReferencedColumn: (t) => t.ownerId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LibraryCacheStatesTableOrderingComposer(
+            $db: $db,
+            $table: $db.libraryCacheStates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$SeriesTableTableOrderingComposer get seriesId {
+    final $$SeriesTableTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.seriesId,
+      referencedTable: $db.seriesTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SeriesTableTableOrderingComposer(
+            $db: $db,
+            $table: $db.seriesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$OwnedLibraryEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $OwnedLibraryEntriesTable> {
+  $$OwnedLibraryEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<int> get progressChapter => $composableBuilder(
+    column: $table.progressChapter,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get progressVolume => $composableBuilder(
+    column: $table.progressVolume,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get numberOfRereads => $composableBuilder(
+    column: $table.numberOfRereads,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get rating =>
+      $composableBuilder(column: $table.rating, builder: (column) => column);
+
+  GeneratedColumn<double> get priority =>
+      $composableBuilder(column: $table.priority, builder: (column) => column);
+
+  GeneratedColumn<String> get startDate =>
+      $composableBuilder(column: $table.startDate, builder: (column) => column);
+
+  GeneratedColumn<String> get finishDate => $composableBuilder(
+    column: $table.finishDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get readLink =>
+      $composableBuilder(column: $table.readLink, builder: (column) => column);
+
+  GeneratedColumn<bool> get isPrivate =>
+      $composableBuilder(column: $table.isPrivate, builder: (column) => column);
+
+  GeneratedColumn<String> get listIdsJson => $composableBuilder(
+    column: $table.listIdsJson,
+    builder: (column) => column,
+  );
+
+  $$LibraryCacheStatesTableAnnotationComposer get ownerId {
+    final $$LibraryCacheStatesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.ownerId,
+          referencedTable: $db.libraryCacheStates,
+          getReferencedColumn: (t) => t.ownerId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$LibraryCacheStatesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.libraryCacheStates,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return composer;
+  }
+
+  $$SeriesTableTableAnnotationComposer get seriesId {
+    final $$SeriesTableTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.seriesId,
+      referencedTable: $db.seriesTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SeriesTableTableAnnotationComposer(
+            $db: $db,
+            $table: $db.seriesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$OwnedLibraryEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $OwnedLibraryEntriesTable,
+          OwnedLibraryEntry,
+          $$OwnedLibraryEntriesTableFilterComposer,
+          $$OwnedLibraryEntriesTableOrderingComposer,
+          $$OwnedLibraryEntriesTableAnnotationComposer,
+          $$OwnedLibraryEntriesTableCreateCompanionBuilder,
+          $$OwnedLibraryEntriesTableUpdateCompanionBuilder,
+          (OwnedLibraryEntry, $$OwnedLibraryEntriesTableReferences),
+          OwnedLibraryEntry,
+          PrefetchHooks Function({bool ownerId, bool seriesId})
+        > {
+  $$OwnedLibraryEntriesTableTableManager(
+    _$AppDatabase db,
+    $OwnedLibraryEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$OwnedLibraryEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$OwnedLibraryEntriesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$OwnedLibraryEntriesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                Value<int?> progressChapter = const Value.absent(),
+                Value<int?> progressVolume = const Value.absent(),
+                Value<int?> numberOfRereads = const Value.absent(),
+                Value<int?> rating = const Value.absent(),
+                Value<double?> priority = const Value.absent(),
+                Value<String?> startDate = const Value.absent(),
+                Value<String?> finishDate = const Value.absent(),
+                Value<String?> readLink = const Value.absent(),
+                Value<bool?> isPrivate = const Value.absent(),
+                Value<String?> listIdsJson = const Value.absent(),
+                Value<String> ownerId = const Value.absent(),
+                Value<String> seriesId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => OwnedLibraryEntriesCompanion(
+                id: id,
+                state: state,
+                note: note,
+                progressChapter: progressChapter,
+                progressVolume: progressVolume,
+                numberOfRereads: numberOfRereads,
+                rating: rating,
+                priority: priority,
+                startDate: startDate,
+                finishDate: finishDate,
+                readLink: readLink,
+                isPrivate: isPrivate,
+                listIdsJson: listIdsJson,
+                ownerId: ownerId,
+                seriesId: seriesId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String state,
+                Value<String?> note = const Value.absent(),
+                Value<int?> progressChapter = const Value.absent(),
+                Value<int?> progressVolume = const Value.absent(),
+                Value<int?> numberOfRereads = const Value.absent(),
+                Value<int?> rating = const Value.absent(),
+                Value<double?> priority = const Value.absent(),
+                Value<String?> startDate = const Value.absent(),
+                Value<String?> finishDate = const Value.absent(),
+                Value<String?> readLink = const Value.absent(),
+                Value<bool?> isPrivate = const Value.absent(),
+                Value<String?> listIdsJson = const Value.absent(),
+                required String ownerId,
+                required String seriesId,
+                Value<int> rowid = const Value.absent(),
+              }) => OwnedLibraryEntriesCompanion.insert(
+                id: id,
+                state: state,
+                note: note,
+                progressChapter: progressChapter,
+                progressVolume: progressVolume,
+                numberOfRereads: numberOfRereads,
+                rating: rating,
+                priority: priority,
+                startDate: startDate,
+                finishDate: finishDate,
+                readLink: readLink,
+                isPrivate: isPrivate,
+                listIdsJson: listIdsJson,
+                ownerId: ownerId,
+                seriesId: seriesId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$OwnedLibraryEntriesTable, OwnedLibraryEntry>(
+                    table,
+                  ),
+                  $$OwnedLibraryEntriesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({ownerId = false, seriesId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (ownerId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.ownerId,
+                                referencedTable:
+                                    $$OwnedLibraryEntriesTableReferences
+                                        ._ownerIdTable(db),
+                                referencedColumn:
+                                    $$OwnedLibraryEntriesTableReferences
+                                        ._ownerIdTable(db)
+                                        .ownerId,
+                              )
+                              as T;
+                    }
+                    if (seriesId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.seriesId,
+                                referencedTable:
+                                    $$OwnedLibraryEntriesTableReferences
+                                        ._seriesIdTable(db),
+                                referencedColumn:
+                                    $$OwnedLibraryEntriesTableReferences
+                                        ._seriesIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$OwnedLibraryEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $OwnedLibraryEntriesTable,
+      OwnedLibraryEntry,
+      $$OwnedLibraryEntriesTableFilterComposer,
+      $$OwnedLibraryEntriesTableOrderingComposer,
+      $$OwnedLibraryEntriesTableAnnotationComposer,
+      $$OwnedLibraryEntriesTableCreateCompanionBuilder,
+      $$OwnedLibraryEntriesTableUpdateCompanionBuilder,
+      (OwnedLibraryEntry, $$OwnedLibraryEntriesTableReferences),
+      OwnedLibraryEntry,
+      PrefetchHooks Function({bool ownerId, bool seriesId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3743,6 +6091,10 @@ class $AppDatabaseManager {
       $$SeriesTableTableTableManager(_db, _db.seriesTable);
   $$LibraryEntriesTableTableTableManager get libraryEntriesTable =>
       $$LibraryEntriesTableTableTableManager(_db, _db.libraryEntriesTable);
+  $$LibraryCacheStatesTableTableManager get libraryCacheStates =>
+      $$LibraryCacheStatesTableTableManager(_db, _db.libraryCacheStates);
+  $$OwnedLibraryEntriesTableTableManager get ownedLibraryEntries =>
+      $$OwnedLibraryEntriesTableTableManager(_db, _db.ownedLibraryEntries);
 }
 
 mixin _$SeriesDaoMixin on DatabaseAccessor<AppDatabase> {
@@ -3773,5 +6125,31 @@ class LibraryEntriesDaoManager {
       $$LibraryEntriesTableTableTableManager(
         _db.attachedDatabase,
         _db.libraryEntriesTable,
+      );
+}
+
+mixin _$OwnedLibraryDaoMixin on DatabaseAccessor<AppDatabase> {
+  $LibraryCacheStatesTable get libraryCacheStates =>
+      attachedDatabase.libraryCacheStates;
+  $SeriesTableTable get seriesTable => attachedDatabase.seriesTable;
+  $OwnedLibraryEntriesTable get ownedLibraryEntries =>
+      attachedDatabase.ownedLibraryEntries;
+  OwnedLibraryDaoManager get managers => OwnedLibraryDaoManager(this);
+}
+
+class OwnedLibraryDaoManager {
+  final _$OwnedLibraryDaoMixin _db;
+  OwnedLibraryDaoManager(this._db);
+  $$LibraryCacheStatesTableTableManager get libraryCacheStates =>
+      $$LibraryCacheStatesTableTableManager(
+        _db.attachedDatabase,
+        _db.libraryCacheStates,
+      );
+  $$SeriesTableTableTableManager get seriesTable =>
+      $$SeriesTableTableTableManager(_db.attachedDatabase, _db.seriesTable);
+  $$OwnedLibraryEntriesTableTableManager get ownedLibraryEntries =>
+      $$OwnedLibraryEntriesTableTableManager(
+        _db.attachedDatabase,
+        _db.ownedLibraryEntries,
       );
 }

@@ -66,6 +66,176 @@ void main() {
     });
   });
 
+  ft.group('OwnedLibraryDao', () {
+    final a = VerifiedLibraryOwner.fromVerifiedAccountId('account-a');
+    final b = VerifiedLibraryOwner.fromVerifiedAccountId('account-b');
+
+    api.LibraryEntry entry(
+      String id,
+      String seriesId, {
+      String state = 'reading',
+      String? note,
+      List<int>? lists,
+      Set<String> clears = const {},
+    }) => api.LibraryEntry(
+      id: id,
+      state: state,
+      series: createDummySeries(seriesId, 'Series $seriesId'),
+      note: note,
+      listIds: lists,
+      explicitNullFields: clears,
+    );
+
+    ft.test(
+      'scopes duplicate remote IDs, queries and quick writes by owner',
+      () async {
+        final dao = db.ownedLibraryDao;
+        ft.expect(
+          () => VerifiedLibraryOwner.fromVerifiedAccountId(' '),
+          ft.throwsArgumentError,
+        );
+        ft.expect(await dao.readState(a), ft.isNull);
+        final leaseA = await dao.activate(a);
+        ft.expect((await dao.readState(a))!.initialized, ft.isFalse);
+        await dao.upsertEntries(leaseA, [
+          entry('1', '10', note: 'A', lists: [7]),
+        ]);
+        final leaseB = await dao.activate(b);
+        await dao.upsertEntries(leaseB, [
+          entry('1', '10', note: 'B', lists: []),
+        ]);
+        ft.expect(
+          await dao.updateQuickFields(leaseB, '10', rating: const Value(80)),
+          1,
+        );
+        final aRow = (await dao.watchEntry(a, '10').first)!;
+        final bRow = (await dao.watchEntries(b).first).single;
+        ft.expect(aRow.entry.note, 'A');
+        ft.expect(aRow.entry.listIdsJson, '[7]');
+        ft.expect(aRow.entry.rating, ft.isNull);
+        ft.expect(bRow.entry.note, 'B');
+        ft.expect(bRow.entry.listIdsJson, '[]');
+        ft.expect(bRow.entry.rating, 80);
+        ft.expect(await dao.deleteEntry(leaseB, '10'), 1);
+        ft.expect(await dao.listEntries(b), ft.isEmpty);
+        ft.expect(await dao.listEntries(a), ft.hasLength(1));
+      },
+    );
+
+    ft.test(
+      'saves per-owner sync state and fences pruning and queued writes',
+      () async {
+        final dao = db.ownedLibraryDao;
+        final leaseA = await dao.activate(a);
+        await ft.expectLater(
+          dao.applyIncrementalSync(leaseA, [], watermark: 'skip-full'),
+          ft.throwsStateError,
+        );
+        await dao.finishFullImport(
+          leaseA,
+          entries: [entry('1', '10'), entry('2', '20')],
+          completeSeriesIds: {'10', '20'},
+          watermark: 'A0',
+        );
+        final leaseB = await dao.activate(b);
+        ft.expect((await dao.readState(b))!.watermark, ft.isNull);
+        await dao.finishFullImport(
+          leaseB,
+          entries: [entry('1', '10')],
+          completeSeriesIds: {'10'},
+          watermark: 'B0',
+        );
+        await ft.expectLater(
+          dao.finishFullImport(
+            leaseA,
+            completeSeriesIds: {},
+            watermark: 'stale',
+          ),
+          ft.throwsStateError,
+        );
+        await ft.expectLater(
+          dao.upsertEntries(leaseA, [entry('3', '30')]),
+          ft.throwsStateError,
+        );
+        final reconnect = await dao.activate(a);
+        await dao.invalidate(leaseA);
+        ft.expect((await dao.readState(a))!.watermark, 'A0');
+        await dao.finishFullImport(
+          reconnect,
+          completeSeriesIds: {'20'},
+          watermark: 'A1',
+        );
+        await dao.applyIncrementalSync(reconnect, [
+          entry('4', '40'),
+        ], watermark: 'A2');
+        ft.expect(
+          (await dao.listEntries(a)).map((row) => row.entry.seriesId),
+          ft.unorderedEquals(['20', '40']),
+        );
+        ft.expect((await dao.listEntries(b)).single.entry.seriesId, '10');
+        ft.expect((await dao.readState(a))!.watermark, 'A2');
+        ft.expect((await dao.readState(b))!.watermark, 'B0');
+        await dao.finishFullImport(
+          reconnect,
+          completeSeriesIds: {},
+          watermark: null,
+        );
+        ft.expect(await dao.listEntries(a), ft.isEmpty);
+        ft.expect((await dao.readState(a))!.initialized, ft.isTrue);
+        await dao.invalidate(reconnect);
+        await ft.expectLater(
+          dao.deleteEntry(reconnect, '20'),
+          ft.throwsStateError,
+        );
+      },
+    );
+
+    ft.test(
+      'merges only matching identities and rolls back conflicting IDs',
+      () async {
+        final dao = db.ownedLibraryDao;
+        final lease = await dao.activate(a);
+        await dao.finishFullImport(
+          lease,
+          entries: [
+            entry('1', '10', note: 'keep', lists: [3]),
+            entry('2', '20'),
+          ],
+          completeSeriesIds: {'10', '20'},
+          watermark: 'before',
+        );
+        Future<OwnedLibraryEntry> current() async =>
+            (await dao.findEntry(a, '10'))!.entry;
+        await dao.upsertEntries(lease, [entry('1', '10', state: '')]);
+        ft.expect((await current()).note, 'keep');
+        ft.expect((await current()).listIdsJson, '[3]');
+        await dao.upsertEntries(lease, [
+          entry('1', '10', clears: {'note'}),
+        ]);
+        ft.expect((await current()).note, ft.isNull);
+        await ft.expectLater(
+          dao.finishFullImport(
+            lease,
+            entries: [
+              entry('1', '10', note: 'rollback'),
+              entry('2', '10'),
+            ],
+            completeSeriesIds: {'10'},
+            watermark: 'bad',
+          ),
+          ft.throwsA(ft.isA<Exception>()),
+        );
+        ft.expect((await current()).id, '1');
+        ft.expect((await current()).note, ft.isNull);
+        ft.expect(await dao.listEntries(a), ft.hasLength(2));
+        ft.expect((await dao.readState(a))!.watermark, 'before');
+        await dao.upsertEntries(lease, [entry('3', '10')]);
+        ft.expect((await current()).id, '3');
+        ft.expect((await current()).listIdsJson, ft.isNull);
+      },
+    );
+  });
+
   ft.group('LibraryEntriesDao', () {
     ft.test(
       'merges v1 fields without losing omitted values or list membership',

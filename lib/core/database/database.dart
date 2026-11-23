@@ -12,10 +12,12 @@ import 'package:mangabaka_app/features/series/models/series.dart' as api;
 
 import 'tables/series_table.dart';
 import 'tables/library_entries_table.dart';
+import 'tables/owned_library_tables.dart';
 
 part 'database.g.dart';
 part 'daos/series_dao.dart';
 part 'daos/library_entries_dao.dart';
+part 'daos/owned_library_dao.dart';
 
 class LibraryEntryWithSeries {
   final LibraryEntriesTableData libraryEntry;
@@ -25,14 +27,19 @@ class LibraryEntryWithSeries {
 }
 
 @DriftDatabase(
-  tables: [SeriesTable, LibraryEntriesTable],
-  daos: [SeriesDao, LibraryEntriesDao],
+  tables: [
+    SeriesTable,
+    LibraryEntriesTable,
+    LibraryCacheStates,
+    OwnedLibraryEntries,
+  ],
+  daos: [SeriesDao, LibraryEntriesDao, OwnedLibraryDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration {
@@ -79,6 +86,14 @@ class AppDatabase extends _$AppDatabase {
           }
           if (!tableNames.contains('library_entries_table')) {
             await m.createTable(libraryEntriesTable);
+          }
+          // Legacy entries have no proven owner. Leave them in their original
+          // table so the new cache never adopts them during an upgrade.
+          if (!tableNames.contains('library_cache_states')) {
+            await m.createTable(libraryCacheStates);
+          }
+          if (!tableNames.contains('owned_library_entries')) {
+            await m.createTable(ownedLibraryEntries);
           }
 
           // 2.5. Create indices

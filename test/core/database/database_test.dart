@@ -22,9 +22,9 @@ void main() {
   });
 
   group('AppDatabase', () {
-    test('creates the complete v4 schema on a fresh database', () async {
+    test('creates the complete v5 schema on a fresh database', () async {
       final version = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(version.read<int>('user_version'), 4);
+      expect(version.read<int>('user_version'), 5);
       final columns = await db
           .customSelect('PRAGMA table_info(library_entries_table)')
           .get();
@@ -38,6 +38,83 @@ void main() {
           'is_private',
           'list_ids_json',
         ]),
+      );
+    });
+
+    test('v4 migration keeps all legacy values outside owned queries', () async {
+      final schema = await db
+          .customSelect(
+            "SELECT sql FROM sqlite_master WHERE name IN ('series_table', 'library_entries_table') ORDER BY name DESC",
+          )
+          .get();
+      final raw = sqlite3.openInMemory();
+      for (final table in schema) {
+        raw.execute(table.read<String>('sql'));
+      }
+      raw.execute('''
+        INSERT INTO series_table (id, title, cover_url, description)
+          VALUES ('1', 'Legacy', 'cover', 'description');
+        INSERT INTO library_entries_table (
+          id, series_id, state, note, progress_chapter, progress_volume,
+          number_of_rereads, rating, priority, start_date, finish_date,
+          read_link, is_private, list_ids_json
+        ) VALUES ('entry', '1', 'completed', 'private note', 14, 3, 2, 89, 21,
+          '2024-02-29', '2024-03-01', 'https://example.com/read', 1, '[7]');
+        PRAGMA user_version = 4;
+      ''');
+      final upgraded = AppDatabase.forTesting(NativeDatabase.opened(raw));
+      addTearDown(upgraded.close);
+      final dao = upgraded.ownedLibraryDao;
+      final account = VerifiedLibraryOwner.fromVerifiedAccountId(
+        'other-account',
+      );
+      expect(await dao.readState(account), isNull);
+      await dao.activate(account);
+      expect((await dao.readState(account))!.initialized, isFalse);
+      expect(await dao.findEntry(account, '1'), isNull);
+      expect(await dao.watchEntries(account).first, isEmpty);
+      final legacy = (await upgraded.libraryEntriesDao.getEntryBySeriesId(
+        '1',
+      ))!;
+      expect(legacy.series.title, 'Legacy');
+      final entry = legacy.libraryEntry;
+      expect(
+        [
+          entry.id,
+          entry.seriesId,
+          entry.state,
+          entry.note,
+          entry.progressChapter,
+          entry.progressVolume,
+          entry.numberOfRereads,
+          entry.rating,
+          entry.priority,
+          entry.startDate,
+          entry.finishDate,
+          entry.readLink,
+          entry.isPrivate,
+          entry.listIdsJson,
+        ],
+        [
+          'entry',
+          '1',
+          'completed',
+          'private note',
+          14,
+          3,
+          2,
+          89,
+          21.0,
+          '2024-02-29',
+          '2024-03-01',
+          'https://example.com/read',
+          true,
+          '[7]',
+        ],
+      );
+      expect(
+        await upgraded.customSelect('PRAGMA foreign_key_check').get(),
+        isEmpty,
       );
     });
 
@@ -216,7 +293,7 @@ void main() {
         // Wrap it in Drift NativeDatabase
         final upgradeDb = AppDatabase.forTesting(NativeDatabase.opened(rawDb));
 
-        expect(upgradeDb.schemaVersion, 4);
+        expect(upgradeDb.schemaVersion, 5);
 
         // Let's verify our v1 data is still there!
         final retrievedSeries = await (upgradeDb.select(
