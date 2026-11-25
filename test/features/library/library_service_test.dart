@@ -1,13 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart'
+    show ApplyInterceptor, QueryExecutor, QueryInterceptor, Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/core/network/rate_limit_coordinator.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
+import 'package:mangabaka_app/features/library/controllers/library_session.dart';
+import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
@@ -15,14 +18,22 @@ import 'package:mangabaka_app/core/database/database.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:drift/native.dart';
 
-class MockProfileAuthService extends Fake implements ProfileAuthService {
+class MockProfileAuthService extends ProfileAuthService {
   String accessToken = 'access-old';
   String recoveredToken = 'access-new';
   Object? recoveryError;
   final rejectedTokens = <String>[];
 
   @override
-  bool get isLoggedIn => false;
+  bool get isLoggedIn => libraryLease != null;
+
+  @override
+  LibraryCacheLease? libraryLease;
+
+  void useLease(LibraryCacheLease? lease) {
+    libraryLease = lease;
+    notifyListeners();
+  }
 
   @override
   Future<String> getValidAccessToken() async => accessToken;
@@ -35,6 +46,32 @@ class MockProfileAuthService extends Fake implements ProfileAuthService {
     accessToken = recoveredToken;
     return recoveredToken;
   }
+}
+
+class _PauseOwnedInsert extends QueryInterceptor {
+  final inserted = Completer<void>();
+  final release = Completer<void>();
+
+  @override
+  Future<int> runInsert(
+    QueryExecutor executor,
+    String statement,
+    List<Object?> args,
+  ) async {
+    final result = await super.runInsert(executor, statement, args);
+    if (statement.contains('owned_library_entries') && !inserted.isCompleted) {
+      inserted.complete();
+      await release.future;
+    }
+    return result;
+  }
+}
+
+class _CappedLibraryService extends LibraryService {
+  _CappedLibraryService({required super.auth, required super.httpClient});
+
+  @override
+  int get maxSyncPages => 1;
 }
 
 void main() {
@@ -65,6 +102,12 @@ void main() {
     );
 
     mockAuth = MockProfileAuthService();
+    final owned = getIt<AppDatabase>().ownedLibraryDao;
+    final lease = await owned.activate(
+      VerifiedLibraryOwner.fromVerifiedAccountId('account-a'),
+    );
+    mockAuth.useLease(lease);
+    await owned.finishFullImport(lease, completeSeriesIds: {}, watermark: null);
     service = LibraryService(auth: mockAuth);
   });
 
@@ -90,9 +133,10 @@ void main() {
           ),
         );
     await database
-        .into(database.libraryEntriesTable)
+        .into(database.ownedLibraryEntries)
         .insert(
-          LibraryEntriesTableCompanion.insert(
+          OwnedLibraryEntriesCompanion.insert(
+            ownerId: mockAuth.libraryLease!.owner.id,
             id: 'entry-1',
             seriesId: '1',
             state: state,
@@ -102,14 +146,553 @@ void main() {
         );
   }
 
-  Future<LibraryEntriesTableData> storedEntry() async {
+  Future<OwnedLibraryEntry> storedEntry() async {
     final database = getIt<AppDatabase>();
     return (database.select(
-      database.libraryEntriesTable,
+      database.ownedLibraryEntries,
     )..where((row) => row.seriesId.equals('1'))).getSingle();
   }
 
   group('LibraryService', () {
+    test(
+      'new lease catches up initialized cache once and retries failures',
+      () async {
+        await seedEntry(state: 'reading', chapter: 2);
+        final dao = getIt<AppDatabase>().ownedLibraryDao;
+        final original = mockAuth.libraryLease!;
+        await dao.finishFullImport(
+          original,
+          completeSeriesIds: {'1'},
+          watermark: '2026-01-01T00:00:00Z',
+        );
+        final lease = await dao.activate(original.owner);
+        mockAuth.useLease(lease);
+        final pending = Completer<http.Response>();
+        final started = Completer<void>();
+        var calls = 0;
+        service = LibraryService(
+          auth: mockAuth,
+          httpClient: MockClient((_) {
+            calls++;
+            if (calls == 1) return Future.value(http.Response('{}', 503));
+            started.complete();
+            return pending.future;
+          }),
+        );
+        await expectLater(
+          service.performInitialSyncIfNeeded(),
+          throwsA(isA<ApiException>()),
+        );
+        expect(
+          (await dao.findEntry(lease.owner, '1'))!.entry.progressChapter,
+          2,
+        );
+        final a = service.performInitialSyncIfNeeded();
+        final b = service.performInitialSyncIfNeeded();
+        await started.future;
+        expect(calls, 2);
+        pending.complete(
+          http.Response(
+            '{"data":[{"id":"entry-1","state":"reading","progress_chapter":7,"updated_at":"2026-01-02T00:00:00Z","Series":{"id":"1","title":"Series One"}}],"pagination":{"next":null,"count":1}}',
+            200,
+          ),
+        );
+        await Future.wait([a, b]);
+        expect(
+          (await dao.findEntry(lease.owner, '1'))!.entry.progressChapter,
+          7,
+        );
+        expect(
+          (await dao.readState(lease.owner))!.watermark,
+          '2026-01-02T00:00:00.000Z',
+        );
+        await service.performInitialSyncIfNeeded();
+        expect(calls, 2);
+      },
+    );
+    test(
+      'old initial completion cannot change a new account session',
+      () async {
+        final dao = getIt<AppDatabase>().ownedLibraryDao;
+        final a = await dao.activate(
+          VerifiedLibraryOwner.fromVerifiedAccountId('stale-a'),
+        );
+        mockAuth.useLease(a);
+        final started = Completer<void>();
+        final response = Completer<http.Response>();
+        service = LibraryService(
+          auth: mockAuth,
+          httpClient: MockClient((_) {
+            if (!started.isCompleted) {
+              started.complete();
+              return response.future;
+            }
+            return Future.value(
+              http.Response(
+                '{"data":[],"pagination":{"next":null,"count":0}}',
+                200,
+              ),
+            );
+          }),
+        );
+        final visible = <List<LibraryEntry>>[];
+        final session = LibrarySession(
+          auth: mockAuth,
+          library: service,
+          onEntries: visible.add,
+        );
+        addTearDown(session.dispose);
+        await started.future;
+        final old = service.performInitialSyncIfNeeded();
+        final oldResult = expectLater(old, throwsA(isA<AuthException>()));
+        mockAuth.useLease(null);
+        await dao.invalidate(a);
+        final b = await dao.activate(
+          VerifiedLibraryOwner.fromVerifiedAccountId('stale-b'),
+        );
+        await dao.finishFullImport(
+          b,
+          completeSeriesIds: {},
+          watermark: 'b-watermark',
+        );
+        mockAuth.useLease(b);
+        response.complete(
+          http.Response(
+            '{"data":[],"pagination":{"next":null,"count":0}}',
+            200,
+          ),
+        );
+        await oldResult;
+        await service.performInitialSyncIfNeeded();
+        expect((await dao.readState(b.owner))!.watermark, 'b-watermark');
+        expect(await dao.listEntries(b.owner), isEmpty);
+        expect(service.syncStatus.value.isSyncing, isFalse);
+        expect(session.isIncomplete, isFalse);
+        expect(visible.expand((entries) => entries), isEmpty);
+      },
+    );
+    test('failed shared initialization can be retried', () async {
+      final dao = getIt<AppDatabase>().ownedLibraryDao;
+      mockAuth.useLease(
+        await dao.activate(VerifiedLibraryOwner.fromVerifiedAccountId('retry')),
+      );
+      var requests = 0;
+      service = LibraryService(
+        auth: mockAuth,
+        httpClient: MockClient((_) async {
+          requests++;
+          return requests == 1
+              ? http.Response('{}', 503)
+              : http.Response(
+                  '{"data":[],"pagination":{"next":null,"count":0}}',
+                  200,
+                );
+        }),
+      );
+      final first = service.performInitialSyncIfNeeded();
+      final second = service.performInitialSyncIfNeeded();
+      await Future.wait([
+        expectLater(first, throwsA(isA<ApiException>())),
+        expectLater(second, throwsA(isA<ApiException>())),
+      ]);
+      await service.performInitialSyncIfNeeded();
+      expect(requests, 2);
+      expect(await service.isLibraryIncomplete(), isFalse);
+    });
+
+    test(
+      'manual refresh and LibrarySession share bootstrap completion',
+      () async {
+        final dao = getIt<AppDatabase>().ownedLibraryDao;
+        final lease = await dao.activate(
+          VerifiedLibraryOwner.fromVerifiedAccountId('manual'),
+        );
+        mockAuth.useLease(lease);
+        final response = Completer<http.Response>();
+        final started = Completer<void>();
+        var requests = 0;
+        service = LibraryService(
+          auth: mockAuth,
+          httpClient: MockClient((_) {
+            requests++;
+            started.complete();
+            return response.future;
+          }),
+        );
+        final manual = service.syncLibrary();
+        await started.future;
+        final session = LibrarySession(
+          auth: mockAuth,
+          library: service,
+          onEntries: (_) {},
+        );
+        addTearDown(session.dispose);
+        final initial = service.performInitialSyncIfNeeded();
+        expect((await dao.readState(lease.owner))!.initialized, isFalse);
+        response.complete(
+          http.Response(
+            '{"data":[],"pagination":{"next":null,"count":0}}',
+            200,
+          ),
+        );
+        await Future.wait([manual, initial]);
+        await Future<void>.delayed(Duration.zero);
+        expect(requests, 1);
+        expect(await service.isLibraryIncomplete(), isFalse);
+        expect(session.isIncomplete, isFalse);
+      },
+    );
+    test(
+      'concurrent initial sync callers wait for one import and can retry failures',
+      () async {
+        final dao = getIt<AppDatabase>().ownedLibraryDao;
+        final lease = await dao.activate(
+          VerifiedLibraryOwner.fromVerifiedAccountId('initial'),
+        );
+        mockAuth.useLease(lease);
+        final response = Completer<http.Response>();
+        final started = Completer<void>();
+        var calls = 0;
+        service = LibraryService(
+          auth: mockAuth,
+          httpClient: MockClient((_) {
+            calls++;
+            if (!started.isCompleted) started.complete();
+            return response.future;
+          }),
+        );
+        var finished = 0;
+        final first = service.performInitialSyncIfNeeded().then(
+          (_) => finished++,
+        );
+        final second = service.performInitialSyncIfNeeded().then(
+          (_) => finished++,
+        );
+        await started.future;
+        expect(calls, 1);
+        expect(finished, 0);
+        response.complete(
+          http.Response(
+            '{"data":[],"pagination":{"next":null,"count":0}}',
+            200,
+          ),
+        );
+        await Future.wait([first, second]);
+        expect(finished, 2);
+        expect((await dao.readState(lease.owner))!.initialized, isTrue);
+        await service.performInitialSyncIfNeeded();
+        expect(calls, 1);
+      },
+    );
+    test(
+      'same-account reconnect closes the old stream and reuses saved rows',
+      () async {
+        await seedEntry();
+        final dao = getIt<AppDatabase>().ownedLibraryDao;
+        final original = mockAuth.libraryLease!;
+        await dao.finishFullImport(
+          original,
+          completeSeriesIds: {'1'},
+          watermark: 'saved',
+        );
+        final firstRows = Completer<List<LibraryEntry>>();
+        final oldClosed = Completer<void>();
+        final oldStream = service.watchEntriesFromDb().listen((rows) {
+          if (!firstRows.isCompleted) firstRows.complete(rows);
+        }, onDone: oldClosed.complete);
+        addTearDown(oldStream.cancel);
+        expect((await firstRows.future).single.series.id, '1');
+
+        mockAuth.useLease(null);
+        final reconnected = await dao.activate(original.owner);
+        mockAuth.useLease(reconnected);
+        expect(reconnected.generation, greaterThan(original.generation));
+        expect(
+          (await service.watchEntriesFromDb().first).single.series.id,
+          '1',
+        );
+        expect((await dao.readState(reconnected.owner))!.watermark, 'saved');
+        await oldClosed.future;
+      },
+    );
+
+    test(
+      'bulk-import membership requires the current initialized owner',
+      () async {
+        await seedEntry();
+        final dao = getIt<AppDatabase>().ownedLibraryDao;
+        final a = mockAuth.libraryLease!;
+        await dao.finishFullImport(
+          a,
+          completeSeriesIds: {'1'},
+          watermark: null,
+        );
+        expect(await service.existingSeriesIds(a, ['1', '2']), {'1'});
+
+        final b = await dao.activate(
+          VerifiedLibraryOwner.fromVerifiedAccountId('B'),
+        );
+        mockAuth.useLease(b);
+        await expectLater(
+          service.existingSeriesIds(a, ['1']),
+          throwsA(isA<AuthException>()),
+        );
+        await expectLater(
+          service.existingSeriesIds(b, ['1']),
+          throwsA(isA<AuthException>()),
+        );
+
+        await dao.finishFullImport(
+          b,
+          completeSeriesIds: {'2'},
+          watermark: null,
+          entries: [
+            LibraryEntry.fromJson({
+              'id': 'entry-1',
+              'state': 'reading',
+              'Series': {'id': '2', 'title': 'Series Two'},
+            }),
+          ],
+        );
+        expect(await service.existingSeriesIds(b, ['1', '2']), {'2'});
+      },
+    );
+
+    test(
+      'bootstraps 2,000 entries, then accepts a complete empty snapshot',
+      () async {
+        var empty = false;
+        final dao = getIt<AppDatabase>().ownedLibraryDao;
+        final lease = await dao.activate(
+          VerifiedLibraryOwner.fromVerifiedAccountId('large-owner'),
+        );
+        mockAuth.useLease(lease);
+        service = LibraryService(
+          auth: mockAuth,
+          httpClient: MockClient((request) async {
+            final page = int.parse(request.url.queryParameters['page']!);
+            return http.Response(
+              jsonEncode({
+                'pagination': {
+                  'count': empty ? 0 : 2000,
+                  'next': empty || page == 20
+                      ? null
+                      : request.url
+                            .replace(
+                              queryParameters: {
+                                ...request.url.queryParameters,
+                                'page': '${page + 1}',
+                              },
+                            )
+                            .toString(),
+                },
+                'data': [
+                  if (!empty)
+                    for (var i = (page - 1) * 100; i < page * 100; i++)
+                      {
+                        'id': 'entry-$i',
+                        'state': 'reading',
+                        'Series': {'id': 'series-$i', 'title': 'Series $i'},
+                      },
+                ],
+              }),
+              200,
+            );
+          }),
+        );
+        expect(await service.isLibraryIncomplete(), isTrue);
+        await service.syncLibrary();
+        expect((await dao.readState(lease.owner))!.initialized, isTrue);
+        expect(await service.watchEntriesFromDb().first, hasLength(2000));
+        empty = true;
+        await service.importFullLibrary();
+        expect(await dao.listEntries(lease.owner), isEmpty);
+        expect((await dao.readState(lease.owner))!.initialized, isTrue);
+      },
+    );
+
+    test(
+      'failed full import and malformed empty page cannot erase known data',
+      () async {
+        await seedEntry();
+        final lease = mockAuth.libraryLease!;
+        final dao = getIt<AppDatabase>().ownedLibraryDao;
+        await dao.finishFullImport(
+          lease,
+          completeSeriesIds: {'1'},
+          watermark: '2026-01-01T00:00:00Z',
+        );
+        var response = http.Response('{"data":[]}', 200);
+        service = LibraryService(
+          auth: mockAuth,
+          httpClient: MockClient((_) async => response),
+        );
+        await expectLater(service.importFullLibrary(), throwsFormatException);
+        response = http.Response(
+          '{"data":[],"pagination":{"next":null,"count":1}}',
+          200,
+        );
+        await expectLater(service.importFullLibrary(), throwsFormatException);
+        response = http.Response('{}', 503);
+        await expectLater(
+          service.importFullLibrary(),
+          throwsA(isA<ApiException>()),
+        );
+        expect(await dao.listEntries(lease.owner), hasLength(1));
+        expect(
+          (await dao.readState(lease.owner))!.watermark,
+          '2026-01-01T00:00:00Z',
+        );
+      },
+    );
+
+    test('capped full import keeps previous rows and watermark', () async {
+      await seedEntry();
+      final lease = mockAuth.libraryLease!;
+      final dao = getIt<AppDatabase>().ownedLibraryDao;
+      await dao.finishFullImport(
+        lease,
+        completeSeriesIds: {'1'},
+        watermark: 'original',
+      );
+      service = _CappedLibraryService(
+        auth: mockAuth,
+        httpClient: MockClient(
+          (_) async => http.Response(
+            '{"pagination":{"next":"?page=2","count":2},"data":[{"id":"other","state":"reading","Series":{"id":"2","title":"Two"}}]}',
+            200,
+          ),
+        ),
+      );
+      await expectLater(
+        service.importFullLibrary(),
+        throwsA(isA<ApiException>()),
+      );
+      expect(
+        (await dao.listEntries(lease.owner)).map((row) => row.entry.seriesId),
+        unorderedEquals(['1', '2']),
+      );
+      expect((await dao.readState(lease.owner))!.watermark, 'original');
+    });
+
+    test(
+      'session invalidation during an actual insert rolls back the sync page',
+      () async {
+        final pause = _PauseOwnedInsert();
+        final database = AppDatabase.forTesting(
+          NativeDatabase.memory().interceptWith(pause),
+        );
+        addTearDown(database.close);
+        final dao = database.ownedLibraryDao;
+        final lease = await dao.activate(
+          VerifiedLibraryOwner.fromVerifiedAccountId('paused-owner'),
+        );
+        mockAuth.useLease(lease);
+        service = LibraryService(
+          auth: mockAuth,
+          database: database,
+          httpClient: MockClient(
+            (_) async => http.Response(
+              '{"pagination":{"next":null,"count":1},"data":[{"id":"1","state":"reading","Series":{"id":"1","title":"One"}}]}',
+              200,
+            ),
+          ),
+        );
+        final sync = service.importFullLibrary();
+        await pause.inserted.future;
+        mockAuth.useLease(null);
+        final revocation = dao.invalidate(lease);
+        pause.release.complete();
+        await sync;
+        await revocation;
+        expect(await dao.listEntries(lease.owner), isEmpty);
+        expect((await dao.readState(lease.owner))!.initialized, isFalse);
+      },
+    );
+
+    test(
+      'late A import, queued mutation and rollback cannot change B',
+      () async {
+        await seedEntry();
+        final leaseA = mockAuth.libraryLease!;
+        final dao = getIt<AppDatabase>().ownedLibraryDao;
+        final getArrived = Completer<void>();
+        final putArrived = Completer<void>();
+        final page = Completer<http.Response>();
+        final put = Completer<http.Response>();
+        var mutationRequests = 0;
+        service = LibraryService(
+          auth: mockAuth,
+          httpClient: MockClient((request) {
+            if (request.method == 'GET') {
+              getArrived.complete();
+              return page.future;
+            }
+            mutationRequests++;
+            putArrived.complete();
+            return put.future;
+          }),
+        );
+        final oldStream = service.watchEntriesFromDb().toList();
+        final oldImport = service.importFullLibrary();
+        await getArrived.future;
+        final oldProgress = service.updateLibraryEntryProgress(
+          '1',
+          progressChapter: 3,
+        );
+        final oldProgressError = expectLater(
+          oldProgress,
+          throwsA(isA<AuthException>()),
+        );
+        await putArrived.future;
+        final queued = service.updateLibraryEntryRating('1', 99);
+        final queuedError = expectLater(queued, throwsA(isA<AuthException>()));
+
+        mockAuth.useLease(null);
+        await dao.invalidate(leaseA);
+        final leaseB = await dao.activate(
+          VerifiedLibraryOwner.fromVerifiedAccountId('account-b'),
+        );
+        await dao.finishFullImport(
+          leaseB,
+          completeSeriesIds: {'1'},
+          watermark: 'B',
+          entries: [
+            LibraryEntry.fromJson({
+              'id': 'entry-1',
+              'state': 'completed',
+              'progress_chapter': 77,
+              'Series': {'id': '1', 'title': 'Series One'},
+            }),
+          ],
+        );
+        mockAuth.accessToken = 'B-token';
+        mockAuth.useLease(leaseB);
+        page.complete(
+          http.Response('{"data":[],"pagination":{"next":null}}', 200),
+        );
+        put.complete(http.Response('{}', 401));
+        await Future.wait([oldImport, oldProgressError, queuedError]);
+        final entryB = (await service
+            .watchEntryFromDb('1')
+            .firstWhere((entry) => entry != null))!;
+        expect(entryB.progressChapter, 77);
+        expect(entryB.rating, isNull);
+        expect(
+          (await dao.findEntry(leaseA.owner, '1'))!.entry.progressChapter,
+          0,
+        );
+        expect(mutationRequests, 1);
+        expect(mockAuth.rejectedTokens, isEmpty);
+        expect((await dao.readState(leaseB.owner))!.watermark, 'B');
+        expect(
+          (await oldStream)
+              .expand((entries) => entries)
+              .any((entry) => entry.progressChapter == 77),
+          isFalse,
+        );
+      },
+    );
     test('initial sync status is idle', () {
       expect(service.syncStatus.value.isSyncing, isFalse);
       expect(service.syncStatus.value.error, isNull);
@@ -145,11 +728,11 @@ void main() {
           calls++;
           return calls == 1
               ? http.Response('{}', 429, headers: {'retry-after': '4'})
-              : http.Response('{"data":[]}', 200);
+              : http.Response('{"data":[],"pagination":{"next":null}}', 200);
         }),
       );
 
-      final result = await service.fetchPage('token', 1);
+      final result = await service.fetchPage(mockAuth.libraryLease!, 1);
 
       expect(result.entries, isEmpty);
       expect(result.isError, isFalse);
@@ -174,7 +757,7 @@ void main() {
       );
 
       await expectLater(
-        service.fetchPage('token', 1),
+        service.fetchPage(mockAuth.libraryLease!, 1),
         throwsA(
           isA<ApiException>()
               .having((error) => error.statusCode, 'statusCode', 429)
@@ -193,11 +776,11 @@ void main() {
           authorizationHeaders.add(request.headers['Authorization']);
           return authorizationHeaders.length == 1
               ? http.Response('', 401)
-              : http.Response('{"data":[]}', 200);
+              : http.Response('{"data":[],"pagination":{"next":null}}', 200);
         }),
       );
 
-      final result = await service.fetchPage('access-old', 1);
+      final result = await service.fetchPage(mockAuth.libraryLease!, 1);
 
       expect(result.entries, isEmpty);
       expect(authorizationHeaders, ['Bearer access-old', 'Bearer access-new']);
@@ -252,7 +835,7 @@ void main() {
       );
 
       await expectLater(
-        service.fetchPage('access-old', 1),
+        service.fetchPage(mockAuth.libraryLease!, 1),
         throwsA(isA<SessionExpiredException>()),
       );
     });
@@ -269,7 +852,7 @@ void main() {
       );
 
       await expectLater(
-        service.fetchPage('access-old', 1),
+        service.fetchPage(mockAuth.libraryLease!, 1),
         throwsA(
           isA<AuthException>().having(
             (error) => error.code,
@@ -283,6 +866,7 @@ void main() {
     });
 
     String fullPageBody() => jsonEncode({
+      'pagination': {'next': 'https://api.mangabaka.org/v1/my/library?page=2'},
       'data': [
         for (var index = 0; index < 100; index++)
           {
@@ -310,7 +894,7 @@ void main() {
           if (page == '1') {
             return http.Response(fullPageBody(), 200);
           }
-          return http.Response('{"data":[]}', 200);
+          return http.Response('{"data":[],"pagination":{"next":null}}', 200);
         }),
       );
 
@@ -368,11 +952,13 @@ void main() {
             expect(jsonDecode(request.body), [
               {'series_id': 1, 'state': 'reading'},
             ]);
-            return http.Response('{"data":[]}', 200);
+            return http.Response('{"data":[],"pagination":{"next":null}}', 200);
           }
           return http.Response('{}', 201);
         }
-        if (request.method == 'GET') return http.Response('{"data":[]}', 200);
+        if (request.method == 'GET') {
+          return http.Response('{"data":[],"pagination":{"next":null}}', 200);
+        }
         return http.Response('{}', 200);
       });
 
@@ -433,7 +1019,7 @@ void main() {
       expect(calls, 1);
     });
 
-    test('optimistic progress rolls back when 401 is not replayed', () async {
+    test('confirmed progress survives a 401 without replay', () async {
       final database = getIt<AppDatabase>();
       await database
           .into(database.seriesTable)
@@ -446,9 +1032,10 @@ void main() {
             ),
           );
       await database
-          .into(database.libraryEntriesTable)
+          .into(database.ownedLibraryEntries)
           .insert(
-            LibraryEntriesTableCompanion.insert(
+            OwnedLibraryEntriesCompanion.insert(
+              ownerId: mockAuth.libraryLease!.owner.id,
               id: 'entry-1',
               seriesId: '1',
               state: 'reading',
@@ -475,7 +1062,7 @@ void main() {
       );
 
       final entry = await (database.select(
-        database.libraryEntriesTable,
+        database.ownedLibraryEntries,
       )..where((row) => row.seriesId.equals('1'))).getSingle();
       expect(entry.progressChapter, 2);
       expect(calls, 1);
@@ -589,9 +1176,9 @@ void main() {
       await seedEntry();
       final database = getIt<AppDatabase>();
       await (database.update(
-        database.libraryEntriesTable,
+        database.ownedLibraryEntries,
       )..where((row) => row.seriesId.equals('1'))).write(
-        const LibraryEntriesTableCompanion(progressChapter: Value(null)),
+        const OwnedLibraryEntriesCompanion(progressChapter: Value(null)),
       );
       final client = MockClient((_) async => http.Response('{}', 500));
 
@@ -748,9 +1335,10 @@ void main() {
             ),
           );
       await database
-          .into(database.libraryEntriesTable)
+          .into(database.ownedLibraryEntries)
           .insert(
-            LibraryEntriesTableCompanion.insert(
+            OwnedLibraryEntriesCompanion.insert(
+              ownerId: mockAuth.libraryLease!.owner.id,
               id: 'entry-2',
               seriesId: '2',
               state: 'reading',
@@ -787,7 +1375,7 @@ void main() {
       }, () => client);
 
       final secondEntry = await (database.select(
-        database.libraryEntriesTable,
+        database.ownedLibraryEntries,
       )..where((row) => row.seriesId.equals('2'))).getSingle();
       expect(secondEntry.state, 'paused');
     });
@@ -871,43 +1459,46 @@ void main() {
       expect(entry.state, 'paused');
     });
 
-    test('progress rollback completes before queued explicit state', () async {
-      await seedEntry();
-      final firstResponse = Completer<http.Response>();
-      final firstRequestStarted = Completer<void>();
-      final bodies = <Map<String, dynamic>>[];
-      final client = MockClient((request) async {
-        bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
-        if (bodies.length == 1) {
-          firstRequestStarted.complete();
-          return firstResponse.future;
-        }
-        return http.Response('{}', 200);
-      });
+    test(
+      'failed progress leaves the cache intact before queued state',
+      () async {
+        await seedEntry();
+        final firstResponse = Completer<http.Response>();
+        final firstRequestStarted = Completer<void>();
+        final bodies = <Map<String, dynamic>>[];
+        final client = MockClient((request) async {
+          bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
+          if (bodies.length == 1) {
+            firstRequestStarted.complete();
+            return firstResponse.future;
+          }
+          return http.Response('{}', 200);
+        });
 
-      await runWithServiceClient(() async {
-        final progress = service.updateLibraryEntryProgress(
-          '1',
-          progressChapter: 1,
-        );
-        await firstRequestStarted.future;
-        final state = service.updateLibraryEntryState('1', 'paused');
-        await Future<void>.delayed(Duration.zero);
-        expect(bodies.length, 1);
+        await runWithServiceClient(() async {
+          final progress = service.updateLibraryEntryProgress(
+            '1',
+            progressChapter: 1,
+          );
+          await firstRequestStarted.future;
+          final state = service.updateLibraryEntryState('1', 'paused');
+          await Future<void>.delayed(Duration.zero);
+          expect(bodies.length, 1);
 
-        firstResponse.complete(http.Response('{}', 500));
-        await expectLater(progress, throwsA(isA<ApiException>()));
-        await state;
-      }, () => client);
+          firstResponse.complete(http.Response('{}', 500));
+          await expectLater(progress, throwsA(isA<ApiException>()));
+          await state;
+        }, () => client);
 
-      expect(bodies, [
-        {'progress_chapter': 1, 'state': 'reading'},
-        {'state': 'paused'},
-      ]);
-      final entry = await storedEntry();
-      expect(entry.progressChapter, 0);
-      expect(entry.state, 'paused');
-    });
+        expect(bodies, [
+          {'progress_chapter': 1, 'state': 'reading'},
+          {'state': 'paused'},
+        ]);
+        final entry = await storedEntry();
+        expect(entry.progressChapter, 0);
+        expect(entry.state, 'paused');
+      },
+    );
 
     test(
       'create waits for an older progress mutation on the same series',
@@ -925,7 +1516,7 @@ void main() {
           if (request.method == 'POST') {
             return http.Response('{}', 201);
           }
-          return http.Response('{"data":[]}', 200);
+          return http.Response('{"data":[],"pagination":{"next":null}}', 200);
         });
 
         await runWithServiceClient(() async {
@@ -979,7 +1570,7 @@ void main() {
         expect(methods, ['PUT', 'DELETE']);
         final database = getIt<AppDatabase>();
         final remaining = await (database.select(
-          database.libraryEntriesTable,
+          database.ownedLibraryEntries,
         )..where((row) => row.seriesId.equals('1'))).get();
         expect(remaining, isEmpty);
       },

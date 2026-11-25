@@ -1,6 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/database/database.dart';
+import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
+import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
@@ -25,43 +29,61 @@ class DesktopUpcomingRail extends StatefulWidget {
 class _DesktopUpcomingRailState extends State<DesktopUpcomingRail> {
   final HomeService _home = HomeService();
   List<SeriesWork> _works = const [];
-  Set<String> _librarySeriesIds = const {};
+  Set<String>? _librarySeriesIds;
   Map<String, String> _seriesCovers = const {};
   bool _loading = true;
   bool _onlyLibrary = false;
 
+  final _auth = getIt<ProfileAuthService>();
+  final _library = getIt<LibraryService>();
+  LibraryCacheLease? _lease;
+  StreamSubscription<List<LibraryEntry>>? _subscription;
+
   @override
   void initState() {
     super.initState();
+    _auth.addListener(_onSession);
+    _onSession();
     _load();
+  }
+
+  void _onSession() {
+    final lease = _auth.libraryLease;
+    if (identical(lease, _lease)) return;
+    _lease = lease;
+    unawaited(_subscription?.cancel());
+    setState(() {
+      _librarySeriesIds = null;
+      _seriesCovers = const {};
+      if (lease == null) _onlyLibrary = false;
+    });
+    if (lease == null) return;
+    _subscription = _library.watchEntriesFromDb().listen((entries) {
+      if (!mounted || !identical(lease, _auth.libraryLease)) return;
+      setState(() {
+        _librarySeriesIds = {for (final entry in entries) entry.series.id};
+        _seriesCovers = {
+          for (final entry in entries)
+            if (entry.series.coverUrl.isNotEmpty)
+              entry.series.id: entry.series.coverUrl,
+        };
+      });
+    }, onError: (Object _) {});
+  }
+
+  @override
+  void dispose() {
+    _auth.removeListener(_onSession);
+    unawaited(_subscription?.cancel());
+    super.dispose();
   }
 
   Future<void> _load() async {
     setState(() => _loading = true);
     final works = await _home.fetchUpcomingWorks(page: 1, perPage: 40);
-
-    // Load user's library series IDs and covers from local database
-    final lib = getIt<LibraryService>();
-    final Set<String> libraryIds = {};
-    final Map<String, String> seriesCovers = {};
-    try {
-      final entries = await lib.database.libraryEntriesDao
-          .watchAllEntriesWithSeries()
-          .first;
-      for (final e in entries) {
-        libraryIds.add(e.series.id);
-        final cover = e.series.coverUrl;
-        if (cover.isNotEmpty) {
-          seriesCovers[e.series.id] = cover;
-        }
-      }
-    } catch (_) {}
-
     if (!mounted) return;
     setState(() {
       _works = works;
-      _librarySeriesIds = libraryIds;
-      _seriesCovers = seriesCovers;
       _loading = false;
     });
   }
@@ -72,13 +94,7 @@ class _DesktopUpcomingRailState extends State<DesktopUpcomingRail> {
     final groups = _groupByDate(works);
     final rows = <Widget>[];
     for (final group in groups) {
-      rows.add(
-        _DateHeader(
-          date: group.date,
-            first: rows.isEmpty,
-          l10n: l10n,
-        ),
-      );
+      rows.add(_DateHeader(date: group.date, first: rows.isEmpty, l10n: l10n));
       for (final work in group.works) {
         rows.add(
           Padding(
@@ -87,7 +103,8 @@ class _DesktopUpcomingRailState extends State<DesktopUpcomingRail> {
               work: work,
               inLibrary:
                   work.seriesId != null &&
-                  _librarySeriesIds.contains(work.seriesId.toString()),
+                  (_librarySeriesIds?.contains(work.seriesId.toString()) ??
+                      false),
               fallbackCoverUrl: work.seriesId != null
                   ? _seriesCovers[work.seriesId!.toString()]
                   : null,
@@ -133,7 +150,7 @@ class _DesktopUpcomingRailState extends State<DesktopUpcomingRail> {
     final displayedWorks = _onlyLibrary
         ? _works.where((w) {
             final sid = w.seriesId?.toString();
-            return sid != null && _librarySeriesIds.contains(sid);
+            return sid != null && (_librarySeriesIds?.contains(sid) ?? false);
           }).toList()
         : _works;
 
@@ -159,14 +176,18 @@ class _DesktopUpcomingRailState extends State<DesktopUpcomingRail> {
                   (false, l10n.translate('all'), null),
                   (true, l10n.translate('library'), null),
                 ],
-                onChanged: (val) => setState(() => _onlyLibrary = val),
+                onChanged: (val) {
+                  if (!val || _lease != null) {
+                    setState(() => _onlyLibrary = val);
+                  }
+                },
               ),
             ],
           ),
         ),
         Divider(height: 1, color: AppConstants.borderColor),
         Expanded(
-          child: _loading
+          child: _loading || (_onlyLibrary && _librarySeriesIds == null)
               ? const Center(child: CircularProgressIndicator())
               : displayedWorks.isEmpty
               ? Center(

@@ -32,9 +32,28 @@ class DiscoveryQueueController extends ChangeNotifier {
     HomeService? homeService,
     LibraryService? libraryService,
     ProfileAuthService? authService,
-  })  : _homeService = homeService ?? HomeService(),
-        _libraryService = libraryService ?? getIt<LibraryService>(),
-        _authService = authService ?? getIt<ProfileAuthService>();
+  }) : _homeService = homeService ?? HomeService(),
+       _libraryService = libraryService ?? getIt<LibraryService>(),
+       _authService = authService ?? getIt<ProfileAuthService>() {
+    _generation = _authService.sessionGeneration;
+    _authService.addListener(_onSession);
+  }
+
+  late int _generation;
+  bool _disposed = false;
+
+  void _onSession() {
+    if (_generation == _authService.sessionGeneration) return;
+    _generation = _authService.sessionGeneration;
+    _queue = const [];
+    _currentIndex = _reviewedCount = _addedCount = 0;
+    _isActionInProgress = _isLoading = _isReady = _isCompleted = false;
+    _errorMessage = 'import_login_required';
+    notifyListeners();
+  }
+
+  bool _current(int generation) =>
+      !_disposed && generation == _authService.sessionGeneration;
 
   List<Series> get queue => _queue;
   int get currentIndex => _currentIndex;
@@ -49,8 +68,8 @@ class DiscoveryQueueController extends ChangeNotifier {
 
   Series? get currentSeries =>
       (_currentIndex >= 0 && _currentIndex < _queue.length)
-          ? _queue[_currentIndex]
-          : null;
+      ? _queue[_currentIndex]
+      : null;
 
   int get totalCount => _queue.length;
   int get remainingCount =>
@@ -63,6 +82,7 @@ class DiscoveryQueueController extends ChangeNotifier {
 
   /// Loads or reloads the discovery queue.
   Future<void> loadQueue({int limit = 20}) async {
+    final generation = _generation;
     _isLoading = true;
     _errorMessage = null;
     _isCompleted = false;
@@ -78,6 +98,7 @@ class DiscoveryQueueController extends ChangeNotifier {
 
     try {
       final readiness = await _homeService.fetchForYouReadiness();
+      if (!_current(generation)) return;
       if (readiness != null && !readiness.isReady) {
         _isReady = false;
         _isLoading = false;
@@ -88,6 +109,7 @@ class DiscoveryQueueController extends ChangeNotifier {
 
       _isReady = true;
       final items = await _homeService.fetchForYou(limit: limit);
+      if (!_current(generation)) return;
       _queue = items;
       _currentIndex = 0;
       _reviewedCount = 0;
@@ -96,9 +118,8 @@ class DiscoveryQueueController extends ChangeNotifier {
       _isLoading = false;
       _logger.info('DiscoveryQueue loaded ${items.length} series');
     } catch (e) {
-      _logger.severe(
-        'Failed to load discovery queue (${e.runtimeType})',
-      );
+      if (!_current(generation)) return;
+      _logger.severe('Failed to load discovery queue (${e.runtimeType})');
       _errorMessage = e.toString();
       _isLoading = false;
     }
@@ -108,6 +129,8 @@ class DiscoveryQueueController extends ChangeNotifier {
 
   /// Adds the current series to the library with [state], then moves to the next.
   Future<bool> addToLibrary(String state) async {
+    final generation = _generation;
+    if (!_current(generation)) return false;
     final series = currentSeries;
     if (series == null || _isActionInProgress) return false;
 
@@ -115,7 +138,9 @@ class DiscoveryQueueController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (!_current(generation)) return false;
       await _libraryService.createLibraryEntry(series.id, state);
+      if (!_current(generation)) return false;
       _addedCount++;
       _reviewedCount++;
       _currentIndex++;
@@ -124,13 +149,13 @@ class DiscoveryQueueController extends ChangeNotifier {
       }
       return true;
     } catch (e) {
-      _logger.severe(
-        'Failed to add series to library (${e.runtimeType})',
-      );
+      _logger.severe('Failed to add series to library (${e.runtimeType})');
       rethrow;
     } finally {
-      _isActionInProgress = false;
-      notifyListeners();
+      if (_current(generation)) {
+        _isActionInProgress = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -152,6 +177,8 @@ class DiscoveryQueueController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _authService.removeListener(_onSession);
     _homeService.dispose();
     super.dispose();
   }

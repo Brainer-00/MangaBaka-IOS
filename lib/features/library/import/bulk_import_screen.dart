@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
+import 'package:mangabaka_app/core/database/database.dart';
+import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
@@ -40,7 +42,9 @@ class BulkImportScreen extends StatefulWidget {
 class _BulkImportScreenState extends State<BulkImportScreen> {
   late final SeriesMatchService _matcher = SeriesMatchService();
   late final LibraryService _library = getIt<LibraryService>();
-  late final BulkImportController _controller;
+  late BulkImportController _controller;
+  final _auth = getIt<ProfileAuthService>();
+  LibraryCacheLease? _lease;
   final TextEditingController _text = TextEditingController();
 
   ImportFormat _format = ImportFormat.auto;
@@ -66,18 +70,45 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = BulkImportController(
+    _lease = _auth.libraryLease;
+    _controller = _makeController(_lease);
+    _auth.addListener(_onSession);
+    _text.addListener(_onTextChanged);
+  }
+
+  BulkImportController _makeController(LibraryCacheLease? lease) {
+    LibraryCacheLease current() {
+      if (lease == null) {
+        throw AuthException(
+          message: 'Library account unavailable',
+          code: 'LIBRARY_OWNER_REQUIRED',
+        );
+      }
+      _library.checkLease(lease);
+      return lease;
+    }
+
+    return BulkImportController(
       match: _matcher.match,
       isInLibrary: (id) async =>
-          await _library.database.libraryEntriesDao.getEntryBySeriesId(id) !=
-          null,
-      existingSeriesIds:
-          _library.database.libraryEntriesDao.getExistingSeriesIds,
-      addBatch: _library.createLibraryEntriesBatch,
+          (await _library.existingSeriesIds(current(), [id])).contains(id),
+      existingSeriesIds: (ids) => _library.existingSeriesIds(current(), ids),
+      addBatch: (ids, state) {
+        current();
+        return _library.createLibraryEntriesBatch(ids, state);
+      },
       state: SettingsManager().addLibraryDefaultTab,
     );
-    // The title count and detected format follow the text as it is edited.
-    _text.addListener(_onTextChanged);
+  }
+
+  void _onSession() {
+    final lease = _auth.libraryLease;
+    if (identical(_lease, lease)) return;
+    _lease = lease;
+    _controller.dispose();
+    _controller = _makeController(lease);
+    _text.clear();
+    setState(() => _fileName = null);
   }
 
   void _onTextChanged() {
@@ -86,6 +117,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
 
   @override
   void dispose() {
+    _auth.removeListener(_onSession);
     _text.removeListener(_onTextChanged);
     _controller.dispose();
     _matcher.dispose();
@@ -101,14 +133,21 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
   );
 
   Future<void> _paste() async {
+    final lease = _lease;
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final pasted = data?.text;
-    if (pasted == null || pasted.trim().isEmpty || !mounted) return;
+    if (pasted == null ||
+        pasted.trim().isEmpty ||
+        !mounted ||
+        !identical(lease, _lease)) {
+      return;
+    }
     setState(() => _fileName = null);
     _text.text = pasted;
   }
 
   Future<void> _openFile() async {
+    final lease = _lease;
     final l10n = LocalizationService();
     try {
       final file = await FilePicker.pickFile(
@@ -125,7 +164,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
         declaredSize: declaredSize,
         readBytes: file.readAsBytes,
       );
-      if (!mounted) return;
+      if (!mounted || !identical(lease, _lease)) return;
       setState(() {
         _fileName = file.name;
         _format = ImportFormat.auto;
@@ -149,17 +188,23 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
 
   /// Loads a public AniList manga list by username into the text box.
   Future<void> _fromAniList() async {
+    final lease = _lease;
     final l10n = LocalizationService();
     final name = await _askUsername(
       title: l10n.translate('import_anilist'),
       label: l10n.translate('import_username'),
     );
-    if (name == null || name.trim().isEmpty || !mounted) return;
+    if (name == null ||
+        name.trim().isEmpty ||
+        !mounted ||
+        !identical(lease, _lease)) {
+      return;
+    }
 
     final importer = AniListImporter();
     try {
       final json = await importer.fetch(name);
-      if (!mounted) return;
+      if (!mounted || !identical(lease, _lease)) return;
       setState(() {
         _fileName = 'AniList · ${name.trim()}';
         _format = ImportFormat.auto;
@@ -231,17 +276,18 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
   }
 
   Future<void> _add() async {
+    final lease = _lease;
     final l10n = LocalizationService();
     try {
       final count = await _controller.addSelected();
-      if (!mounted) return;
+      if (!mounted || !identical(lease, _lease)) return;
       AppSnackBar.show(
         context,
         l10n.translate('import_added').replaceAll('{count}', '$count'),
       );
       Navigator.of(context).pop();
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || !identical(lease, _lease)) return;
       AppSnackBar.show(context, l10n.translate('failed_to_add'), isError: true);
     }
   }
@@ -255,7 +301,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
         backgroundColor: context.colors.background,
         body: ListenableBuilder(
           listenable: _controller,
-          builder: (context, _) => !getIt<ProfileAuthService>().isLoggedIn
+          builder: (context, _) => _lease == null
               ? _message(l10n.translate('import_login_required'))
               : DesktopImportView(
                   controller: _controller,
@@ -284,7 +330,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
         maxWidth: 760,
         ListenableBuilder(
           listenable: _controller,
-          builder: (context, _) => !getIt<ProfileAuthService>().isLoggedIn
+          builder: (context, _) => _lease == null
               ? _message(l10n.translate('import_login_required'))
               : (_controller.hasRows ? _results(l10n) : _input(l10n)),
         ),

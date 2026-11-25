@@ -48,6 +48,7 @@ class _EntryListItemState extends State<EntryListItem> {
   late final ProfileAuthService _auth;
   late final LibraryService _libraryService;
   Stream<LibraryEntry?>? _entryStream;
+  Object? _lease;
 
   @override
   void initState() {
@@ -76,12 +77,14 @@ class _EntryListItemState extends State<EntryListItem> {
   }
 
   void _onAuthChanged() {
-    if (!mounted) return;
+    if (!mounted || identical(_lease, _auth.libraryLease)) return;
     setState(_updateEntryStream);
   }
 
   void _updateEntryStream() {
-    _entryStream = _auth.isLoggedIn
+    _lease = _auth.libraryLease;
+    _optimisticProgress = null;
+    _entryStream = _lease != null
         ? _libraryService.watchEntryFromDb(widget.series.id)
         : Stream<LibraryEntry?>.value(null);
   }
@@ -111,6 +114,7 @@ class _EntryListItemState extends State<EntryListItem> {
     }
 
     return StreamBuilder<LibraryEntry?>(
+      key: ObjectKey(_entryStream),
       stream: _entryStream,
       builder: (context, snapshot) {
         final entry = snapshot.data;
@@ -136,6 +140,8 @@ class _EntryListItemState extends State<EntryListItem> {
     LibraryEntry? entry,
   ) {
     final isInLibrary = entry != null;
+    final lease = _lease;
+    bool isCurrent() => lease != null && identical(lease, _auth.libraryLease);
 
     // On desktop the list styles are table rows, not the phone's cards: the
     // row lays out its own progress bar and quick-progress control in columns
@@ -160,6 +166,7 @@ class _EntryListItemState extends State<EntryListItem> {
                   ? SeriesQuickActionButton(
                       series: widget.series,
                       entry: entry,
+                      isTrackingSessionCurrent: isCurrent,
                       onOptimisticProgressChanged: (val) {
                         setState(() {
                           _optimisticProgress = val;
@@ -201,6 +208,7 @@ class _EntryListItemState extends State<EntryListItem> {
               child: SeriesQuickActionButton(
                 series: widget.series,
                 entry: entry,
+                isTrackingSessionCurrent: isCurrent,
                 onOptimisticProgressChanged: (val) {
                   setState(() {
                     _optimisticProgress = val;

@@ -35,6 +35,32 @@ class OwnedLibraryDao extends DatabaseAccessor<AppDatabase>
     libraryCacheStates,
   )..where((t) => t.ownerId.equals(owner.id))).getSingleOrNull();
 
+  Stream<LibraryCacheState?> watchState(VerifiedLibraryOwner owner) => (select(
+    libraryCacheStates,
+  )..where((t) => t.ownerId.equals(owner.id))).watchSingleOrNull();
+
+  Future<Set<String>> existingSeriesIds(
+    VerifiedLibraryOwner owner,
+    Iterable<String> candidates,
+  ) async {
+    final table = ownedLibraryEntries;
+    final ids = candidates.toSet().toList();
+    final result = <String>{};
+    for (var i = 0; i < ids.length; i += 500) {
+      result.addAll(
+        await (selectOnly(table)
+              ..addColumns([table.seriesId])
+              ..where(
+                table.ownerId.equals(owner.id) &
+                    table.seriesId.isIn(ids.skip(i).take(500)),
+              ))
+            .map((row) => row.read(table.seriesId)!)
+            .get(),
+      );
+    }
+    return result;
+  }
+
   /// Call once per verified session, including after process restart. The
   /// previous writer loses its lease even when reconnecting to the same owner.
   Future<LibraryCacheLease> activate(VerifiedLibraryOwner owner) =>
@@ -78,17 +104,21 @@ class OwnedLibraryDao extends DatabaseAccessor<AppDatabase>
       table.generation.equals(lease.generation) &
       table.active.equals(true);
 
-  Future<T> _write<T>(LibraryCacheLease lease, Future<T> Function() work) =>
-      db.transaction(() async {
-        // Acquire SQLite's write lock while checking the persisted lease.
-        // Activation/invalidation must serialize before or after this commit.
-        final matched =
-            await (update(libraryCacheStates)
-                  ..where((t) => _activeLease(t, lease)))
-                .write(const LibraryCacheStatesCompanion(active: Value(true)));
-        if (matched != 1) throw StateError('Library cache lease is inactive');
-        return work();
-      });
+  Future<T> _write<T>(
+    LibraryCacheLease lease,
+    Future<T> Function() work, {
+    void Function()? beforeCommit,
+  }) => db.transaction(() async {
+    // Acquire SQLite's write lock while checking the persisted lease.
+    // Activation/invalidation must serialize before or after this commit.
+    final matched =
+        await (update(libraryCacheStates)..where((t) => _activeLease(t, lease)))
+            .write(const LibraryCacheStatesCompanion(active: Value(true)));
+    if (matched != 1) throw StateError('Library cache lease is inactive');
+    final result = await work();
+    beforeCommit?.call();
+    return result;
+  });
 
   JoinedSelectStatement<HasResultSet, dynamic> _query(
     VerifiedLibraryOwner owner, {
@@ -128,8 +158,13 @@ class OwnedLibraryDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> upsertEntries(
     LibraryCacheLease lease,
-    List<api.LibraryEntry> entries,
-  ) => _write(lease, () => _upsert(lease.owner, entries));
+    List<api.LibraryEntry> entries, {
+    void Function()? beforeCommit,
+  }) => _write(
+    lease,
+    () => _upsert(lease.owner, entries),
+    beforeCommit: beforeCommit,
+  );
 
   Future<void> _upsert(
     VerifiedLibraryOwner owner,
@@ -207,6 +242,7 @@ class OwnedLibraryDao extends DatabaseAccessor<AppDatabase>
     Value<int?> progressChapter = const Value.absent(),
     Value<int?> progressVolume = const Value.absent(),
     Value<int?> rating = const Value.absent(),
+    void Function()? beforeCommit,
   }) => _write(
     lease,
     () =>
@@ -223,9 +259,14 @@ class OwnedLibraryDao extends DatabaseAccessor<AppDatabase>
                 rating: rating,
               ),
             ),
+    beforeCommit: beforeCommit,
   );
 
-  Future<int> deleteEntry(LibraryCacheLease lease, String seriesId) => _write(
+  Future<int> deleteEntry(
+    LibraryCacheLease lease,
+    String seriesId, {
+    void Function()? beforeCommit,
+  }) => _write(
     lease,
     () =>
         (delete(ownedLibraryEntries)..where(
@@ -234,6 +275,7 @@ class OwnedLibraryDao extends DatabaseAccessor<AppDatabase>
                   t.seriesId.equals(seriesId),
             ))
             .go(),
+    beforeCommit: beforeCommit,
   );
 
   /// Use only for a successfully completed, unfiltered server snapshot.
@@ -244,6 +286,7 @@ class OwnedLibraryDao extends DatabaseAccessor<AppDatabase>
     required Set<String> completeSeriesIds,
     required String? watermark,
     List<api.LibraryEntry> entries = const [],
+    void Function()? beforeCommit,
   }) => _write(lease, () async {
     final owner = lease.owner;
     await _upsert(owner, entries);
@@ -275,12 +318,13 @@ class OwnedLibraryDao extends DatabaseAccessor<AppDatabase>
         watermark: Value(watermark),
       ),
     );
-  });
+  }, beforeCommit: beforeCommit);
 
   Future<void> applyIncrementalSync(
     LibraryCacheLease lease,
     List<api.LibraryEntry> entries, {
     required String watermark,
+    void Function()? beforeCommit,
   }) => _write(lease, () async {
     final state = await readState(lease.owner);
     if (state?.initialized != true) {
@@ -289,5 +333,5 @@ class OwnedLibraryDao extends DatabaseAccessor<AppDatabase>
     await _upsert(lease.owner, entries);
     await (update(libraryCacheStates)..where((t) => _activeLease(t, lease)))
         .write(LibraryCacheStatesCompanion(watermark: Value(watermark)));
-  });
+  }, beforeCommit: beforeCommit);
 }

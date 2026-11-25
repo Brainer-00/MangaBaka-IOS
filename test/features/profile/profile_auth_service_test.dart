@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_appauth/flutter_appauth.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:drift/native.dart';
+import 'package:mangabaka_app/core/database/database.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
@@ -60,6 +62,14 @@ class SequencedAuthNetworkClient extends AuthNetworkClient {
   }
 }
 
+class _ProfileNetwork extends AuthNetworkClient {
+  _ProfileNetwork(this.handler);
+  final Future<MbProfile> Function(String token) handler;
+
+  @override
+  Future<MbProfile> fetchProfile(String accessToken) => handler(accessToken);
+}
+
 TokenResponse tokenResponse({
   String? accessToken = 'access-new',
   String? refreshToken,
@@ -104,6 +114,143 @@ void main() {
       loginTokens: () async => response,
     );
   }
+
+  group('verified Library identity', () {
+    MbProfile identity(String id) =>
+        MbProfile(id: id, role: 'user', scopes: ['openid']);
+
+    test(
+      'verified session restarts offline, while an unrelated token cannot reuse its owner',
+      () async {
+        final db = AppDatabase.forTesting(NativeDatabase.memory());
+        addTearDown(db.close);
+        final dao = db.ownedLibraryDao;
+        final first = ProfileAuthService(
+          storage: storage,
+          library: dao,
+          loginTokens: () async => tokenResponse(accessToken: 'A'),
+          network: _ProfileNetwork((_) async => identity('account-a')),
+        );
+        await first.login();
+        final lease = first.libraryLease!;
+        await dao.finishFullImport(
+          lease,
+          completeSeriesIds: {},
+          watermark: 'retained',
+        );
+
+        final restarted = ProfileAuthService(
+          storage: storage,
+          library: dao,
+          network: _ProfileNetwork((_) async => throw StateError('Offline')),
+        );
+        await restarted.init();
+        expect(restarted.libraryLease?.owner.id, 'account-a');
+        expect(
+          restarted.libraryLease?.generation,
+          greaterThan(lease.generation),
+        );
+        expect((await dao.readState(lease.owner))!.watermark, 'retained');
+        storage.values[AuthStorage.kAccessToken] = 'unrelated-token';
+        final unverified = ProfileAuthService(
+          storage: storage,
+          library: dao,
+          network: _ProfileNetwork((_) async => throw StateError('Offline')),
+        );
+        await unverified.init();
+        expect(unverified.libraryLease, isNull);
+        expect(unverified.cachedProfile, isNull);
+        expect((await dao.readState(lease.owner))!.watermark, 'retained');
+      },
+    );
+
+    test('late profile from signed-out A cannot replace B', () async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
+      var next = 'A';
+      var delayA = false;
+      final started = Completer<void>();
+      final lateProfile = Completer<MbProfile>();
+      final auth = ProfileAuthService(
+        storage: storage,
+        library: db.ownedLibraryDao,
+        loginTokens: () async => tokenResponse(accessToken: next),
+        network: _ProfileNetwork((token) async {
+          if (token == 'A' && delayA) {
+            started.complete();
+            return lateProfile.future;
+          }
+          return identity(token);
+        }),
+      );
+      await auth.login();
+      final leaseA = auth.libraryLease!;
+      delayA = true;
+      final stale = expectLater(
+        auth.fetchProfile(forceRefresh: true),
+        throwsA(isA<AuthException>()),
+      );
+      await started.future;
+      final logout = auth.logout();
+      expect(auth.libraryLease, isNull);
+      await logout;
+      next = 'B';
+      await auth.login();
+      lateProfile.complete(identity('A'));
+      await stale;
+      expect(auth.libraryLease?.owner.id, 'B');
+      expect(auth.cachedProfile?.id, 'B');
+      expect(
+        (await db.ownedLibraryDao.readState(leaseA.owner))!.active,
+        isFalse,
+      );
+    });
+
+    test(
+      'same-session refresh retains binding and invalid grant revokes it',
+      () async {
+        final db = AppDatabase.forTesting(NativeDatabase.memory());
+        addTearDown(db.close);
+        var rejected = false;
+        var next = 'A';
+        final auth = ProfileAuthService(
+          storage: storage,
+          library: db.ownedLibraryDao,
+          loginTokens: () async =>
+              tokenResponse(accessToken: next, refreshToken: 'refresh-$next'),
+          refreshTokens: (_) async {
+            if (rejected) {
+              throw ApiException(
+                message: 'expired',
+                statusCode: 400,
+                code: 'INVALID_GRANT',
+              );
+            }
+            return tokenResponse(
+              accessToken: 'A-rotated',
+              refreshToken: 'refresh-a-rotated',
+            );
+          },
+          network: _ProfileNetwork(
+            (token) async => identity(token == 'B' ? 'B' : 'A'),
+          ),
+        );
+        await auth.login();
+        final leaseA = auth.libraryLease;
+        expect(await auth.recoverAfterUnauthorized('A'), 'A-rotated');
+        expect(auth.libraryLease, same(leaseA));
+        rejected = true;
+        await expectLater(
+          auth.recoverAfterUnauthorized('A-rotated'),
+          throwsA(isA<SessionExpiredException>()),
+        );
+        expect(auth.libraryLease, isNull);
+        next = 'B';
+        await auth.login();
+        expect(auth.libraryLease?.owner.id, 'B');
+      },
+    );
+  });
 
   group('token persistence', () {
     test('login stores a supplied refresh token', () async {

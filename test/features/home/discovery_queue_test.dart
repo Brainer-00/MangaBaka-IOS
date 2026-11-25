@@ -44,6 +44,8 @@ Series _makeSeries(String id, String title) => Series(
 );
 
 class FakeAuthService extends Fake implements ProfileAuthService {
+  @override
+  int get sessionGeneration => 0;
   bool loggedIn = true;
   @override
   bool get isLoggedIn => loggedIn;

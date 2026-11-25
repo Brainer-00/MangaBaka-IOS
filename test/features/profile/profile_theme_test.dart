@@ -1,3 +1,4 @@
+import '../../support/library_identity.dart';
 import 'dart:async';
 
 import 'package:drift/native.dart';
@@ -38,7 +39,7 @@ final _entry = LibraryEntry(
   series: Series.fromJson({'id': 'series-1', 'title': 'Cached Series'}),
 );
 
-class _FakeAuth extends Fake implements ProfileAuthService {
+class _FakeAuth extends Fake with WidgetLibraryIdentity {
   bool loggedIn = false;
   MbProfile? profile;
   Future<MbProfile> Function()? response;
@@ -91,6 +92,7 @@ class _FakeSnapshot extends Fake implements SnapshotService {
 }
 
 void main() {
+  setUpAll(prepareWidgetLibraryIdentity);
   late _FakeAuth auth;
   late _FakeLibrary library;
   late _FakeSnapshot snapshot;
@@ -224,6 +226,7 @@ void main() {
   testWidgets('statistics screen headings and cards follow live theme', (
     tester,
   ) async {
+    auth.loggedIn = true;
     final palette = ValueNotifier<MbPalette>(EirenYuPalette.dark);
     addTearDown(palette.dispose);
     await pumpWithPalette(tester, palette, const StatisticsScreen());

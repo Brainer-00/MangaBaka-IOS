@@ -1,14 +1,15 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_appauth/flutter_appauth.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
-import 'package:mangabaka_app/core/di/service_locator.dart';
+import 'package:mangabaka_app/core/database/database.dart';
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
-import 'package:mangabaka_app/features/library/services/library_service.dart';
 import 'package:mangabaka_app/features/profile/models/mb_profile.dart';
 import 'package:mangabaka_app/features/profile/services/auth/auth_network_client.dart';
 import 'package:mangabaka_app/features/profile/services/auth/auth_storage.dart';
@@ -21,11 +22,13 @@ class ProfileAuthService extends ChangeNotifier {
     FlutterAppAuth? appAuth,
     Future<TokenResponse?> Function()? loginTokens,
     Future<TokenResponse?> Function(String refreshToken)? refreshTokens,
+    OwnedLibraryDao? library,
   }) : _storage = storage ?? AuthStorage(),
        _network = network ?? AuthNetworkClient(),
        _appAuth = appAuth ?? const FlutterAppAuth(),
        _loginTokens = loginTokens,
-       _refreshTokens = refreshTokens;
+       _refreshTokens = refreshTokens,
+       _library = library;
 
   final _logger = LoggingService.logger;
 
@@ -38,9 +41,56 @@ class ProfileAuthService extends ChangeNotifier {
   final AuthNetworkClient _network;
   final Future<TokenResponse?> Function()? _loginTokens;
   final Future<TokenResponse?> Function(String refreshToken)? _refreshTokens;
+  final OwnedLibraryDao? _library;
 
   MbProfile? _cachedProfile;
   bool _hasSessionCache = false;
+  int _sessionGeneration = 0;
+  String? _verifiedAccountId;
+  LibraryCacheLease? _libraryLease;
+  Future<void> _storageTail = Future<void>.value();
+
+  int get sessionGeneration => _sessionGeneration;
+  LibraryCacheLease? get libraryLease => _libraryLease;
+
+  void _requireGeneration(int generation) {
+    if (generation != _sessionGeneration) {
+      throw AuthException(message: 'Session changed', code: 'SESSION_CHANGED');
+    }
+  }
+
+  Future<T> _withStorage<T>(Future<T> Function() action) {
+    final result = _storageTail.then((_) => action());
+    _storageTail = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return result;
+  }
+
+  String _fingerprint(String token) =>
+      sha256.convert(utf8.encode(token)).toString();
+
+  Future<void> _bindAccount(String id, String accessToken) => _storage.write(
+    AuthStorage.kVerifiedAccount,
+    jsonEncode({'id': id, 'session': _fingerprint(accessToken)}),
+  );
+
+  Future<void> _activateLibrary(String id, int generation) async {
+    _requireGeneration(generation);
+    if (_verifiedAccountId == id &&
+        (_library == null || _libraryLease != null)) {
+      return;
+    }
+    final owner = VerifiedLibraryOwner.fromVerifiedAccountId(id);
+    final lease = await _library?.activate(owner);
+    if (generation != _sessionGeneration && lease != null) {
+      await _library!.invalidate(lease);
+    }
+    _requireGeneration(generation);
+    _libraryLease = lease;
+    _verifiedAccountId = id;
+  }
 
   /// True while a desktop sign-in is waiting on the user in their browser.
   ///
@@ -69,15 +119,38 @@ class ProfileAuthService extends ChangeNotifier {
       );
 
   Future<void> init() async {
+    final generation = _sessionGeneration;
     _logger.info('Initializing ProfileAuthService...');
 
     try {
-      _hasSessionCache = await hasSession();
+      final hasCredentials = await hasSession();
+      if (generation != _sessionGeneration) return;
+      _hasSessionCache = hasCredentials;
 
       if (_hasSessionCache) {
         _logger.info('Found active session in storage');
 
-        _cachedProfile = await _storage.getCachedProfile();
+        await _withStorage(() async {
+          _requireGeneration(generation);
+          final token = await _storage.read(AuthStorage.kAccessToken);
+          final raw = await _storage.read(AuthStorage.kVerifiedAccount);
+          if (token == null || raw == null) return;
+          Object? binding;
+          try {
+            binding = jsonDecode(raw);
+          } on FormatException {
+            return;
+          }
+          if (binding is! Map || binding['session'] != _fingerprint(token)) {
+            return;
+          }
+          final id = binding['id'];
+          if (id is! String || id.isEmpty || id.trim() != id) return;
+          final profile = await _storage.getCachedProfile();
+          await _activateLibrary(id, generation);
+          _requireGeneration(generation);
+          if (profile?.id == id) _cachedProfile = profile;
+        });
 
         if (_cachedProfile != null) {
           _logger.fine('Loaded cached profile');
@@ -93,6 +166,7 @@ class ProfileAuthService extends ChangeNotifier {
             );
           },
         );
+        notifyListeners();
       } else {
         _logger.fine('No active session found');
       }
@@ -105,17 +179,23 @@ class ProfileAuthService extends ChangeNotifier {
   }
 
   Future<bool> hasSession() async {
+    final generation = _sessionGeneration;
     final token = await _storage.read(AuthStorage.kAccessToken);
+    _requireGeneration(generation);
 
     if (token != null && token.isNotEmpty) {
       return true;
     }
 
-    await _clearLocalSession(notify: false);
+    await _clearLocalSession(
+      notify: _hasSessionCache || _libraryLease != null,
+      expectedGeneration: generation,
+    );
     return false;
   }
 
   Future<void> login() async {
+    final originalGeneration = _sessionGeneration;
     _logger.info('Starting OAuth2 login flow...');
 
     try {
@@ -173,11 +253,29 @@ class ProfileAuthService extends ChangeNotifier {
 
       _logger.info('OAuth2 authorization successful. Persisting tokens...');
 
-      await _persistInitialTokens(response);
+      final generation = await _withStorage(() async {
+        _requireGeneration(originalGeneration);
+        final lease = _detachIdentity();
+        final started = _sessionGeneration;
+        if (lease != null) {
+          try {
+            await _library?.invalidate(lease);
+          } catch (_) {
+            await _forgetCredentials();
+            rethrow;
+          }
+        }
+        _requireGeneration(started);
+        await _persistTokens(response!, isRefresh: false);
+        _requireGeneration(started);
+        _hasSessionCache = true;
+        notifyListeners();
+        return _sessionGeneration;
+      });
 
-      _hasSessionCache = true;
-
+      _requireGeneration(generation);
       await fetchProfile(forceRefresh: true);
+      _requireGeneration(generation);
 
       _logger.info('Login complete');
 
@@ -218,14 +316,6 @@ class ProfileAuthService extends ChangeNotifier {
     }
   }
 
-  Future<void> _persistInitialTokens(TokenResponse response) async {
-    await _persistTokens(response, isRefresh: false);
-  }
-
-  Future<void> _persistRefreshTokens(TokenResponse response) async {
-    await _persistTokens(response, isRefresh: true);
-  }
-
   Future<void> _persistTokens(
     TokenResponse response, {
     required bool isRefresh,
@@ -240,6 +330,9 @@ class ProfileAuthService extends ChangeNotifier {
     }
 
     try {
+      // Incomplete writes must fail closed on restart.
+      await _storage.delete(AuthStorage.kVerifiedAccount);
+      if (!isRefresh) await _storage.delete(AuthStorage.kProfileCache);
       await _storage.write(AuthStorage.kAccessToken, accessToken);
 
       final refreshToken = response.refreshToken;
@@ -267,10 +360,17 @@ class ProfileAuthService extends ChangeNotifier {
       } else {
         await _storage.delete(AuthStorage.kAccessTokenExp);
       }
+      if (isRefresh && _verifiedAccountId != null) {
+        await _bindAccount(_verifiedAccountId!, accessToken);
+      }
     } catch (e) {
       _logger.severe('Failed to persist tokens (${e.runtimeType})');
 
-      await _clearLocalSession();
+      try {
+        await _endIdentity();
+      } finally {
+        await _forgetCredentials();
+      }
 
       throw AuthException(
         message: 'Failed to persist tokens',
@@ -304,6 +404,7 @@ class ProfileAuthService extends ChangeNotifier {
   Future<void> _refreshIfNeeded() => _refresh(force: false);
 
   Future<void> _runRefresh({required bool force}) async {
+    final generation = _sessionGeneration;
     if (!force) {
       final expRaw = await _storage.read(AuthStorage.kAccessTokenExp);
 
@@ -336,11 +437,12 @@ class ProfileAuthService extends ChangeNotifier {
     );
 
     final refreshToken = await _storage.read(AuthStorage.kRefreshToken);
+    _requireGeneration(generation);
 
     if (refreshToken == null || refreshToken.isEmpty) {
       _logger.warning('No refresh token available to perform refresh');
 
-      await _clearLocalSession();
+      await _clearLocalSession(expectedGeneration: generation);
 
       throw SessionExpiredException();
     }
@@ -373,7 +475,7 @@ class ProfileAuthService extends ChangeNotifier {
       _logger.severe('Token refresh failed (${e.runtimeType})');
 
       if (_isInvalidGrant(e)) {
-        await _clearLocalSession();
+        await _clearLocalSession(expectedGeneration: generation);
         throw SessionExpiredException();
       }
 
@@ -392,8 +494,12 @@ class ProfileAuthService extends ChangeNotifier {
 
     _logger.info('Token refresh successful');
 
-    await _persistRefreshTokens(response);
-    _successfulRefreshGeneration++;
+    await _withStorage(() async {
+      _requireGeneration(generation);
+      await _persistTokens(response!, isRefresh: true);
+      _requireGeneration(generation);
+      _successfulRefreshGeneration++;
+    });
   }
 
   /// Recovers from a 401 produced by [rejectedAccessToken].
@@ -402,6 +508,7 @@ class ProfileAuthService extends ChangeNotifier {
   /// the rejected token, its result is reused; otherwise one forced refresh is
   /// started through the same rotating-token single-flight guard.
   Future<String> recoverAfterUnauthorized(String rejectedAccessToken) async {
+    final session = _sessionGeneration;
     final generationAtEntry = _successfulRefreshGeneration;
 
     while (true) {
@@ -411,6 +518,7 @@ class ProfileAuthService extends ChangeNotifier {
       }
 
       var currentToken = await _storage.read(AuthStorage.kAccessToken);
+      _requireGeneration(session);
       if (currentToken != null &&
           currentToken.isNotEmpty &&
           (currentToken != rejectedAccessToken ||
@@ -429,6 +537,7 @@ class ProfileAuthService extends ChangeNotifier {
       await _refresh(force: true);
 
       currentToken = await _storage.read(AuthStorage.kAccessToken);
+      _requireGeneration(session);
       if (currentToken == null || currentToken.isEmpty) {
         throw AuthException(
           message: 'Failed to recover authentication',
@@ -474,29 +583,55 @@ class ProfileAuthService extends ChangeNotifier {
     return normalized == 'invalid_grant' || normalized == 'invalid_token';
   }
 
-  /// Drops the local credentials and flips state to logged-out so the UI can
-  /// route the user back to login. Library data is left intact because it is
-  /// server-backed and re-syncs on the next login. Explicit [logout] also
-  /// clears the local library.
-  Future<void> _clearLocalSession({bool notify = true}) async {
+  Future<void> _forgetCredentials() async {
     try {
-      await _storage.deleteAll();
+      await _storage.delete(AuthStorage.kVerifiedAccount);
     } catch (e) {
       _logger.warning(
-        'Failed to clear local session storage '
-        '(${e.runtimeType})',
+        'Failed to clear verified account binding (${e.runtimeType})',
       );
     }
+    await _storage.deleteAll();
+  }
 
+  LibraryCacheLease? _detachIdentity({bool notify = true}) {
+    final lease = _libraryLease;
+    _sessionGeneration++;
+    _refreshInFlight = null;
+    _libraryLease = null;
+    _verifiedAccountId = null;
     _cachedProfile = null;
     _hasSessionCache = false;
 
     if (notify) {
       notifyListeners();
     }
+    return lease;
+  }
+
+  Future<void> _endIdentity() async {
+    final lease = _detachIdentity();
+    if (lease != null) await _library?.invalidate(lease);
+  }
+
+  Future<void> _clearLocalSession({
+    bool notify = true,
+    int? expectedGeneration,
+  }) async {
+    final generation = expectedGeneration ?? _sessionGeneration;
+    _requireGeneration(generation);
+    final lease = _detachIdentity(notify: notify);
+    await _withStorage(() async {
+      try {
+        if (lease != null) await _library?.invalidate(lease);
+      } finally {
+        await _forgetCredentials();
+      }
+    });
   }
 
   Future<MbProfile> fetchProfile({bool forceRefresh = false}) async {
+    final generation = _sessionGeneration;
     try {
       if (!forceRefresh && _cachedProfile != null) {
         return _cachedProfile!;
@@ -505,26 +640,53 @@ class ProfileAuthService extends ChangeNotifier {
       await _refreshIfNeeded();
 
       final accessToken = await _storage.read(AuthStorage.kAccessToken);
+      _requireGeneration(generation);
 
       if (accessToken == null || accessToken.isEmpty) {
         throw AuthException(message: 'Not logged in', code: 'NOT_LOGGED_IN');
       }
 
+      MbProfile profile;
       try {
-        _cachedProfile = await _network.fetchProfile(accessToken);
+        profile = await _network.fetchProfile(accessToken);
       } on AuthException catch (e) {
         if (e.code != 'AUTH_FAILED') {
           rethrow;
         }
+        _requireGeneration(generation);
         final recoveredToken = await recoverAfterUnauthorized(accessToken);
-        _cachedProfile = await _network.fetchProfile(recoveredToken);
+        profile = await _network.fetchProfile(recoveredToken);
       }
 
-      await _storage.cacheProfile(_cachedProfile!);
-
-      notifyListeners();
-
-      return _cachedProfile!;
+      return await _withStorage(() async {
+        _requireGeneration(generation);
+        if (profile.id.isEmpty || profile.id.trim() != profile.id) {
+          throw AuthException(
+            message: 'Could not verify account identity',
+            code: 'INVALID_ACCOUNT',
+          );
+        }
+        if (_verifiedAccountId != null && _verifiedAccountId != profile.id) {
+          try {
+            await _endIdentity();
+          } finally {
+            await _forgetCredentials();
+          }
+          throw AuthException(
+            message: 'Could not verify account identity',
+            code: 'INVALID_ACCOUNT',
+          );
+        }
+        final token = await _storage.read(AuthStorage.kAccessToken);
+        if (token == null || token.isEmpty) throw SessionExpiredException();
+        await _storage.cacheProfile(profile);
+        await _bindAccount(profile.id, token);
+        await _activateLibrary(profile.id, generation);
+        _requireGeneration(generation);
+        _cachedProfile = profile;
+        notifyListeners();
+        return profile;
+      });
     } catch (e) {
       _logger.severe('Failed to fetch profile (${e.runtimeType})');
 
@@ -540,10 +702,12 @@ class ProfileAuthService extends ChangeNotifier {
   }
 
   Future<String> getValidAccessToken() async {
+    final generation = _sessionGeneration;
     try {
       await _refreshIfNeeded();
 
       final token = await _storage.read(AuthStorage.kAccessToken);
+      _requireGeneration(generation);
 
       if (token == null || token.isEmpty) {
         throw AuthException(message: 'Not logged in', code: 'NOT_LOGGED_IN');
@@ -569,21 +733,7 @@ class ProfileAuthService extends ChangeNotifier {
 
   Future<void> logout() async {
     try {
-      await _storage.deleteAll();
-
-      _cachedProfile = null;
-      _hasSessionCache = false;
-
-      try {
-        await getIt<LibraryService>().clearLibrary();
-      } catch (e) {
-        _logger.warning(
-          'Failed to clear library on logout '
-          '(${e.runtimeType})',
-        );
-      }
-
-      notifyListeners();
+      await _clearLocalSession();
     } catch (e) {
       _logger.severe('Failed to logout (${e.runtimeType})');
 

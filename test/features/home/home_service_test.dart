@@ -10,6 +10,8 @@ import 'package:mangabaka_app/features/profile/services/profile_auth_service.dar
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeAuth extends Fake implements ProfileAuthService {
+  @override
+  int get sessionGeneration => 0;
   String accessToken = 'access-old';
   String recoveredToken = 'access-new';
   Object? recoveryError;

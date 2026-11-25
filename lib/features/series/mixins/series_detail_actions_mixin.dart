@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/di/service_locator.dart';
+import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:mangabaka_app/core/widgets/app_snack_bar.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
@@ -21,65 +23,95 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
   set isAdding(bool value);
 
   void showUpdateRatingDialog(LibraryEntry entry) {
+    final auth = getIt<ProfileAuthService>();
+    final lease = auth.libraryLease;
+    if (lease == null) return;
+    bool current() => identical(lease, auth.libraryLease);
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: RatingSelectionDialog(
-          initialRating: entry.rating ?? 0,
-          onRatingChanged: (rating) async {
-            try {
-              await libraryService.updateLibraryEntryRating(series.id, rating);
-            } catch (e) {
-              if (mounted) {
-                AppSnackBar.show(
-                  this.context,
-                  LocalizationService().translate('failed_to_update'),
-                  isError: true,
-                );
-              }
-            }
-          },
-        ),
+      builder: (context) => ListenableBuilder(
+        listenable: auth,
+        builder: (context, _) => !current()
+            ? const SizedBox.shrink()
+            : Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: RatingSelectionDialog(
+                  initialRating: entry.rating ?? 0,
+                  onRatingChanged: (rating) async {
+                    if (!current()) return;
+                    try {
+                      await libraryService.updateLibraryEntryRating(
+                        series.id,
+                        rating,
+                      );
+                    } catch (e) {
+                      if (mounted) {
+                        AppSnackBar.show(
+                          this.context,
+                          LocalizationService().translate('failed_to_update'),
+                          isError: true,
+                        );
+                      }
+                    }
+                  },
+                ),
+              ),
       ),
     );
   }
 
   void showUpdateProgressDialog(LibraryEntry entry, {bool isChapter = true}) {
+    final auth = getIt<ProfileAuthService>();
+    final lease = auth.libraryLease;
+    if (lease == null) return;
+    bool current() => identical(lease, auth.libraryLease);
+
     final l10n = LocalizationService();
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: ProgressUpdateDialog(
-          initialValue:
-              (isChapter ? entry.progressChapter : entry.progressVolume) ?? 0,
-          title: isChapter
-              ? l10n.translate('update_chapters')
-              : l10n.translate('update_volumes'),
-          maxValue: isChapter ? series.totalChapters : series.finalVolume,
-          onUpdate: (value) async {
-            if (isChapter) {
-              await libraryService.updateLibraryEntryProgress(
-                series.id,
-                progressChapter: value,
-              );
-            } else {
-              await libraryService.updateLibraryEntryProgress(
-                series.id,
-                progressVolume: value,
-              );
-            }
-          },
-        ),
+      builder: (context) => ListenableBuilder(
+        listenable: auth,
+        builder: (context, _) => !current()
+            ? const SizedBox.shrink()
+            : Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: ProgressUpdateDialog(
+                  initialValue:
+                      (isChapter
+                          ? entry.progressChapter
+                          : entry.progressVolume) ??
+                      0,
+                  title: isChapter
+                      ? l10n.translate('update_chapters')
+                      : l10n.translate('update_volumes'),
+                  maxValue: isChapter
+                      ? series.totalChapters
+                      : series.finalVolume,
+                  onUpdate: (value) async {
+                    if (!current()) return;
+                    if (isChapter) {
+                      await libraryService.updateLibraryEntryProgress(
+                        series.id,
+                        progressChapter: value,
+                      );
+                    } else {
+                      await libraryService.updateLibraryEntryProgress(
+                        series.id,
+                        progressVolume: value,
+                      );
+                    }
+                  },
+                ),
+              ),
       ),
     );
   }
@@ -225,124 +257,136 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
   }
 
   void showDeleteConfirmationDialog() {
+    final auth = getIt<ProfileAuthService>();
+    final lease = auth.libraryLease;
+    if (lease == null) return;
+    bool current() => identical(lease, auth.libraryLease);
+
     final l10n = LocalizationService();
     showDialog(
       context: context,
-      builder: (context) {
-        final colors = context.colors;
-        final errorSurface = Color.alphaBlend(
-          colors.error.withValues(alpha: 0.1),
-          colors.surface,
-        );
-        return AlertDialog(
-          key: const Key('series_delete_dialog'),
-          backgroundColor: colors.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppConstants.largeRadius),
-            side: BorderSide(color: colors.border, width: 1.5),
-          ),
-          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-          contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: colors.error.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.delete_sweep_rounded,
-                  color: MbPalette.ensureContrast(
-                    colors.error,
-                    errorSurface,
-                    minimum: 3.0,
+      builder: (context) => ListenableBuilder(
+        listenable: auth,
+        builder: (context, _) {
+          if (!current()) return const SizedBox.shrink();
+          final colors = context.colors;
+          final errorSurface = Color.alphaBlend(
+            colors.error.withValues(alpha: 0.1),
+            colors.surface,
+          );
+          return AlertDialog(
+            key: const Key('series_delete_dialog'),
+            backgroundColor: colors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppConstants.largeRadius),
+              side: BorderSide(color: colors.border, width: 1.5),
+            ),
+            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+            contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colors.error.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
                   ),
-                  size: 24,
+                  child: Icon(
+                    Icons.delete_sweep_rounded,
+                    color: MbPalette.ensureContrast(
+                      colors.error,
+                      errorSurface,
+                      minimum: 3.0,
+                    ),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    l10n.translate('delete_from_library').toUpperCase(),
+                    style: AppTypography.display(
+                      color: colors.text,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              l10n.translate('delete_confirmation'),
+              style: AppTypography.sans(
+                color: MbPalette.ensureContrast(
+                  colors.textMuted,
+                  colors.surface,
+                  minimum: 4.5,
+                ),
+                fontSize: 15,
+                height: 1.4,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                ),
+                child: Text(
+                  l10n.translate('cancel'),
+                  style: AppTypography.sans(
+                    color: MbPalette.ensureContrast(
+                      colors.textMuted,
+                      colors.surface,
+                      minimum: 4.5,
+                    ),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  l10n.translate('delete_from_library').toUpperCase(),
-                  style: AppTypography.display(
-                    color: colors.text,
-                    fontSize: 18,
+              const SizedBox(width: 4),
+              FilledButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  try {
+                    if (!current()) return;
+                    await libraryService.deleteEntry(series.id);
+                    if (mounted && current()) Navigator.pop(this.context);
+                  } catch (e) {
+                    if (mounted && current()) {
+                      AppSnackBar.show(
+                        this.context,
+                        LocalizationService().translate('failed_to_delete'),
+                        isError: true,
+                      );
+                    }
+                  }
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: colors.error,
+                  foregroundColor: MbPalette.readableOn(colors.error),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
                   ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.pillRadius,
+                    ),
+                  ),
+                ),
+                child: Text(
+                  l10n.translate('confirm'),
+                  style: AppTypography.sans(fontWeight: FontWeight.bold),
                 ),
               ),
             ],
-          ),
-          content: Text(
-            l10n.translate('delete_confirmation'),
-            style: AppTypography.sans(
-              color: MbPalette.ensureContrast(
-                colors.textMuted,
-                colors.surface,
-                minimum: 4.5,
-              ),
-              fontSize: 15,
-              height: 1.4,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-              ),
-              child: Text(
-                l10n.translate('cancel'),
-                style: AppTypography.sans(
-                  color: MbPalette.ensureContrast(
-                    colors.textMuted,
-                    colors.surface,
-                    minimum: 4.5,
-                  ),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            FilledButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                try {
-                  await libraryService.deleteEntry(series.id);
-                  if (mounted) Navigator.pop(this.context);
-                } catch (e) {
-                  if (mounted) {
-                    AppSnackBar.show(
-                      this.context,
-                      LocalizationService().translate('failed_to_delete'),
-                      isError: true,
-                    );
-                  }
-                }
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: colors.error,
-                foregroundColor: MbPalette.readableOn(colors.error),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppConstants.pillRadius),
-                ),
-              ),
-              child: Text(
-                l10n.translate('confirm'),
-                style: AppTypography.sans(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -358,7 +402,10 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
   }
 
   Future<void> addSeriesToLibrary() async {
-    if (isAdding) return;
+    final auth = getIt<ProfileAuthService>();
+    final lease = auth.libraryLease;
+    if (lease == null || isAdding) return;
+    bool current() => identical(lease, auth.libraryLease);
     setState(() => isAdding = true);
     try {
       await libraryService.createLibraryEntry(
@@ -366,7 +413,7 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
         SettingsManager().addLibraryDefaultTab,
       );
     } catch (e) {
-      if (mounted) {
+      if (mounted && current()) {
         AppSnackBar.show(
           context,
           LocalizationService().translate('failed_to_add'),
@@ -374,7 +421,7 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
         );
       }
     } finally {
-      if (mounted) setState(() => isAdding = false);
+      if (mounted && current()) setState(() => isAdding = false);
     }
   }
 }

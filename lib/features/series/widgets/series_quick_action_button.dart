@@ -13,12 +13,14 @@ class SeriesQuickActionButton extends StatefulWidget {
   final Series series;
   final LibraryEntry? entry;
   final ValueChanged<int?>? onOptimisticProgressChanged;
+  final bool Function()? isTrackingSessionCurrent;
 
   const SeriesQuickActionButton({
     super.key,
     required this.series,
     this.entry,
     this.onOptimisticProgressChanged,
+    this.isTrackingSessionCurrent,
   });
 
   @override
@@ -94,6 +96,7 @@ class _SeriesQuickActionButtonState extends State<SeriesQuickActionButton> {
   }
 
   Future<void> _handlePress(LibraryEntry entry) async {
+    if (widget.isTrackingSessionCurrent?.call() == false) return;
     final libraryService = getIt<LibraryService>();
 
     final currentProgress = _optimisticProgress ?? entry.progressChapter ?? 0;
@@ -110,7 +113,7 @@ class _SeriesQuickActionButtonState extends State<SeriesQuickActionButton> {
         progressChapter: newProgress,
       );
     } catch (e) {
-      if (mounted) {
+      if (mounted && widget.isTrackingSessionCurrent?.call() != false) {
         setState(() {
           _optimisticProgress = null;
         });

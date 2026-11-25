@@ -1,3 +1,4 @@
+import '../../support/library_identity.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +15,7 @@ import 'package:mangabaka_app/features/series/widgets/app_bar/series_banner_back
 import 'package:mangabaka_app/features/series/widgets/series_hero.dart';
 import 'package:mangabaka_app/features/series/widgets/series_action_bar.dart';
 import 'package:mangabaka_app/features/series/widgets/series_detail_fab.dart';
+import 'package:mangabaka_app/features/series/widgets/series_my_list_card.dart';
 import 'package:mangabaka_app/features/series/widgets/series_quick_action_button.dart';
 import 'package:mangabaka_app/features/series/widgets/chip.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
@@ -124,9 +126,13 @@ class MockLibraryService extends Fake implements LibraryService {
   }
 }
 
-class MockProfileAuthService extends ChangeNotifier
-    implements ProfileAuthService {
+class MockProfileAuthService extends ChangeNotifier with WidgetLibraryIdentity {
   bool _isLoggedIn = false;
+  LibraryCacheLease? suppliedLease;
+  bool useSuppliedLease = false;
+  @override
+  LibraryCacheLease? get libraryLease =>
+      useSuppliedLease ? suppliedLease : super.libraryLease;
   @override
   final ValueNotifier<bool> awaitingBrowser = ValueNotifier(false);
   @override
@@ -162,6 +168,7 @@ class MockProfileAuthService extends ChangeNotifier
 }
 
 void main() {
+  setUpAll(prepareWidgetLibraryIdentity);
   late MockSeriesService mockSeriesService;
   late MockLibraryService mockLibraryService;
   late MockProfileAuthService mockAuthService;
@@ -269,6 +276,7 @@ void main() {
   testWidgets('progress dialog uses the freshest fetched series total', (
     tester,
   ) async {
+    mockAuthService.isLoggedIn = true;
     final key = GlobalKey<SeriesDetailScreenState>();
     final initial = Series.fromJson({
       'id': '123',
@@ -302,6 +310,72 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('total: 121'), findsOneWidget);
+  });
+
+  testWidgets('Series Detail drops private tracking after an account switch', (
+    tester,
+  ) async {
+    final dao = db!.ownedLibraryDao;
+    final a = await tester.runAsync(() async {
+      final lease = await dao.activate(
+        VerifiedLibraryOwner.fromVerifiedAccountId('A'),
+      );
+      await dao.finishFullImport(
+        lease,
+        completeSeriesIds: {'123'},
+        watermark: null,
+        entries: [
+          LibraryEntry(
+            id: 'private-a',
+            state: 'completed',
+            rating: 90,
+            series: testSeries,
+          ),
+        ],
+      );
+      return lease;
+    });
+    mockAuthService
+      ..useSuppliedLease = true
+      ..suppliedLease = a
+      ..isLoggedIn = true;
+    await getIt.unregister<LibraryService>();
+    final service = LibraryService(auth: mockAuthService, database: db);
+    getIt.registerSingleton<LibraryService>(
+      service,
+      dispose: (s) => s.dispose(),
+    );
+    await tester.pumpWidget(
+      MaterialApp(home: SeriesDetailScreen(series: testSeries)),
+    );
+    await tester.runAsync(
+      () =>
+          service.watchEntryFromDb('123').firstWhere((entry) => entry != null),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(SeriesMyListCard), findsOneWidget);
+
+    mockAuthService
+      ..suppliedLease = null
+      ..isLoggedIn = false;
+    await tester.pump();
+    expect(find.byType(SeriesMyListCard), findsNothing);
+    final b = await tester.runAsync(() async {
+      final lease = await dao.activate(
+        VerifiedLibraryOwner.fromVerifiedAccountId('B'),
+      );
+      await dao.finishFullImport(lease, completeSeriesIds: {}, watermark: null);
+      return lease;
+    });
+    mockAuthService
+      ..suppliedLease = b
+      ..isLoggedIn = true;
+    await tester.pumpAndSettle();
+    expect(find.byType(SeriesMyListCard), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.runAsync(() => db!.close());
+    db = null;
   });
 
   testWidgets('SeriesDetailScreen shows error banner on fetch failure', (

@@ -35,9 +35,27 @@ mixin ProfileDataMixin<T extends StatefulWidget> on State<T> {
   int _changedRequestGeneration = 0;
   int _addedRequestGeneration = 0;
 
+  void clearPrivateProfileData() {
+    _changedRequestGeneration++;
+    _addedRequestGeneration++;
+    recentlyChanged.clear();
+    recentlyAdded.clear();
+    pageChanged = 1;
+    pageAdded = 1;
+    hasMoreChanged = true;
+    hasMoreAdded = true;
+    isLoadingChanged = false;
+    isLoadingAdded = false;
+    totalSeries = 0;
+    chaptersRead = 0;
+    volumesRead = 0;
+    meanScore = 0;
+  }
+
   /// Fetches the four summary statistics shown on the profile card.
   /// Runs queries in parallel for performance.
   Future<void> fetchStatistics() async {
+    final session = auth.sessionGeneration;
     final contentPrefs = SettingsManager().contentPreferences;
     final results = await Future.wait([
       statisticsService.getTotalSeries(contentPreferences: contentPrefs), // [0]
@@ -47,7 +65,7 @@ mixin ProfileDataMixin<T extends StatefulWidget> on State<T> {
       statisticsService.getVolumesRead(contentPreferences: contentPrefs), // [2]
       statisticsService.getMeanScore(contentPreferences: contentPrefs), // [3]
     ]);
-    if (!mounted) return;
+    if (!mounted || session != auth.sessionGeneration) return;
     setState(() {
       totalSeries = results[0] as int;
       chaptersRead = results[1] as int;
@@ -57,6 +75,7 @@ mixin ProfileDataMixin<T extends StatefulWidget> on State<T> {
   }
 
   Future<void> fetchRecentlyChanged({bool initial = false}) async {
+    final session = auth.sessionGeneration;
     if (!initial && (isLoadingChanged || !hasMoreChanged)) return;
 
     final generation = initial
@@ -70,7 +89,11 @@ mixin ProfileDataMixin<T extends StatefulWidget> on State<T> {
         sortBy: 'updated_at_desc',
         page: requestedPage,
       );
-      if (!mounted || generation != _changedRequestGeneration) return;
+      if (!mounted ||
+          session != auth.sessionGeneration ||
+          generation != _changedRequestGeneration) {
+        return;
+      }
       setState(() {
         if (initial) {
           recentlyChanged
@@ -84,12 +107,17 @@ mixin ProfileDataMixin<T extends StatefulWidget> on State<T> {
         isLoadingChanged = false;
       });
     } catch (e) {
-      if (!mounted || generation != _changedRequestGeneration) return;
+      if (!mounted ||
+          session != auth.sessionGeneration ||
+          generation != _changedRequestGeneration) {
+        return;
+      }
       setState(() => isLoadingChanged = false);
     }
   }
 
   Future<void> fetchRecentlyAdded({bool initial = false}) async {
+    final session = auth.sessionGeneration;
     if (!initial && (isLoadingAdded || !hasMoreAdded)) return;
 
     final generation = initial
@@ -103,7 +131,11 @@ mixin ProfileDataMixin<T extends StatefulWidget> on State<T> {
         sortBy: 'created_at_desc',
         page: requestedPage,
       );
-      if (!mounted || generation != _addedRequestGeneration) return;
+      if (!mounted ||
+          session != auth.sessionGeneration ||
+          generation != _addedRequestGeneration) {
+        return;
+      }
       setState(() {
         if (initial) {
           recentlyAdded
@@ -117,12 +149,17 @@ mixin ProfileDataMixin<T extends StatefulWidget> on State<T> {
         isLoadingAdded = false;
       });
     } catch (e) {
-      if (!mounted || generation != _addedRequestGeneration) return;
+      if (!mounted ||
+          session != auth.sessionGeneration ||
+          generation != _addedRequestGeneration) {
+        return;
+      }
       setState(() => isLoadingAdded = false);
     }
   }
 
   Future<void> bootstrap() async {
+    final session = auth.sessionGeneration;
     final hadUsableProfile = profile != null;
     setState(() {
       loading = !hadUsableProfile;
@@ -131,10 +168,11 @@ mixin ProfileDataMixin<T extends StatefulWidget> on State<T> {
 
     try {
       final fetchedProfile = await auth.fetchProfile(forceRefresh: true);
-      if (!mounted) return;
+      if (!mounted || session != auth.sessionGeneration) return;
       setState(() => profile = fetchedProfile);
 
       await libraryService.performInitialSyncIfNeeded();
+      if (!mounted || session != auth.sessionGeneration) return;
 
       await Future.wait([
         fetchStatistics(),
@@ -142,9 +180,11 @@ mixin ProfileDataMixin<T extends StatefulWidget> on State<T> {
         fetchRecentlyAdded(initial: true),
       ]);
 
-      if (mounted) setState(() => loading = false);
+      if (mounted && session == auth.sessionGeneration) {
+        setState(() => loading = false);
+      }
     } catch (e) {
-      if (mounted) {
+      if (mounted && session == auth.sessionGeneration) {
         setState(() {
           if (!auth.isLoggedIn || e is SessionExpiredException) {
             profile = null;
@@ -152,7 +192,7 @@ mixin ProfileDataMixin<T extends StatefulWidget> on State<T> {
           } else if (hadUsableProfile) {
             error = null;
           } else {
-            error = 'Failed to load profile: $e';
+            error = 'Failed to load profile';
           }
           loading = false;
         });
@@ -168,8 +208,11 @@ mixin ProfileDataMixin<T extends StatefulWidget> on State<T> {
 
     try {
       await auth.login();
-      await bootstrap();
+      if (mounted && auth.cachedProfile != null) await bootstrap();
     } catch (e) {
+      if (!mounted || (e is AuthException && e.code == 'SESSION_CHANGED')) {
+        return;
+      }
       if (e is AuthCancelledException) {
         setState(() => loading = false);
         return;

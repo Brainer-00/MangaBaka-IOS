@@ -25,7 +25,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     initStatistics();
   }
 
-  void _openSeriesDetail(LibraryEntryWithSeries entry) {
+  void _openSeriesDetail(OwnedEntryWithSeries entry) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -145,7 +145,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                             label: l10n.translate('highest_rated'),
                             title: highestRated!.series.title,
                             value:
-                                '${l10n.translate('score')}: ${highestRated!.libraryEntry.rating ?? 0}',
+                                '${l10n.translate('score')}: ${highestRated!.entry.rating ?? 0}',
                             onTap: () => _openSeriesDetail(highestRated!),
                           ),
                         if (mostReread != null) ...[
@@ -155,7 +155,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                             label: l10n.translate('most_reread'),
                             title: mostReread!.series.title,
                             value:
-                                '${mostReread!.libraryEntry.numberOfRereads} ${l10n.translate('rereads')}',
+                                '${mostReread!.entry.numberOfRereads} ${l10n.translate('rereads')}',
                             onTap: () => _openSeriesDetail(mostReread!),
                           ),
                         ],

@@ -1,3 +1,4 @@
+import 'support/library_identity.dart';
 import 'dart:async';
 import 'dart:ui' as ui;
 
@@ -38,7 +39,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 // ignore: depend_on_referenced_packages
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
-class MockProfileAuthService extends Fake implements ProfileAuthService {
+class MockProfileAuthService extends Fake with WidgetLibraryIdentity {
   final List<VoidCallback> _listeners = [];
 
   @override
@@ -135,6 +136,7 @@ class _HeldLogoPreferenceStore extends InMemorySharedPreferencesStore {
 }
 
 void main() {
+  setUpAll(prepareWidgetLibraryIdentity);
   late MockProfileAuthService auth;
   late MockUpdateService updates;
   late MockMetadataService metadata;

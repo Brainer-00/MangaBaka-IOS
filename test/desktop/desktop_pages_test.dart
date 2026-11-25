@@ -1,3 +1,4 @@
+import '../support/library_identity.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mangabaka_app/core/widgets/design/eirenyu_mark.dart';
@@ -15,7 +16,7 @@ import 'package:mangabaka_app/features/profile/services/profile_auth_service.dar
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class _FakeAuth extends Fake implements ProfileAuthService {
+class _FakeAuth extends Fake with WidgetLibraryIdentity {
   @override
   bool get isLoggedIn => true;
   @override
@@ -46,6 +47,7 @@ Widget _host(Widget child, {double width = 1100, double height = 700}) {
 }
 
 void main() {
+  setUpAll(prepareWidgetLibraryIdentity);
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     SettingsManager.resetForTesting();

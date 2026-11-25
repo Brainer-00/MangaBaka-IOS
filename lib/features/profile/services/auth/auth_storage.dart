@@ -19,6 +19,7 @@ class AuthStorage {
   static const kIdToken = 'mb_id_token';
   static const kAccessTokenExp = 'mb_access_token_exp';
   static const kProfileCache = 'mb_profile_cache';
+  static const kVerifiedAccount = 'mb_verified_account';
 
   static const authenticationKeys = [
     kAccessToken,
@@ -26,6 +27,7 @@ class AuthStorage {
     kIdToken,
     kAccessTokenExp,
     kProfileCache,
+    kVerifiedAccount,
   ];
 
   final _logger = LoggingService.logger;

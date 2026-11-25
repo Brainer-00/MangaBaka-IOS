@@ -25,6 +25,7 @@ class SeriesDetailBody extends StatelessWidget {
   final SeriesDetailScreenState state;
 
   final Stream<LibraryEntry?>? entryStream;
+  final bool Function() isTrackingSessionCurrent;
   final SettingsManager settings;
   final LocalizationService l10n;
 
@@ -45,6 +46,7 @@ class SeriesDetailBody extends StatelessWidget {
     super.key,
     required this.state,
     required this.entryStream,
+    required this.isTrackingSessionCurrent,
     required this.settings,
     required this.l10n,
     required this.onRetry,
@@ -58,8 +60,7 @@ class SeriesDetailBody extends StatelessWidget {
     // The space this page actually has, not the window: on desktop it sits
     // beside the sidebar, and the window width overstated it by the sidebar.
     return LayoutBuilder(
-      builder: (context, constraints) =>
-          _build(context, constraints.maxWidth),
+      builder: (context, constraints) => _build(context, constraints.maxWidth),
     );
   }
 
@@ -106,22 +107,31 @@ class SeriesDetailBody extends StatelessWidget {
                   horizontalPadding: isWide ? 40.0 : 16.0,
                   onBack: () => Navigator.pop(context),
                   onShare: state.shareLink,
-                  onDelete: state.showDeleteConfirmationDialog,
+                  onDelete: () {
+                    if (isTrackingSessionCurrent()) {
+                      state.showDeleteConfirmationDialog();
+                    }
+                  },
                   onCopy: state.copyToClipboard,
                   heroTagPrefix: state.widget.heroTagPrefix,
                 ),
-                if (state.fetchError)
-                  SeriesDetailErrorBanner(onRetry: onRetry),
+                if (state.fetchError) SeriesDetailErrorBanner(onRetry: onRetry),
                 SliverToBoxAdapter(
                   child: Center(
                     child: ConstrainedBox(
-                      constraints:
-                          const BoxConstraints(maxWidth: _maxContentWidth),
+                      constraints: const BoxConstraints(
+                        maxWidth: _maxContentWidth,
+                      ),
                       child: _layout(
                         series: series,
                         entry: snapshot.data,
                         isLoaded: isLoaded,
                         isWide: isWide,
+                        canAdd:
+                            isTrackingSessionCurrent() &&
+                            snapshot.connectionState ==
+                                ConnectionState.active &&
+                            !snapshot.hasError,
                       ),
                     ),
                   ),
@@ -141,47 +151,65 @@ class SeriesDetailBody extends StatelessWidget {
     required LibraryEntry? entry,
     required bool isLoaded,
     required bool isWide,
+    required bool canAdd,
   }) {
     final title = series.getDisplayTitle(settings.defaultTitleLanguage);
     final id = series.id;
 
     final library = state.libraryService;
-    void setState(String value) => library.updateLibraryEntryState(id, value);
-    void setRating(int rating) => library.updateLibraryEntryRating(id, rating);
+    void setState(String value) {
+      if (isTrackingSessionCurrent()) {
+        library.updateLibraryEntryState(id, value);
+      }
+    }
+
+    void setRating(int rating) {
+      if (isTrackingSessionCurrent()) {
+        library.updateLibraryEntryRating(id, rating);
+      }
+    }
 
     // Progress and rating dialogs need an entry to edit; without one in the
     // library there is nothing to update, so the callbacks are inert.
-    void updateChapter() => entry == null
-        ? null
-        : state.showUpdateProgressDialog(entry, isChapter: true);
-    void updateVolume() => entry == null
-        ? null
-        : state.showUpdateProgressDialog(entry, isChapter: false);
-    void updateRating() =>
-        entry == null ? null : state.showUpdateRatingDialog(entry);
+    void updateChapter() {
+      if (entry != null && isTrackingSessionCurrent()) {
+        state.showUpdateProgressDialog(entry, isChapter: true);
+      }
+    }
+
+    void updateVolume() {
+      if (entry != null && isTrackingSessionCurrent()) {
+        state.showUpdateProgressDialog(entry, isChapter: false);
+      }
+    }
+
+    void updateRating() {
+      if (entry != null && isTrackingSessionCurrent()) {
+        state.showUpdateRatingDialog(entry);
+      }
+    }
 
     SeriesDetailTabContent tabContent({
       required double hPadding,
       bool isWide = false,
       bool wideRightPaddingOnly = false,
-    }) =>
-        SeriesDetailTabContent(
-          series: series,
-          entry: entry,
-          l10n: l10n,
-          selectedTab: state.selectedTab,
-          covers: state.covers,
-          related: state.related,
-          similar: state.similar,
-          readersAlsoLike: state.readersAlsoLike,
-          news: state.news,
-          collections: state.collections,
-          works: state.works,
-          enrichedLinks: state.enrichedLinks,
-          isWide: isWide,
-          hPadding: hPadding,
-          wideRightPaddingOnly: wideRightPaddingOnly,
-        );
+    }) => SeriesDetailTabContent(
+      series: series,
+      entry: entry,
+      l10n: l10n,
+      selectedTab: state.selectedTab,
+      covers: state.covers,
+      related: state.related,
+      similar: state.similar,
+      readersAlsoLike: state.readersAlsoLike,
+      news: state.news,
+      collections: state.collections,
+      works: state.works,
+      enrichedLinks: state.enrichedLinks,
+      isWide: isWide,
+      hPadding: hPadding,
+      wideRightPaddingOnly: wideRightPaddingOnly,
+    );
 
     if (isWide) {
       return SeriesDetailWideLayout(
@@ -197,17 +225,20 @@ class SeriesDetailBody extends StatelessWidget {
         onStateChanged: setState,
         onRatingChanged: setRating,
         isAdding: state.isAdding,
-        onAdd: state.addSeriesToLibrary,
+        canAdd: canAdd,
+        onAdd: () {
+          if (isTrackingSessionCurrent()) state.addSeriesToLibrary();
+        },
         onUpdateChapter: updateChapter,
         onUpdateVolume: updateVolume,
         onUpdateRating: updateRating,
-        buildTabContent: (hPadding,
-                {isWide = false, wideRightPaddingOnly = false}) =>
-            tabContent(
-          hPadding: hPadding,
-          isWide: isWide,
-          wideRightPaddingOnly: wideRightPaddingOnly,
-        ),
+        buildTabContent:
+            (hPadding, {isWide = false, wideRightPaddingOnly = false}) =>
+                tabContent(
+                  hPadding: hPadding,
+                  isWide: isWide,
+                  wideRightPaddingOnly: wideRightPaddingOnly,
+                ),
       );
     }
 

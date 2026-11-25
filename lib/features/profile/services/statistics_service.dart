@@ -2,23 +2,42 @@ import 'package:mangabaka_app/core/database/database.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:drift/drift.dart' as drift;
+import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 
 class StatisticsService {
   final _logger = LoggingService.logger;
   final AppDatabase _db;
 
-  StatisticsService(this._db);
+  final ProfileAuthService _auth;
+  StatisticsService(this._db, this._auth);
+
+  drift.Expression<bool> _scope(LibraryCacheLease lease) {
+    final states = _db.libraryCacheStates;
+    final verified = _db.selectOnly(states)
+      ..addColumns([states.ownerId])
+      ..where(
+        states.ownerId.equals(lease.owner.id) &
+            states.generation.equals(lease.generation) &
+            states.active.equals(true) &
+            states.initialized.equals(true),
+      );
+    return _db.ownedLibraryEntries.ownerId.equals(lease.owner.id) &
+        drift.existsQuery(verified);
+  }
 
   Future<int> getTotalSeries({List<String>? contentPreferences}) async {
+    final lease = _auth.libraryLease;
+    if (lease == null) return 0;
     try {
       final count = drift.countAll();
-      final query = _db.selectOnly(_db.libraryEntriesTable).join([
+      final query = _db.selectOnly(_db.ownedLibraryEntries).join([
         drift.innerJoin(
           _db.seriesTable,
-          _db.seriesTable.id.equalsExp(_db.libraryEntriesTable.seriesId),
+          _db.seriesTable.id.equalsExp(_db.ownedLibraryEntries.seriesId),
         ),
       ])..addColumns([count]);
 
+      query.where(_scope(lease));
       if (contentPreferences != null && contentPreferences.isNotEmpty) {
         query.where(
           _db.seriesTable.contentRating.isIn(
@@ -28,6 +47,7 @@ class StatisticsService {
       }
 
       final result = await query.getSingle();
+      if (!identical(lease, _auth.libraryLease)) return 0;
       final val = result.read(count) ?? 0;
       _logger.fine('Calculated total series count');
       return val;
@@ -42,15 +62,18 @@ class StatisticsService {
   }
 
   Future<int> getChaptersRead({List<String>? contentPreferences}) async {
+    final lease = _auth.libraryLease;
+    if (lease == null) return 0;
     try {
-      final sum = _db.libraryEntriesTable.progressChapter.sum();
-      final query = _db.selectOnly(_db.libraryEntriesTable).join([
+      final sum = _db.ownedLibraryEntries.progressChapter.sum();
+      final query = _db.selectOnly(_db.ownedLibraryEntries).join([
         drift.innerJoin(
           _db.seriesTable,
-          _db.seriesTable.id.equalsExp(_db.libraryEntriesTable.seriesId),
+          _db.seriesTable.id.equalsExp(_db.ownedLibraryEntries.seriesId),
         ),
       ])..addColumns([sum]);
 
+      query.where(_scope(lease));
       if (contentPreferences != null && contentPreferences.isNotEmpty) {
         query.where(
           _db.seriesTable.contentRating.isIn(
@@ -60,6 +83,7 @@ class StatisticsService {
       }
 
       final result = await query.getSingle();
+      if (!identical(lease, _auth.libraryLease)) return 0;
       final val = result.read(sum) ?? 0;
       _logger.fine('Calculated total chapters read');
       return val;
@@ -74,15 +98,18 @@ class StatisticsService {
   }
 
   Future<int> getVolumesRead({List<String>? contentPreferences}) async {
+    final lease = _auth.libraryLease;
+    if (lease == null) return 0;
     try {
-      final sum = _db.libraryEntriesTable.progressVolume.sum();
-      final query = _db.selectOnly(_db.libraryEntriesTable).join([
+      final sum = _db.ownedLibraryEntries.progressVolume.sum();
+      final query = _db.selectOnly(_db.ownedLibraryEntries).join([
         drift.innerJoin(
           _db.seriesTable,
-          _db.seriesTable.id.equalsExp(_db.libraryEntriesTable.seriesId),
+          _db.seriesTable.id.equalsExp(_db.ownedLibraryEntries.seriesId),
         ),
       ])..addColumns([sum]);
 
+      query.where(_scope(lease));
       if (contentPreferences != null && contentPreferences.isNotEmpty) {
         query.where(
           _db.seriesTable.contentRating.isIn(
@@ -92,6 +119,7 @@ class StatisticsService {
       }
 
       final result = await query.getSingle();
+      if (!identical(lease, _auth.libraryLease)) return 0;
       final val = result.read(sum) ?? 0;
       _logger.fine('Calculated total volumes read');
       return val;
@@ -106,19 +134,22 @@ class StatisticsService {
   }
 
   Future<double> getCompletionRate({List<String>? contentPreferences}) async {
+    final lease = _auth.libraryLease;
+    if (lease == null) return 0.0;
     try {
       final totalCount = drift.countAll();
       final completedCount = drift.countAll(
-        filter: _db.libraryEntriesTable.state.equals('completed'),
+        filter: _db.ownedLibraryEntries.state.equals('completed'),
       );
 
-      final query = _db.selectOnly(_db.libraryEntriesTable).join([
+      final query = _db.selectOnly(_db.ownedLibraryEntries).join([
         drift.innerJoin(
           _db.seriesTable,
-          _db.seriesTable.id.equalsExp(_db.libraryEntriesTable.seriesId),
+          _db.seriesTable.id.equalsExp(_db.ownedLibraryEntries.seriesId),
         ),
       ])..addColumns([totalCount, completedCount]);
 
+      query.where(_scope(lease));
       if (contentPreferences != null && contentPreferences.isNotEmpty) {
         query.where(
           _db.seriesTable.contentRating.isIn(
@@ -128,6 +159,7 @@ class StatisticsService {
       }
 
       final result = await query.getSingle();
+      if (!identical(lease, _auth.libraryLease)) return 0.0;
       final total = result.read(totalCount) ?? 0;
       if (total == 0) return 0.0;
 
@@ -136,9 +168,7 @@ class StatisticsService {
       _logger.fine('Calculated completion rate');
       return rate;
     } catch (e, st) {
-      _logger.severe(
-        'Failed to calculate completion rate (${e.runtimeType})',
-      );
+      _logger.severe('Failed to calculate completion rate (${e.runtimeType})');
       throw DatabaseException(
         message: 'Failed to get completion rate',
         originalError: e,
@@ -148,15 +178,18 @@ class StatisticsService {
   }
 
   Future<int> getTotalRereads({List<String>? contentPreferences}) async {
+    final lease = _auth.libraryLease;
+    if (lease == null) return 0;
     try {
-      final sum = _db.libraryEntriesTable.numberOfRereads.sum();
-      final query = _db.selectOnly(_db.libraryEntriesTable).join([
+      final sum = _db.ownedLibraryEntries.numberOfRereads.sum();
+      final query = _db.selectOnly(_db.ownedLibraryEntries).join([
         drift.innerJoin(
           _db.seriesTable,
-          _db.seriesTable.id.equalsExp(_db.libraryEntriesTable.seriesId),
+          _db.seriesTable.id.equalsExp(_db.ownedLibraryEntries.seriesId),
         ),
       ])..addColumns([sum]);
 
+      query.where(_scope(lease));
       if (contentPreferences != null && contentPreferences.isNotEmpty) {
         query.where(
           _db.seriesTable.contentRating.isIn(
@@ -166,6 +199,7 @@ class StatisticsService {
       }
 
       final result = await query.getSingle();
+      if (!identical(lease, _auth.libraryLease)) return 0;
       final val = result.read(sum) ?? 0;
       _logger.fine('Calculated total rereads');
       return val;
@@ -180,18 +214,21 @@ class StatisticsService {
   }
 
   Future<double> getMeanScore({List<String>? contentPreferences}) async {
+    final lease = _auth.libraryLease;
+    if (lease == null) return 0.0;
     try {
-      final avg = _db.libraryEntriesTable.rating.avg();
+      final avg = _db.ownedLibraryEntries.rating.avg();
       final query =
-          _db.selectOnly(_db.libraryEntriesTable).join([
+          _db.selectOnly(_db.ownedLibraryEntries).join([
               drift.innerJoin(
                 _db.seriesTable,
-                _db.seriesTable.id.equalsExp(_db.libraryEntriesTable.seriesId),
+                _db.seriesTable.id.equalsExp(_db.ownedLibraryEntries.seriesId),
               ),
             ])
             ..addColumns([avg])
-            ..where(_db.libraryEntriesTable.rating.isNotNull());
+            ..where(_db.ownedLibraryEntries.rating.isNotNull());
 
+      query.where(_scope(lease));
       if (contentPreferences != null && contentPreferences.isNotEmpty) {
         query.where(
           _db.seriesTable.contentRating.isIn(
@@ -201,6 +238,7 @@ class StatisticsService {
       }
 
       final result = await query.getSingle();
+      if (!identical(lease, _auth.libraryLease)) return 0.0;
       final val = result.read(avg) ?? 0.0;
       _logger.fine('Calculated mean score');
       return val;
@@ -215,20 +253,23 @@ class StatisticsService {
   }
 
   Future<double> getFinishRate({List<String>? contentPreferences}) async {
+    final lease = _auth.libraryLease;
+    if (lease == null) return 0.0;
     try {
-      final completedExpr = _db.libraryEntriesTable.state.equals('completed');
-      final droppedExpr = _db.libraryEntriesTable.state.equals('dropped');
+      final completedExpr = _db.ownedLibraryEntries.state.equals('completed');
+      final droppedExpr = _db.ownedLibraryEntries.state.equals('dropped');
 
       final completedCount = drift.countAll(filter: completedExpr);
       final droppedCount = drift.countAll(filter: droppedExpr);
 
-      final query = _db.selectOnly(_db.libraryEntriesTable).join([
+      final query = _db.selectOnly(_db.ownedLibraryEntries).join([
         drift.innerJoin(
           _db.seriesTable,
-          _db.seriesTable.id.equalsExp(_db.libraryEntriesTable.seriesId),
+          _db.seriesTable.id.equalsExp(_db.ownedLibraryEntries.seriesId),
         ),
       ])..addColumns([completedCount, droppedCount]);
 
+      query.where(_scope(lease));
       if (contentPreferences != null && contentPreferences.isNotEmpty) {
         query.where(
           _db.seriesTable.contentRating.isIn(
@@ -238,6 +279,7 @@ class StatisticsService {
       }
 
       final result = await query.getSingle();
+      if (!identical(lease, _auth.libraryLease)) return 0.0;
       final completed = result.read(completedCount) ?? 0;
       final dropped = result.read(droppedCount) ?? 0;
 
@@ -257,17 +299,20 @@ class StatisticsService {
     }
   }
 
-  Future<LibraryEntryWithSeries?> getHighestRatedSeries({
+  Future<OwnedEntryWithSeries?> getHighestRatedSeries({
     List<String>? contentPreferences,
   }) async {
+    final lease = _auth.libraryLease;
+    if (lease == null) return null;
     try {
-      final query = _db.select(_db.libraryEntriesTable).join([
+      final query = _db.select(_db.ownedLibraryEntries).join([
         drift.innerJoin(
           _db.seriesTable,
-          _db.seriesTable.id.equalsExp(_db.libraryEntriesTable.seriesId),
+          _db.seriesTable.id.equalsExp(_db.ownedLibraryEntries.seriesId),
         ),
-      ])..where(_db.libraryEntriesTable.rating.isNotNull());
+      ])..where(_db.ownedLibraryEntries.rating.isNotNull());
 
+      query.where(_scope(lease));
       if (contentPreferences != null && contentPreferences.isNotEmpty) {
         query.where(
           _db.seriesTable.contentRating.isIn(
@@ -279,7 +324,7 @@ class StatisticsService {
       query
         ..orderBy([
           drift.OrderingTerm(
-            expression: _db.libraryEntriesTable.rating,
+            expression: _db.ownedLibraryEntries.rating,
             mode: drift.OrderingMode.desc,
           ),
           drift.OrderingTerm(
@@ -290,13 +335,13 @@ class StatisticsService {
         ..limit(1);
 
       final row = await query.getSingleOrNull();
-      if (row == null) {
+      if (row == null || !identical(lease, _auth.libraryLease)) {
         _logger.fine('No rated series found for highest rated check');
         return null;
       }
 
-      final entry = LibraryEntryWithSeries(
-        libraryEntry: row.readTable(_db.libraryEntriesTable),
+      final entry = (
+        entry: row.readTable(_db.ownedLibraryEntries),
         series: row.readTable(_db.seriesTable),
       );
       _logger.fine('Highest rated series found');
@@ -313,24 +358,27 @@ class StatisticsService {
     }
   }
 
-  Future<LibraryEntryWithSeries?> getMostRereadSeries({
+  Future<OwnedEntryWithSeries?> getMostRereadSeries({
     List<String>? contentPreferences,
   }) async {
+    final lease = _auth.libraryLease;
+    if (lease == null) return null;
     try {
       final query =
-          _db.select(_db.libraryEntriesTable).join([
+          _db.select(_db.ownedLibraryEntries).join([
               drift.innerJoin(
                 _db.seriesTable,
-                _db.seriesTable.id.equalsExp(_db.libraryEntriesTable.seriesId),
+                _db.seriesTable.id.equalsExp(_db.ownedLibraryEntries.seriesId),
               ),
             ])
-            ..where(_db.libraryEntriesTable.numberOfRereads.isNotNull())
+            ..where(_db.ownedLibraryEntries.numberOfRereads.isNotNull())
             ..where(
-              _db.libraryEntriesTable.numberOfRereads.isBiggerThan(
+              _db.ownedLibraryEntries.numberOfRereads.isBiggerThan(
                 const drift.Constant(0),
               ),
             );
 
+      query.where(_scope(lease));
       if (contentPreferences != null && contentPreferences.isNotEmpty) {
         query.where(
           _db.seriesTable.contentRating.isIn(
@@ -342,7 +390,7 @@ class StatisticsService {
       query
         ..orderBy([
           drift.OrderingTerm(
-            expression: _db.libraryEntriesTable.numberOfRereads,
+            expression: _db.ownedLibraryEntries.numberOfRereads,
             mode: drift.OrderingMode.desc,
           ),
           drift.OrderingTerm(
@@ -353,13 +401,13 @@ class StatisticsService {
         ..limit(1);
 
       final row = await query.getSingleOrNull();
-      if (row == null) {
+      if (row == null || !identical(lease, _auth.libraryLease)) {
         _logger.fine('No reread series found for most reread check');
         return null;
       }
 
-      final entry = LibraryEntryWithSeries(
-        libraryEntry: row.readTable(_db.libraryEntriesTable),
+      final entry = (
+        entry: row.readTable(_db.ownedLibraryEntries),
         series: row.readTable(_db.seriesTable),
       );
       _logger.fine('Most reread series found');

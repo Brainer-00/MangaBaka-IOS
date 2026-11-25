@@ -18,7 +18,10 @@ class SeriesDao extends DatabaseAccessor<AppDatabase> with _$SeriesDaoMixin {
           .getSingleOrNull();
     } catch (e) {
       _logger.severe('Failed to get latest updated series (${e.runtimeType})');
-      throw exc.DatabaseException(message: 'Failed to get latest updated series', originalError: e);
+      throw exc.DatabaseException(
+        message: 'Failed to get latest updated series',
+        originalError: e,
+      );
     }
   }
 
@@ -123,64 +126,37 @@ class SeriesDao extends DatabaseAccessor<AppDatabase> with _$SeriesDaoMixin {
       });
     } catch (e) {
       _logger.severe('Failed to upsert series (${e.runtimeType})');
-      throw exc.DatabaseException(message: 'Failed to upsert series', originalError: e);
-    }
-  }
-
-  Future<void> insertLibraryEntry(
-    String id,
-    String state,
-    String seriesId,
-  ) async {
-    try {
-      await into(db.libraryEntriesTable).insert(
-        LibraryEntriesTableCompanion.insert(
-          id: id,
-          state: state,
-          seriesId: seriesId,
-        ),
+      throw exc.DatabaseException(
+        message: 'Failed to upsert series',
+        originalError: e,
       );
-    } catch (e) {
-      _logger.severe('Failed to insert library entry (${e.runtimeType})');
-      throw exc.DatabaseException(message: 'Failed to insert library entry', originalError: e);
-    }
-  }
-
-  Future<LibraryEntryWithSeries?> getEntryWithSeries(String entryId) async {
-    try {
-      final query = select(db.libraryEntriesTable).join([
-        innerJoin(
-          db.seriesTable,
-          db.seriesTable.id.equalsExp(db.libraryEntriesTable.seriesId),
-        ),
-      ])..where(db.libraryEntriesTable.id.equals(entryId));
-
-      final result = await query.getSingleOrNull();
-      if (result == null) return null;
-
-      return LibraryEntryWithSeries(
-        libraryEntry: result.readTable(db.libraryEntriesTable),
-        series: result.readTable(db.seriesTable),
-      );
-    } catch (e) {
-      _logger.severe('Failed to get entry with series (${e.runtimeType})');
-      throw exc.DatabaseException(message: 'Failed to get entry with series', originalError: e);
     }
   }
 
   Future<void> deleteStaleSeries() async {
     try {
-      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7)).toIso8601String();
-      
+      final sevenDaysAgo = DateTime.now()
+          .subtract(const Duration(days: 7))
+          .toIso8601String();
+
       // Select series that are NOT in the library and were last updated > 7 days ago
-      final librarySeriesIds = selectOnly(db.libraryEntriesTable)..addColumns([db.libraryEntriesTable.seriesId]);
-      
-      final query = delete(seriesTable)..where((t) {
-        return t.id.isInQuery(librarySeriesIds).not() & t.lastUpdated.isSmallerThanValue(sevenDaysAgo);
-      });
+      // Keep public Series parents of both quarantined and owned rows.
+      final ownedSeriesIds = selectOnly(db.ownedLibraryEntries)
+        ..addColumns([db.ownedLibraryEntries.seriesId]);
+      final librarySeriesIds = selectOnly(db.libraryEntriesTable)
+        ..addColumns([db.libraryEntriesTable.seriesId]);
+
+      final query = delete(seriesTable)
+        ..where((t) {
+          return t.id.isInQuery(librarySeriesIds).not() &
+              t.id.isInQuery(ownedSeriesIds).not() &
+              t.lastUpdated.isSmallerThanValue(sevenDaysAgo);
+        });
 
       final deletedCount = await query.go();
-      _logger.info('Database Maintenance: Cleaned up $deletedCount stale series entries.');
+      _logger.info(
+        'Database Maintenance: Cleaned up $deletedCount stale series entries.',
+      );
     } catch (e) {
       _logger.warning('Failed to clean up stale series (${e.runtimeType})');
     }

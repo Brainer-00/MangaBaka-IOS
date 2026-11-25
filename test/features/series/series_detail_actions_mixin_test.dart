@@ -1,3 +1,6 @@
+import '../../support/library_identity.dart';
+import 'package:mangabaka_app/core/di/service_locator.dart';
+import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -73,12 +76,18 @@ class _TestWidgetState extends State<_TestWidget>
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 void main() {
+  setUpAll(prepareWidgetLibraryIdentity);
   setUpAll(() async {
     await LoggingService.setup();
   });
 
   setUp(() {
+    getIt.registerSingleton<ProfileAuthService>(SignedInWidgetAuth());
     SharedPreferences.setMockInitialValues({});
+  });
+
+  tearDown(() async {
+    await getIt.unregister<ProfileAuthService>();
   });
 
   Widget buildWidget(

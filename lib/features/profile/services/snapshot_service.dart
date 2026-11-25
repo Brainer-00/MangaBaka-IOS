@@ -16,21 +16,8 @@ class SnapshotService {
   final _logger = LoggingService.logger;
   final ProfileAuthService _auth;
 
-  // Simple in-memory cache for the "Activity" list.
-  List<LibraryEntry>? _cachedActivities;
-
-  List<LibraryEntry>? get cachedActivities => _cachedActivities;
-
   SnapshotService({ProfileAuthService? auth})
     : _auth = auth ?? getIt<ProfileAuthService>();
-
-  void setCachedActivities(List<LibraryEntry> activities) {
-    _cachedActivities = activities;
-  }
-
-  void clearCache() {
-    _cachedActivities = null;
-  }
 
   // Lock to prevent concurrent requests to the same endpoint.
   static Future<void>? _requestLock;
@@ -40,6 +27,17 @@ class SnapshotService {
     int page = 1,
     int limit = 10,
   }) async {
+    final lease = _auth.libraryLease;
+    if (lease == null) return [];
+    void checkSession() {
+      if (!identical(lease, _auth.libraryLease)) {
+        throw AuthException(
+          message: 'Library session changed',
+          code: 'SESSION_CHANGED',
+        );
+      }
+    }
+
     final previousLock = _requestLock;
     final completer = Completer<void>();
 
@@ -53,7 +51,9 @@ class SnapshotService {
     }
 
     try {
+      checkSession();
       var token = await _auth.getValidAccessToken();
+      checkSession();
       final contentPrefs = SettingsManager().contentPreferences;
 
       var urlStr =
@@ -72,8 +72,10 @@ class SnapshotService {
         page: page,
       );
 
+      checkSession();
       if (response.statusCode == 401) {
         token = await _auth.recoverAfterUnauthorized(token);
+        checkSession();
         response = await _sendSnapshotRequest(
           uri,
           token,
@@ -86,6 +88,7 @@ class SnapshotService {
         }
       }
 
+      checkSession();
       if (response.statusCode != 200) {
         _logger.severe(
           'Failed to fetch library snapshot with HTTP '

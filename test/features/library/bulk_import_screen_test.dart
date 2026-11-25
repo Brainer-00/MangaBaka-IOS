@@ -1,3 +1,4 @@
+import '../../support/library_identity.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,7 +18,12 @@ import 'package:mangabaka_app/features/library/services/library_service.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class _LoggedInAuth extends Fake implements ProfileAuthService {
+class _LoggedInAuth extends Fake with WidgetLibraryIdentity {
+  @override
+  void addListener(void Function() listener) {}
+  @override
+  void removeListener(void Function() listener) {}
+
   bool loggedIn = true;
 
   @override
@@ -28,6 +34,7 @@ class _LoggedInAuth extends Fake implements ProfileAuthService {
 }
 
 void main() {
+  setUpAll(prepareWidgetLibraryIdentity);
   TestWidgetsFlutterBinding.ensureInitialized();
 
   AppDatabase? database;

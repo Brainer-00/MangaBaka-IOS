@@ -3,6 +3,20 @@ import 'package:mangabaka_app/features/profile/models/mb_profile.dart';
 
 void main() {
   group('MbProfile', () {
+    test('authenticated responses require a string account ID', () {
+      expect(MbProfile.fromMeResponse({'id': 123}).id, isEmpty);
+      expect(
+        MbProfile.fromUserInfo({
+          'sub': {'id': '123'},
+        }).id,
+        isEmpty,
+      );
+      expect(
+        MbProfile.fromUserInfo({'preferred_username': 'reader'}).id,
+        isEmpty,
+      );
+    });
+
     test('fromMeResponse should parse correctly', () {
       final json = {
         'data': {

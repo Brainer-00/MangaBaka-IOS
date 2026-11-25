@@ -1,3 +1,4 @@
+import '../../support/library_identity.dart';
 import 'dart:async';
 
 import 'package:drift/native.dart';
@@ -25,7 +26,12 @@ MbProfile _profile() => MbProfile(
   preferredUsername: 'testuser',
 );
 
-class _FakeAuth extends Fake implements ProfileAuthService {
+class _FakeAuth extends Fake with WidgetLibraryIdentity {
+  @override
+  void addListener(void Function() listener) {}
+  @override
+  void removeListener(void Function() listener) {}
+
   @override
   bool get isLoggedIn => false;
 
@@ -64,6 +70,19 @@ class _FakeStats extends Fake implements StatisticsService {
 
   @override
   Future<double> getMeanScore({List<String>? contentPreferences}) async => 78.5;
+}
+
+class _DelayedStats extends _FakeStats {
+  final result = Completer<int>();
+
+  @override
+  Future<int> getTotalSeries({List<String>? contentPreferences}) =>
+      result.future;
+}
+
+class _SwitchableAuth extends _FakeAuth {
+  @override
+  int sessionGeneration = 1;
 }
 
 class _FakeSnapshotService extends Fake implements SnapshotService {
@@ -168,6 +187,7 @@ class _TestWidgetState extends State<_TestWidget>
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 void main() {
+  setUpAll(prepareWidgetLibraryIdentity);
   late AppDatabase db;
   late LibraryService libraryService;
 
@@ -203,6 +223,32 @@ void main() {
   }
 
   group('ProfileDataMixin.fetchStatistics', () {
+    testWidgets(
+      'late statistics and snapshot results from an earlier session are discarded',
+      (tester) async {
+        final auth = _SwitchableAuth();
+        final stats = _DelayedStats();
+        final snapshot = Completer<List<LibraryEntry>>();
+        await tester.pumpWidget(
+          buildTestWidget(
+            auth: auth,
+            stats: stats,
+            snapshot: _ScriptedSnapshotService((_, _) => snapshot.future),
+          ),
+        );
+        final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
+        final pendingStats = state.fetchStatistics();
+        final pendingSnapshot = state.fetchRecentlyChanged(initial: true);
+        auth.sessionGeneration++;
+        state.clearPrivateProfileData();
+        stats.result.complete(75);
+        snapshot.complete([_entry('old-account')]);
+        await Future.wait([pendingStats, pendingSnapshot]);
+        await tester.pump();
+        expect(state.totalSeries, 0);
+        expect(state.recentlyChanged, isEmpty);
+      },
+    );
     testWidgets('populates totalSeries, chaptersRead, volumesRead, meanScore', (
       tester,
     ) async {

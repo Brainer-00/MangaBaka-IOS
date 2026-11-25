@@ -1,3 +1,4 @@
+import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
@@ -180,10 +181,20 @@ class EntryProgressOverlay extends StatelessWidget {
   }
 
   Widget _tappable(BuildContext context, {required Widget child}) {
+    final auth = getIt.isRegistered<ProfileAuthService>()
+        ? getIt<ProfileAuthService>()
+        : null;
+    final lease = auth?.libraryLease;
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _openUpdateDialog(context),
+        onTap: lease == null
+            ? null
+            : () => _openUpdateDialog(
+                context,
+                auth!,
+                () => identical(lease, auth.libraryLease),
+              ),
         borderRadius: _badgeRadius,
         child: child,
       ),
@@ -213,37 +224,50 @@ class EntryProgressOverlay extends StatelessWidget {
     );
   }
 
-  void _openUpdateDialog(BuildContext context) {
+  void _openUpdateDialog(
+    BuildContext context,
+    ProfileAuthService auth,
+    bool Function() current,
+  ) {
+    if (!current()) return;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (sheetContext) => Padding(
-        // Lifts the sheet above the keyboard when the field is focused.
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-        ),
-        child: ProgressUpdateDialog(
-          initialValue: _progress,
-          title: l10n.translate(
-            _isChapter ? 'update_chapters' : 'update_volumes',
-          ),
-          maxValue: _isChapter ? series.totalChapters : series.finalVolume,
-          onUpdate: (value) async {
-            final library = getIt<LibraryService>();
-            if (_isChapter) {
-              await library.updateLibraryEntryProgress(
-                series.id,
-                progressChapter: value,
-              );
-            } else {
-              await library.updateLibraryEntryProgress(
-                series.id,
-                progressVolume: value,
-              );
-            }
-          },
-        ),
+      builder: (sheetContext) => ListenableBuilder(
+        listenable: auth,
+        builder: (sheetContext, _) => !current()
+            ? const SizedBox.shrink()
+            : Padding(
+                // Lifts the sheet above the keyboard when the field is focused.
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+                ),
+                child: ProgressUpdateDialog(
+                  initialValue: _progress,
+                  title: l10n.translate(
+                    _isChapter ? 'update_chapters' : 'update_volumes',
+                  ),
+                  maxValue: _isChapter
+                      ? series.totalChapters
+                      : series.finalVolume,
+                  onUpdate: (value) async {
+                    if (!current()) return;
+                    final library = getIt<LibraryService>();
+                    if (_isChapter) {
+                      await library.updateLibraryEntryProgress(
+                        series.id,
+                        progressChapter: value,
+                      );
+                    } else {
+                      await library.updateLibraryEntryProgress(
+                        series.id,
+                        progressVolume: value,
+                      );
+                    }
+                  },
+                ),
+              ),
       ),
     );
   }

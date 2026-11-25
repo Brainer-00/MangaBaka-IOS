@@ -78,6 +78,7 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
     super.initState();
     _libraryService = getIt<LibraryService>();
     _session = LibrarySession(onEntries: _onEntries);
+    _observedEntries = _session.entriesStream;
     _session.addListener(_onSession);
   }
 
@@ -92,10 +93,15 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
     super.dispose();
   }
 
+  Stream<List<LibraryEntry>>? _observedEntries;
+
   void _onSession() {
     if (!mounted) return;
     setState(() {
-      if (!_session.isLoggedIn) _entries = null;
+      if (!identical(_observedEntries, _session.entriesStream)) {
+        _observedEntries = _session.entriesStream;
+        _entries = null;
+      }
     });
   }
 

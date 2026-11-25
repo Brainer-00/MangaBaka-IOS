@@ -51,13 +51,15 @@ class DesktopProfileScreenState extends State<DesktopProfileScreen>
   late final SnapshotService _snapshots;
 
   bool _wasSyncing = false;
+  late int _profileGeneration;
+  Object? _profileLease;
 
   // The statistics the phone keeps on its separate statistics screen.
   double _completionRate = 0;
   int _totalRereads = 0;
   double _finishRate = 0;
-  LibraryEntryWithSeries? _highestRated;
-  LibraryEntryWithSeries? _mostReread;
+  OwnedEntryWithSeries? _highestRated;
+  OwnedEntryWithSeries? _mostReread;
 
   @override
   ProfileAuthService get auth => _auth;
@@ -73,19 +75,24 @@ class DesktopProfileScreenState extends State<DesktopProfileScreen>
     super.initState();
     _auth = getIt<ProfileAuthService>();
     _library = getIt<LibraryService>();
-    _stats = StatisticsService(getIt<AppDatabase>());
+    _stats = StatisticsService(getIt<AppDatabase>(), _auth);
     _snapshots = getIt<SnapshotService>();
     _auth.addListener(_onAuthChanged);
     _library.syncStatus.addListener(_onSyncChanged);
 
+    _profileGeneration = _auth.sessionGeneration;
+    _profileLease = _auth.libraryLease;
     profile = _auth.cachedProfile;
     if (profile != null) {
       loading = false;
       _loadAll();
+      final generation = _profileGeneration;
       _auth
           .fetchProfile(forceRefresh: true)
           .then((p) {
-            if (mounted) setState(() => profile = p);
+            if (mounted && generation == _auth.sessionGeneration) {
+              setState(() => profile = p);
+            }
           })
           .catchError((Object e) {
             _logger.warning(
@@ -129,6 +136,8 @@ class DesktopProfileScreenState extends State<DesktopProfileScreen>
   }
 
   Future<void> _fetchExtendedStats() async {
+    final lease = _auth.libraryLease;
+    if (lease == null) return;
     final prefs = SettingsManager().contentPreferences;
     final results = await Future.wait<Object?>([
       _stats.getCompletionRate(contentPreferences: prefs),
@@ -137,13 +146,13 @@ class DesktopProfileScreenState extends State<DesktopProfileScreen>
       _stats.getHighestRatedSeries(contentPreferences: prefs),
       _stats.getMostRereadSeries(contentPreferences: prefs),
     ]);
-    if (!mounted) return;
+    if (!mounted || !identical(lease, _auth.libraryLease)) return;
     setState(() {
       _completionRate = results[0] as double;
       _totalRereads = results[1] as int;
       _finishRate = results[2] as double;
-      _highestRated = results[3] as LibraryEntryWithSeries?;
-      _mostReread = results[4] as LibraryEntryWithSeries?;
+      _highestRated = results[3] as OwnedEntryWithSeries?;
+      _mostReread = results[4] as OwnedEntryWithSeries?;
     });
   }
 
@@ -156,24 +165,29 @@ class DesktopProfileScreenState extends State<DesktopProfileScreen>
 
   void _onAuthChanged() {
     if (!mounted) return;
+    final lease = _auth.libraryLease;
+    final generation = _auth.sessionGeneration;
+    final changed =
+        generation != _profileGeneration || !identical(lease, _profileLease);
+    _profileGeneration = generation;
+    _profileLease = lease;
     setState(() {
-      profile = _auth.cachedProfile;
-      if (!_auth.isLoggedIn) {
-        profile = null;
-        totalSeries = 0;
-        chaptersRead = 0;
-        volumesRead = 0;
-        meanScore = 0;
-        recentlyChanged.clear();
-        recentlyAdded.clear();
+      if (changed || !_auth.isLoggedIn) {
+        clearPrivateProfileData();
+        _wasSyncing = false;
+        error = null;
+        _completionRate = 0;
+        _totalRereads = 0;
+        _finishRate = 0;
         _highestRated = null;
         _mostReread = null;
-        loading = false;
-        error = null;
-      } else if (profile == null) {
-        bootstrap().then((_) => _fetchExtendedStats());
       }
+      profile = _auth.cachedProfile;
+      loading = _auth.isLoggedIn && profile == null && error == null;
     });
+    if (changed && lease != null) {
+      _loadAll();
+    }
   }
 
   Future<void> _logout() async {
@@ -418,7 +432,7 @@ class DesktopProfileScreenState extends State<DesktopProfileScreen>
           label: l10n.translate('highest_rated'),
           icon: Icons.star_rounded,
           value:
-              '${l10n.translate('score')}: ${_highestRated!.libraryEntry.rating ?? 0}',
+              '${l10n.translate('score')}: ${_highestRated!.entry.rating ?? 0}',
         ),
       if (_mostReread != null)
         _StandoutCard(
@@ -426,7 +440,7 @@ class DesktopProfileScreenState extends State<DesktopProfileScreen>
           label: l10n.translate('most_reread'),
           icon: Icons.replay_rounded,
           value:
-              '${_mostReread!.libraryEntry.numberOfRereads} ${l10n.translate('rereads')}',
+              '${_mostReread!.entry.numberOfRereads} ${l10n.translate('rereads')}',
         ),
     ];
     return Row(
@@ -645,7 +659,7 @@ class _OverviewRow extends StatelessWidget {
 }
 
 class _StandoutCard extends StatelessWidget {
-  final LibraryEntryWithSeries entry;
+  final OwnedEntryWithSeries entry;
   final String label;
   final IconData icon;
   final String value;

@@ -1,3 +1,5 @@
+import '../../support/library_identity.dart';
+import 'package:mangabaka_app/core/database/database.dart';
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
@@ -13,6 +15,9 @@ import 'package:mangabaka_app/features/profile/services/snapshot_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeAuth extends Fake implements ProfileAuthService {
+  @override
+  LibraryCacheLease? libraryLease = testLibraryLease;
+
   String token = 'tok-abc';
   String recoveredToken = 'access-new';
   Object? recoveryError;
@@ -63,6 +68,7 @@ Map<String, dynamic> _entryJson(String id, {String contentRating = 'safe'}) {
 }
 
 void main() {
+  setUpAll(prepareWidgetLibraryIdentity);
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() async {
@@ -256,14 +262,11 @@ void main() {
     });
   });
 
-  group('SnapshotService cache', () {
-    test('setCachedActivities + cachedActivities + clearCache', () {
-      final svc = SnapshotService(auth: _FakeAuth());
-      expect(svc.cachedActivities, isNull);
-      svc.setCachedActivities([]);
-      expect(svc.cachedActivities, isNotNull);
-      svc.clearCache();
-      expect(svc.cachedActivities, isNull);
-    });
+  test('unknown owner yields no authenticated snapshot', () async {
+    final auth = _FakeAuth()..libraryLease = null;
+    final results = await SnapshotService(
+      auth: auth,
+    ).fetchSnapshot(sortBy: 'created_at_desc');
+    expect(results, isEmpty);
   });
 }

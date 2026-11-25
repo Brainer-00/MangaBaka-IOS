@@ -28,7 +28,9 @@ void setupServiceLocator() {
 
   getIt.registerSingleton<AppDatabase>(AppDatabase());
 
-  getIt.registerSingleton<ProfileAuthService>(ProfileAuthService());
+  getIt.registerSingleton<ProfileAuthService>(
+    ProfileAuthService(library: getIt<AppDatabase>().ownedLibraryDao),
+  );
 
   getIt.registerSingleton<MetadataService>(MetadataService());
 
@@ -41,16 +43,18 @@ void setupServiceLocator() {
 
   getIt.registerSingleton<LibraryService>(
     LibraryService(auth: getIt<ProfileAuthService>()),
+    dispose: (service) => service.dispose(),
   );
 
   getIt.registerLazySingleton<NewsService>(() => NewsService());
-  getIt.registerLazySingleton<PublisherSearchService>(() => PublisherSearchService());
+  getIt.registerLazySingleton<PublisherSearchService>(
+    () => PublisherSearchService(),
+  );
   getIt.registerLazySingleton<CollectionService>(() => CollectionService());
   getIt.registerLazySingleton<MixService>(() => MixService());
   getIt.registerLazySingleton<BookLookupService>(() => BookLookupService());
 
   getIt.registerLazySingleton<UpdateService>(() => UpdateService());
-
 }
 
 Future<void> resetServiceLocator() async {

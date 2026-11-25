@@ -1,3 +1,4 @@
+import '../../support/library_identity.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,7 +16,7 @@ import 'package:mangabaka_app/features/profile/services/profile_auth_service.dar
 import 'package:mangabaka_app/features/profile/widgets/settings/list_customization_settings.dart';
 import 'package:mangabaka_app/features/profile/widgets/settings/list_style_preview_item.dart';
 
-class _FakeAuth extends Fake implements ProfileAuthService {
+class _FakeAuth extends Fake with WidgetLibraryIdentity {
   @override
   bool get isLoggedIn => false;
   @override
@@ -68,6 +69,7 @@ Future<void> _tapStyle(WidgetTester tester, AppListStyle style) async {
 }
 
 void main() {
+  setUpAll(prepareWidgetLibraryIdentity);
   setUp(() async {
     await resetServiceLocator();
     getIt.registerSingleton<LoggingService>(LoggingService());
@@ -76,9 +78,9 @@ void main() {
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/path_provider'),
-      (MethodCall methodCall) async => '.',
-    );
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          (MethodCall methodCall) async => '.',
+        );
 
     SharedPreferences.setMockInitialValues({});
     SettingsManager.resetForTesting();
@@ -98,19 +100,18 @@ void main() {
     },
   );
 
-  testWidgets(
-    'with separation on, the Library tab writes the library style',
-    (tester) async {
-      final settings = SettingsManager();
-      await settings.setSeparateListStyles(true);
+  testWidgets('with separation on, the Library tab writes the library style', (
+    tester,
+  ) async {
+    final settings = SettingsManager();
+    await settings.setSeparateListStyles(true);
 
-      await _pumpPanel(tester);
-      await _tapStyle(tester, AppListStyle.minimalList);
+    await _pumpPanel(tester);
+    await _tapStyle(tester, AppListStyle.minimalList);
 
-      expect(settings.libraryListStyle, AppListStyle.minimalList);
-      expect(settings.browseListStyle, isNot(AppListStyle.minimalList));
-    },
-  );
+    expect(settings.libraryListStyle, AppListStyle.minimalList);
+    expect(settings.browseListStyle, isNot(AppListStyle.minimalList));
+  });
 
   testWidgets(
     'the tab selector only appears once a list is configured separately',

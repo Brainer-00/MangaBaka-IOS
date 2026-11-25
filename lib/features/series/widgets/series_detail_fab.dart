@@ -68,14 +68,16 @@ class SeriesDetailFAB extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLoggedIn = getIt<ProfileAuthService>().isLoggedIn;
+    final isLoggedIn = getIt<ProfileAuthService>().libraryLease != null;
     if (!isLoggedIn) return const SizedBox.shrink();
     final colors = context.colors;
 
     return StreamBuilder<LibraryEntry?>(
       stream: entryStream,
       builder: (context, snapshot) {
-        if (snapshot.data == null) {
+        if (snapshot.data == null &&
+            !snapshot.hasError &&
+            snapshot.connectionState != ConnectionState.waiting) {
           return WidgetUtils.tooltip(
             message: LocalizationService().translate('add_to_library'),
             child: FloatingActionButton.extended(

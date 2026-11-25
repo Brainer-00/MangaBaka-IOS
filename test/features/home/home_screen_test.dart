@@ -29,6 +29,9 @@ class _MutableAuthService extends Fake implements ProfileAuthService {
   final List<VoidCallback> _listeners = [];
   bool loggedIn = true;
   String? userId = 'user-a';
+  (bool, String?) _lastIdentity = (true, 'user-a');
+  @override
+  int sessionGeneration = 0;
 
   @override
   bool get isLoggedIn => loggedIn;
@@ -52,6 +55,11 @@ class _MutableAuthService extends Fake implements ProfileAuthService {
       'recovered-token';
 
   void notifyAuthChanged() {
+    final identity = (loggedIn, userId);
+    if (identity != _lastIdentity) {
+      _lastIdentity = identity;
+      sessionGeneration++;
+    }
     for (final listener in List<VoidCallback>.of(_listeners)) {
       listener();
     }

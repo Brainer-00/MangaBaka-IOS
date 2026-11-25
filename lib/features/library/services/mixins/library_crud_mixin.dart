@@ -1,498 +1,256 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:async';
-import 'dart:math';
-import 'package:http/http.dart' as http;
-import 'package:mangabaka_app/features/library/constants/library_constants.dart';
-import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
-import 'package:mangabaka_app/core/constants/app_constants.dart';
-import 'package:mangabaka_app/core/database/database.dart' as db;
-import 'package:mangabaka_app/features/library/services/library_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-const String _isIncompleteKey =
-    '${AppConstants.prefixStorageKey}library_is_incomplete';
+import 'package:drift/drift.dart' show Value;
+import 'package:http/http.dart' as http;
+import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/database/database.dart';
+import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
+import 'package:mangabaka_app/features/library/constants/library_constants.dart';
+import 'package:mangabaka_app/features/library/services/library_service.dart';
 
 mixin LibraryCrudMixin on LibraryServiceBase {
-  final Map<String, Future<void>> _entryMutationTails = {};
+  static const int batchLimit = 100;
+  final _tails = <(LibraryCacheLease, String), Future<void>>{};
 
-  Future<T> _serializeEntryMutation<T>(
-    String seriesId,
-    Future<T> Function() mutation,
-  ) {
-    final previous = _entryMutationTails[seriesId] ?? Future<void>.value();
-    final operation = previous.then<T>((_) => mutation());
+  // Reserve all participating series before waiting. New sessions have their
+  // own queue and an old callback always retains its original lease.
+  Future<T> _enqueue<T>(
+    Iterable<String> seriesIds,
+    Future<T> Function(LibraryCacheLease) action,
+  ) async {
+    final lease = requireLease();
+    final keys = seriesIds.toSet().map((id) => (lease, id)).toList();
+    final pending = keys.map((key) => _tails[key]).whereType<Future<void>>();
+    final ready = Future.wait(pending);
+    final operation = ready.then((_) {
+      checkLease(lease);
+      return action(lease);
+    });
     final tail = operation.then<void>(
       (_) {},
-      onError: (Object error, StackTrace stackTrace) {},
+      onError: (Object _, StackTrace _) {},
     );
-    _entryMutationTails[seriesId] = tail;
-
-    return operation.whenComplete(() {
-      if (identical(_entryMutationTails[seriesId], tail)) {
-        _entryMutationTails.remove(seriesId);
+    for (final key in keys) {
+      _tails[key] = tail;
+    }
+    try {
+      return await operation;
+    } finally {
+      for (final key in keys) {
+        if (identical(_tails[key], tail)) _tails.remove(key);
       }
-    });
-  }
-
-  // ── Shared HTTP helpers ───────────────────────────────────────────────────
-
-  /// Standard headers for every library API request.
-  Map<String, String> _buildAuthHeaders(String token, {bool json = true}) => {
-    'Authorization': 'Bearer $token',
-    'User-Agent': LibraryConstants.userAgent,
-    if (json) 'Content-Type': 'application/json',
-  };
-
-  /// Refreshes authentication for future requests after a mutation receives
-  /// 401, but deliberately never replays the original mutation.
-  Future<void> _recoverUnauthorizedMutation(
-    http.Response response,
-    String rejectedAccessToken,
-  ) async {
-    if (response.statusCode == 401) {
-      logger.warning(
-        'Unauthorized library mutation; refreshing session for future requests',
-      );
-      await auth.recoverAfterUnauthorized(rejectedAccessToken);
-      throw AuthException(
-        message: 'Authentication was refreshed. Please retry the action.',
-        code: 'AUTH_RETRY_REQUIRED',
-      );
     }
   }
 
-  /// Re-throws [e] as an appropriate [AppException] subtype.
-  /// Call this from the catch block of every CRUD operation.
-  Never _rethrowAsAppException(
-    Object e,
-    StackTrace st,
-    String seriesId,
-    String operation,
-  ) {
-    logger.severe('$operation failed (${e.runtimeType})');
-    if (e is AppException) throw e;
-    if (e is http.ClientException || e is SocketException) {
-      throw NetworkException(
-        message: 'Network error.',
-        code: 'NETWORK_ERROR',
-        originalError: e,
-        stackTrace: st,
-      );
-    }
-    if (e is TimeoutException) {
-      throw NetworkException(
-        message: 'Request timed out.',
-        code: 'TIMEOUT',
-        originalError: e,
-        stackTrace: st,
-      );
-    }
-    throw AppError(
-      message: 'Failed to $operation',
-      originalError: e,
-      stackTrace: st,
-    );
-  }
+  Future<http.Response> _send(
+    LibraryCacheLease lease,
+    String seriesId, {
+    required String method,
+    required Set<int> success,
+    required String failureCode,
+    Object? body,
+  }) async {
+    try {
+      final token = await tokenFor(lease);
+      final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
+      final headers = {
+        'Authorization': 'Bearer $token',
+        'User-Agent': LibraryConstants.userAgent,
+        if (body != null) 'Content-Type': 'application/json',
+      };
+      checkLease(lease);
+      final encoded = body == null ? null : jsonEncode(body);
+      final response = await (switch (method) {
+        'PUT' => httpClient.put(url, headers: headers, body: encoded),
+        'POST' => httpClient.post(url, headers: headers, body: encoded),
+        'DELETE' => httpClient.delete(url, headers: headers),
+        _ => throw ArgumentError('Unsupported Library method'),
+      }).timeout(const Duration(seconds: AppConstants.networkTimeoutSeconds));
 
-  // ── CRUD operations ───────────────────────────────────────────────────────
+      checkLease(lease);
+      if (response.statusCode == 401) {
+        await recoverFor(lease, token);
+        throw AuthException(
+          message: 'Authentication was refreshed. Please retry the action.',
+          code: 'AUTH_RETRY_REQUIRED',
+        );
+      }
+      rateLimitCoordinator.throwIfRateLimited(
+        statusCode: response.statusCode,
+        headers: response.headers,
+      );
+      if (!success.contains(response.statusCode)) {
+        throw ApiException(
+          message: 'Library operation failed',
+          statusCode: response.statusCode,
+          code: failureCode,
+        );
+      }
+      return response;
+    } on TimeoutException {
+      throw NetworkException(message: 'Request timed out.', code: 'TIMEOUT');
+    } on SocketException {
+      throw NetworkException(message: 'Network error.', code: 'NETWORK_ERROR');
+    } on http.ClientException {
+      throw NetworkException(message: 'Network error.', code: 'NETWORK_ERROR');
+    }
+  }
 
   Future<void> updateLibraryEntryState(String seriesId, String state) =>
-      _serializeEntryMutation(
-        seriesId,
-        () => _performStateUpdate(seriesId, state),
-      );
-
-  Future<void> _performStateUpdate(String seriesId, String state) async {
-    logger.info('Updating library entry state');
-    final token = await auth.getValidAccessToken();
-    final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
-    try {
-      final response = await httpClient
-          .put(
-            url,
-            headers: _buildAuthHeaders(token),
-            body: jsonEncode({'state': state}),
-          )
-          .timeout(
-            const Duration(seconds: AppConstants.networkTimeoutSeconds),
-            onTimeout: () =>
-                throw TimeoutException('Update state request timed out'),
-          );
-
-      await _recoverUnauthorizedMutation(response, token);
-      rateLimitCoordinator.throwIfRateLimited(
-        statusCode: response.statusCode,
-        headers: response.headers,
-      );
-      if (response.statusCode != 200) {
-        logger.severe(
-          'Failed to update entry state (HTTP ${response.statusCode})',
+      _enqueue([seriesId], (lease) async {
+        await _send(
+          lease,
+          seriesId,
+          method: 'PUT',
+          success: {200},
+          failureCode: 'UPDATE_STATE_FAILED',
+          body: {'state': state},
         );
-        throw ApiException(
-          message: 'Failed to update entry state',
-          statusCode: response.statusCode,
-          responseBody: response.body,
-          code: 'UPDATE_STATE_FAILED',
+        await owned.updateQuickFields(
+          lease,
+          seriesId,
+          state: Value(state),
+          beforeCommit: () => checkLease(lease),
         );
-      }
+        checkLease(lease);
+      });
 
-      await database.libraryEntriesDao.updateEntryState(seriesId, state);
-      logger.info('Successfully updated library entry state in DB');
-    } catch (e, st) {
-      _rethrowAsAppException(e, st, seriesId, 'update entry state');
-    }
-  }
-
-  Future<void> updateLibraryEntryRating(String seriesId, int rating) async {
-    logger.info('Updating library entry rating');
-    final token = await auth.getValidAccessToken();
-    final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
-    try {
-      final response = await httpClient
-          .put(
-            url,
-            headers: _buildAuthHeaders(token),
-            body: jsonEncode({'rating': rating}),
-          )
-          .timeout(
-            const Duration(seconds: AppConstants.networkTimeoutSeconds),
-            onTimeout: () =>
-                throw TimeoutException('Update rating request timed out'),
-          );
-
-      await _recoverUnauthorizedMutation(response, token);
-      rateLimitCoordinator.throwIfRateLimited(
-        statusCode: response.statusCode,
-        headers: response.headers,
-      );
-      if (response.statusCode != 200) {
-        logger.severe(
-          'Failed to update entry rating (HTTP ${response.statusCode})',
+  Future<void> updateLibraryEntryRating(String seriesId, int rating) =>
+      _enqueue([seriesId], (lease) async {
+        await _send(
+          lease,
+          seriesId,
+          method: 'PUT',
+          success: {200},
+          failureCode: 'UPDATE_RATING_FAILED',
+          body: {'rating': rating},
         );
-        throw ApiException(
-          message: 'Failed to update entry rating',
-          statusCode: response.statusCode,
-          responseBody: response.body,
-          code: 'UPDATE_RATING_FAILED',
+        await owned.updateQuickFields(
+          lease,
+          seriesId,
+          rating: Value(rating == 0 ? null : rating),
+          beforeCommit: () => checkLease(lease),
         );
-      }
-
-      await database.libraryEntriesDao.updateEntryRating(seriesId, rating);
-      logger.info('Successfully updated library entry rating in DB');
-    } catch (e, st) {
-      _rethrowAsAppException(e, st, seriesId, 'update entry rating');
-    }
-  }
-
-  /// Restores values captured before an optimistic update.
-  ///
-  /// Entry mutations that can affect lifecycle/state share one serialization
-  /// lane per series, so no newer overlapping write can interleave with this
-  /// rollback.
-  Future<void> _rollbackProgress(
-    String seriesId,
-    db.LibraryEntryWithSeries? snapshot, {
-    int? wroteChapter,
-    int? wroteVolume,
-    String? wroteState,
-  }) async {
-    if (snapshot == null) return;
-    await database.libraryEntriesDao.updateEntryProgress(
-      seriesId,
-      progressChapter: wroteChapter == null
-          ? null
-          : snapshot.libraryEntry.progressChapter,
-      progressVolume: wroteVolume == null
-          ? null
-          : snapshot.libraryEntry.progressVolume,
-      state: wroteState == null ? null : snapshot.libraryEntry.state,
-      writeProgressChapter: wroteChapter != null,
-      writeProgressVolume: wroteVolume != null,
-    );
-  }
+        checkLease(lease);
+      });
 
   Future<void> updateLibraryEntryProgress(
     String seriesId, {
     int? progressChapter,
     int? progressVolume,
-  }) {
-    return _serializeEntryMutation(
+  }) => _enqueue([seriesId], (lease) async {
+    final snapshot = (await owned.findEntry(lease.owner, seriesId))?.entry;
+    checkLease(lease);
+    final startsReading =
+        snapshot?.state == 'plan_to_read' &&
+        ((progressChapter ?? 0) > 0 || (progressVolume ?? 0) > 0);
+    final nextState = startsReading ? 'reading' : null;
+    if (progressChapter == null && progressVolume == null) return;
+    // The quick-action widget owns optimistic display and rollback. Keep the
+    // durable row confirmed so logout cannot strand speculative progress.
+    await _send(
+      lease,
       seriesId,
-      () => _performProgressUpdate(
-        seriesId,
-        progressChapter: progressChapter,
-        progressVolume: progressVolume,
-      ),
-    );
-  }
-
-  Future<void> _performProgressUpdate(
-    String seriesId, {
-    int? progressChapter,
-    int? progressVolume,
-  }) async {
-    logger.info('Updating library entry progress (optimistic)');
-
-    // Capture state for rollback, then apply optimistic local update.
-    final snapshot = await database.libraryEntriesDao.getEntryBySeriesId(
-      seriesId,
-    );
-    final shouldStartReading =
-        snapshot?.libraryEntry.state == 'plan_to_read' &&
-        ((progressChapter != null && progressChapter > 0) ||
-            (progressVolume != null && progressVolume > 0));
-    final nextState = shouldStartReading ? 'reading' : null;
-
-    await database.libraryEntriesDao.updateEntryProgress(
-      seriesId,
-      progressChapter: progressChapter,
-      progressVolume: progressVolume,
-      state: nextState,
-    );
-
-    try {
-      final token = await auth.getValidAccessToken();
-      final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
-
-      final body = <String, dynamic>{
+      method: 'PUT',
+      success: {200},
+      failureCode: 'UPDATE_PROGRESS_FAILED',
+      body: {
         'progress_chapter': ?progressChapter,
         'progress_volume': ?progressVolume,
         'state': ?nextState,
-      };
-
-      final response = await httpClient
-          .put(url, headers: _buildAuthHeaders(token), body: jsonEncode(body))
-          .timeout(
-            const Duration(seconds: AppConstants.networkTimeoutSeconds),
-            onTimeout: () =>
-                throw TimeoutException('Update progress request timed out'),
-          );
-
-      await _recoverUnauthorizedMutation(response, token);
-      rateLimitCoordinator.throwIfRateLimited(
-        statusCode: response.statusCode,
-        headers: response.headers,
-      );
-
-      if (response.statusCode != 200) {
-        logger.severe(
-          'Failed to update entry progress (HTTP ${response.statusCode})',
-        );
-        throw ApiException(
-          message: 'Failed to update entry progress',
-          statusCode: response.statusCode,
-          responseBody: response.body,
-          code: 'UPDATE_PROGRESS_FAILED',
-        );
-      }
-
-      logger.info('Successfully updated library entry progress on server');
-    } catch (e, st) {
-      logger.severe('Error updating entry progress (${e.runtimeType})');
-      try {
-        await _rollbackProgress(
-          seriesId,
-          snapshot,
-          wroteChapter: progressChapter,
-          wroteVolume: progressVolume,
-          wroteState: nextState,
-        );
-      } catch (rollbackError) {
-        logger.severe(
-          'Progress rollback failed (${rollbackError.runtimeType})',
-        );
-      }
-      _rethrowAsAppException(e, st, seriesId, 'update entry progress');
-    }
-  }
+      },
+    );
+    await owned.updateQuickFields(
+      lease,
+      seriesId,
+      progressChapter: progressChapter == null
+          ? const Value.absent()
+          : Value(progressChapter == 0 ? null : progressChapter),
+      progressVolume: progressVolume == null
+          ? const Value.absent()
+          : Value(progressVolume == 0 ? null : progressVolume),
+      state: nextState == null ? const Value.absent() : Value(nextState),
+      beforeCommit: () => checkLease(lease),
+    );
+    checkLease(lease);
+  });
 
   Future<void> createLibraryEntry(String seriesId, String state) =>
-      _serializeEntryMutation(
-        seriesId,
-        () => _performCreateLibraryEntry(seriesId, state),
-      );
-
-  Future<void> _performCreateLibraryEntry(String seriesId, String state) async {
-    logger.info('Creating library entry');
-    final token = await auth.getValidAccessToken();
-    final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
-    try {
-      final response = await httpClient
-          .post(
-            url,
-            headers: _buildAuthHeaders(token),
-            body: jsonEncode({'state': state}),
-          )
-          .timeout(
-            const Duration(seconds: AppConstants.networkTimeoutSeconds),
-            onTimeout: () =>
-                throw TimeoutException('Create entry request timed out'),
-          );
-
-      await _recoverUnauthorizedMutation(response, token);
-      rateLimitCoordinator.throwIfRateLimited(
-        statusCode: response.statusCode,
-        headers: response.headers,
-      );
-      if (response.statusCode == 201) {
-        logger.info('Successfully created library entry; syncing local DB');
-        await syncLibrary();
-      } else {
-        logger.severe(
-          'Failed to create library entry (HTTP ${response.statusCode})',
+      _enqueue([seriesId], (lease) async {
+        await _send(
+          lease,
+          seriesId,
+          method: 'POST',
+          success: {201},
+          failureCode: 'CREATE_ENTRY_FAILED',
+          body: {'state': state},
         );
-        throw ApiException(
-          message: 'Failed to create library entry',
-          statusCode: response.statusCode,
-          responseBody: response.body,
-          code: 'CREATE_ENTRY_FAILED',
-        );
-      }
-    } catch (e, st) {
-      _rethrowAsAppException(e, st, seriesId, 'create library entry');
-    }
-  }
+        await syncFor(lease);
+        checkLease(lease);
+      });
 
-  /// Most entries the batch endpoint takes in one request.
-  static const int batchLimit = 100;
-
-  /// Adds many series to the library at once, each in [state].
-  ///
-  /// Uses `POST /my/library/batch`, which creates missing entries but *patches*
-  /// existing ones - so callers should leave out series already in the library,
-  /// or their state would be overwritten. Each request is atomic (one bad
-  /// series fails its whole chunk of up to [batchLimit]); chunks already
-  /// accepted stay accepted, and the local database is re-synced either way.
-  ///
-  /// Returns how many entries the server reports as newly created.
   Future<int> createLibraryEntriesBatch(
     List<String> seriesIds,
     String state,
   ) async {
-    final ids = [
-      for (final id in seriesIds)
-        if (int.tryParse(id) != null) int.parse(id),
-    ];
+    final ids = seriesIds.map(int.tryParse).whereType<int>().toSet().toList();
     if (ids.isEmpty) return 0;
-
-    logger.info('Batch-adding ${ids.length} series');
-    final token = await auth.getValidAccessToken();
-    final url = Uri.parse('${LibraryConstants.baseUrl}/batch');
-    var created = 0;
-    var anyAccepted = false;
-
-    try {
-      for (var i = 0; i < ids.length; i += batchLimit) {
-        final chunk = ids.sublist(i, min(i + batchLimit, ids.length));
-        final response = await httpClient
-            .post(
-              url,
-              headers: _buildAuthHeaders(token),
-              body: jsonEncode([
-                for (final id in chunk) {'series_id': id, 'state': state},
-              ]),
-            )
-            .timeout(
-              const Duration(seconds: AppConstants.networkTimeoutSeconds),
-              onTimeout: () =>
-                  throw TimeoutException('Batch add request timed out'),
-            );
-
-        await _recoverUnauthorizedMutation(response, token);
-        rateLimitCoordinator.throwIfRateLimited(
-          statusCode: response.statusCode,
-          headers: response.headers,
-        );
-        if (response.statusCode != 200) {
-          logger.severe('Batch add failed. Status: ${response.statusCode}');
-          throw ApiException(
-            message: 'Failed to add series to library',
-            statusCode: response.statusCode,
-            responseBody: response.body,
-            code: 'BATCH_CREATE_FAILED',
+    return _enqueue(ids.map((id) => '$id'), (lease) async {
+      var created = 0;
+      var anyAccepted = false;
+      try {
+        for (var i = 0; i < ids.length; i += batchLimit) {
+          final chunk = ids.skip(i).take(batchLimit);
+          final response = await _send(
+            lease,
+            'batch',
+            method: 'POST',
+            success: {200},
+            failureCode: 'BATCH_CREATE_FAILED',
+            body: [
+              for (final id in chunk) {'series_id': id, 'state': state},
+            ],
           );
+          anyAccepted = true;
+          final data = (jsonDecode(response.body) as Map)['data'];
+          if (data is List) {
+            created += data
+                .where((e) => e is Map && e['action'] == 'created')
+                .length;
+          }
         }
-        anyAccepted = true;
-        final data = (jsonDecode(response.body) as Map)['data'];
-        if (data is List) {
-          created += data
-              .where((e) => e is Map && e['action'] == 'created')
-              .length;
+      } finally {
+        if (anyAccepted && identical(lease, currentLease)) {
+          try {
+            await syncFor(lease);
+          } catch (error) {
+            logger.warning(
+              'Sync after batch add failed (${error.runtimeType})',
+            );
+          }
         }
       }
-    } catch (e, st) {
-      _rethrowAsAppException(e, st, 'batch', 'batch add to library');
-    } finally {
-      if (anyAccepted) {
-        try {
-          await syncLibrary();
-        } catch (e) {
-          logger.warning('Sync after batch add failed (${e.runtimeType})');
-        }
-      }
-    }
-    return created;
+      checkLease(lease);
+      return created;
+    });
   }
 
   Future<void> deleteEntry(String seriesId) =>
-      _serializeEntryMutation(seriesId, () => _performDeleteEntry(seriesId));
-
-  Future<void> _performDeleteEntry(String seriesId) async {
-    logger.info('Deleting library entry');
-    final token = await auth.getValidAccessToken();
-    final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
-    try {
-      // Headers without Content-Type — DELETE has no body.
-      final response = await httpClient
-          .delete(url, headers: _buildAuthHeaders(token, json: false))
-          .timeout(
-            const Duration(seconds: AppConstants.networkTimeoutSeconds),
-            onTimeout: () =>
-                throw TimeoutException('Delete entry request timed out'),
-          );
-
-      await _recoverUnauthorizedMutation(response, token);
-      rateLimitCoordinator.throwIfRateLimited(
-        statusCode: response.statusCode,
-        headers: response.headers,
-      );
-      if (response.statusCode == 200 || response.statusCode == 404) {
-        // 404 means already deleted on the server — still clean up locally.
-        logger.info(
-          'Library entry deleted from server (or already gone); updating DB',
+      _enqueue([seriesId], (lease) async {
+        await _send(
+          lease,
+          seriesId,
+          method: 'DELETE',
+          success: {200, 404},
+          failureCode: 'DELETE_ENTRY_FAILED',
         );
-        await database.libraryEntriesDao.deleteEntry(seriesId);
-      } else {
-        logger.severe(
-          'Failed to delete library entry (HTTP ${response.statusCode})',
+        await owned.deleteEntry(
+          lease,
+          seriesId,
+          beforeCommit: () => checkLease(lease),
         );
-        throw ApiException(
-          message: 'Failed to delete library entry',
-          statusCode: response.statusCode,
-          responseBody: response.body,
-          code: 'DELETE_ENTRY_FAILED',
-        );
-      }
-    } catch (e, st) {
-      _rethrowAsAppException(e, st, seriesId, 'delete library entry');
-    }
-  }
-
-  Future<void> clearLibrary() async {
-    logger.info('User requested full library clear');
-    try {
-      setIsSyncCancelled(true);
-      resetInitialSyncTask();
-      await database.libraryEntriesDao.deleteAllEntries();
-      logger.info('Local library database cleared');
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(AppConstants.lastSyncKey);
-      await prefs.remove(_isIncompleteKey);
-      logger.info('Library sync preferences reset');
-    } catch (e) {
-      logger.severe('Failed to clear library (${e.runtimeType})');
-    }
-  }
+        checkLease(lease);
+      });
 }

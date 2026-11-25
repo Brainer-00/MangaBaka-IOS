@@ -114,6 +114,7 @@ class LibraryScreenState extends State<LibraryScreen>
     };
 
     _session = LibrarySession(onEntries: _onEntriesUpdate);
+    _observedEntries = _session.entriesStream;
     _session.addListener(_onSessionChanged);
 
     // The shared top nav bar hosts this screen's search field on wide
@@ -142,8 +143,14 @@ class LibraryScreenState extends State<LibraryScreen>
     _logger.info('Library tab switched to: ${_tabController.index}');
   }
 
+  Stream<List<LibraryEntry>>? _observedEntries;
+
   void _onSessionChanged() {
     if (!mounted) return;
+    if (!identical(_observedEntries, _session.entriesStream)) {
+      _observedEntries = _session.entriesStream;
+      _tabs.setEntries(const []);
+    }
     setState(() {});
   }
 
@@ -288,6 +295,7 @@ class LibraryScreenState extends State<LibraryScreen>
     return PreferredSize(
       preferredSize: const Size.fromHeight(48),
       child: StreamBuilder<List<LibraryEntry>>(
+        key: ObjectKey(_session.entriesStream),
         stream: _session.entriesStream,
         builder: (context, snapshot) => LibraryTabBar(
           controller: _tabController,

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
+import 'package:mangabaka_app/core/database/database.dart'
+    show LibraryCacheLease;
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
@@ -61,7 +63,7 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen>
   late final SeriesFilterDrawerController _filterDrawer;
 
   Stream<LibraryEntry?>? _entryStream;
-  bool _isAdding = false;
+  LibraryCacheLease? _addingLease;
   String _selectedTab = 'Info';
 
   /// Completes once the route push transition has settled. The body renders
@@ -93,10 +95,13 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen>
   Series get series => fullSeries ?? widget.series;
 
   @override
-  bool get isAdding => _isAdding;
+  bool get isAdding =>
+      _addingLease != null &&
+      identical(_addingLease, getIt<ProfileAuthService>().libraryLease);
 
   @override
-  set isAdding(bool value) => _isAdding = value;
+  set isAdding(bool value) =>
+      _addingLease = value ? getIt<ProfileAuthService>().libraryLease : null;
 
   @override
   String get selectedTab => _selectedTab;
@@ -253,13 +258,17 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    final auth = getIt<ProfileAuthService>();
     return ListenableBuilder(
       listenable: Listenable.merge([
         LocalizationService(),
-        getIt<ProfileAuthService>(),
+        auth,
         _filterDrawer,
       ]),
       builder: (context, _) {
+        final lease = auth.libraryLease;
+        bool isCurrent() =>
+            lease != null && identical(lease, auth.libraryLease);
         return PopScope(
           // Back closes the filter drawer before it leaves the page.
           canPop: !_filterDrawer.isOpen,
@@ -281,8 +290,10 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen>
                   children: [
                     Positioned.fill(
                       child: SeriesDetailBody(
+                        key: ObjectKey(lease),
                         state: this,
                         entryStream: _entryStream,
+                        isTrackingSessionCurrent: isCurrent,
                         settings: SettingsManager(),
                         l10n: LocalizationService(),
                         onRetry: _retryFetch,
@@ -306,9 +317,12 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen>
                 floatingActionButton: isWide
                     ? null
                     : SeriesDetailFAB(
+                        key: ObjectKey(lease),
                         entryStream: _entryStream,
-                        isAdding: _isAdding,
-                        onAdd: addSeriesToLibrary,
+                        isAdding: isAdding,
+                        onAdd: () {
+                          if (isCurrent()) addSeriesToLibrary();
+                        },
                       ),
               );
             },

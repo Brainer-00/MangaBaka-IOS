@@ -124,14 +124,20 @@ class LibraryBody extends StatelessWidget {
     }
 
     if (entriesStream == null) {
-      return const Center(child: CircularProgressIndicator());
+      return RefreshIndicator(
+        onRefresh: onRefresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [Center(child: CircularProgressIndicator())],
+        ),
+      );
     }
 
     return StreamBuilder<List<LibraryEntry>>(
+      key: ObjectKey(entriesStream),
       stream: entriesStream,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting &&
-            !snapshot.hasData) {
+        if (!snapshot.hasData && !snapshot.hasError) {
           final settings = SettingsManager();
           final isGrid = settings.resolvedLibraryListStyle.isGrid;
           return SeriesListSkeleton(isGrid: isGrid);
@@ -141,7 +147,7 @@ class LibraryBody extends StatelessWidget {
           return _buildErrorState(context, l10n, snapshot.error!);
         }
 
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        if (snapshot.data!.isEmpty) {
           return _buildEmptyLibraryState(context, l10n);
         }
 

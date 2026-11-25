@@ -1,287 +1,253 @@
-import 'dart:async';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:mangabaka_app/features/library/constants/library_constants.dart';
-import 'package:mangabaka_app/features/library/models/library_sync_status.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/database/database.dart';
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
+import 'package:mangabaka_app/features/library/models/library_entry.dart';
+import 'package:mangabaka_app/features/library/models/library_sync_status.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
-import 'package:mangabaka_app/features/library/models/library_entry.dart'
-    as api;
-
-const String _lastSyncKey = AppConstants.lastSyncKey;
-const String _isIncompleteKey =
-    '${AppConstants.prefixStorageKey}library_is_incomplete';
 
 mixin LibrarySyncMixin on LibraryServiceBase {
-  bool _hasPerformedInitialSync = false;
-  Future<void>? _initialSyncTask;
+  Object? _syncRun;
+  Future<void>? _running;
+  final Map<LibraryCacheLease, Future<void>> _initialSyncs = {};
+  LibraryCacheLease? _completedInitial;
+  int _cancelGeneration = 0;
+  LibraryCacheLease? _incomplete;
+
+  int get maxSyncPages => AppConstants.libraryMaxPages;
 
   Future<bool> isLibraryIncomplete() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_isIncompleteKey) ?? false;
+    final lease = currentLease;
+    if (lease == null) return false;
+    final state = await owned.readState(lease.owner);
+    return identical(lease, currentLease) &&
+        (state?.initialized != true || identical(_incomplete, lease));
   }
 
-  Future<void> performInitialSyncIfNeeded() async {
-    if (_hasPerformedInitialSync) return;
-    if (_initialSyncTask != null) return _initialSyncTask;
-
-    _initialSyncTask = _doInitialSync();
-    return _initialSyncTask;
+  Future<void> performInitialSyncIfNeeded() {
+    final lease = currentLease;
+    if (lease == null) return Future.value();
+    if (identical(_completedInitial, lease)) return Future.value();
+    return _initialSyncs.putIfAbsent(lease, () {
+      final future = _initialSyncFor(lease, _cancelGeneration);
+      future.whenComplete(() {
+        if (identical(_initialSyncs[lease], future)) {
+          _initialSyncs.remove(lease);
+        }
+      }).ignore();
+      return future;
+    });
   }
 
-  Future<void> _doInitialSync() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final lastSync = prefs.getString(_lastSyncKey);
-
-      if (lastSync != null) {
-        logger.info(
-          'Library already imported. Performing incremental catch-up.',
-        );
-        _hasPerformedInitialSync = true;
-        unawaited(syncLibrary());
+  Future<void> _initialSyncFor(LibraryCacheLease lease, int generation) async {
+    final cache = await owned.readState(lease.owner);
+    checkLease(lease);
+    if (generation != _cancelGeneration) return;
+    final running = _running;
+    if (running != null) {
+      await running;
+      checkLease(lease);
+      if (generation != _cancelGeneration) return;
+      final updated = await owned.readState(lease.owner);
+      checkLease(lease);
+      if (generation != _cancelGeneration) return;
+      if (cache?.initialized != true && updated?.initialized == true) {
+        _completedInitial = lease;
         return;
       }
-
-      logger.info('No previous sync found. Performing full initial import...');
-      await importFullLibrary();
-      if (!isSyncCancelled) {
-        _hasPerformedInitialSync = true;
-      }
-    } on NetworkException catch (e) {
-      logger.warning('Initial import failed (${e.runtimeType})');
-      _initialSyncTask = null;
-      rethrow;
-    } catch (e) {
-      logger.severe('Failed to perform initial import (${e.runtimeType})');
-      _initialSyncTask = null;
-      rethrow;
     }
+    await syncFor(lease);
+    checkLease(lease);
+    if (generation == _cancelGeneration) _completedInitial = lease;
+  }
+
+  void cancelSync() {
+    _cancelGeneration++;
+    _syncRun = null;
+    _running = null;
+    _initialSyncs.clear();
+    _completedInitial = null;
+    syncStatus.value = const LibrarySyncStatus();
+  }
+
+  Future<void> syncLibrary({String? state}) async {
+    final lease = currentLease;
+    if (lease == null) return;
+    await syncFor(lease, state: state, waitForExisting: false);
   }
 
   Future<void> importFullLibrary() async {
-    if (syncStatus.value.isSyncing) return;
-
-    setIsSyncCancelled(false);
-    syncStatus.value = LibrarySyncStatus(isSyncing: true);
-
-    try {
-      var totalFetched = 0;
-      final fetchedIds = <String>[];
-      final result = await importSlice(
-        onProgress: (n, ids) {
-          totalFetched += n;
-          fetchedIds.addAll(ids);
-          syncStatus.value = syncStatus.value.copyWith(
-            currentEntries: totalFetched,
-            error: null,
-          );
-        },
-      );
-
-      if (!result.hitCap && !isSyncCancelled && fetchedIds.isNotEmpty) {
-        await database.libraryEntriesDao.deleteEntriesNotIn(fetchedIds);
-      }
-
-      if (!isSyncCancelled) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool(_isIncompleteKey, result.hitCap);
-        final watermark =
-            result.newestWatermark ?? DateTime.now().toUtc().toIso8601String();
-        await prefs.setString(_lastSyncKey, watermark);
-      }
-
-      syncStatus.value = syncStatus.value.copyWith(isSyncing: false);
-    } catch (e) {
-      syncStatus.value = syncStatus.value.copyWith(
-        isSyncing: false,
-        error: e.toString(),
-      );
-      rethrow;
-    }
-  }
-
-  Future<({bool hitCap, List<String> fetchedIds, String? newestWatermark})>
-  importSlice({
-    required void Function(int fetched, List<String> fetchedIds) onProgress,
-  }) async {
-    var page = 1;
-    final int apiPageCap = AppConstants.libraryMaxPages;
-    final allFetchedIds = <String>[];
-    String? newestWatermark;
-
-    while (page <= apiPageCap) {
-      if (isSyncCancelled) {
-        return (
-          hitCap: false,
-          fetchedIds: allFetchedIds,
-          newestWatermark: newestWatermark,
-        );
-      }
-
-      final token = await auth.getValidAccessToken();
-      final result = await fetchPage(token, page, sortBy: 'updated_at_desc');
-      final entries = result.entries;
-
-      if (result.isError) {
-        return (
-          hitCap: true,
-          fetchedIds: allFetchedIds,
-          newestWatermark: newestWatermark,
-        );
-      }
-
-      if (page == 1 && entries.isNotEmpty) {
-        final e = entries.first;
-        newestWatermark =
-            e.updatedAt ??
-            e.createdAt ??
-            '${e.id}|${e.state}|${e.progressChapter ?? 0}';
-      }
-
-      await saveEntries(entries);
-      final ids = entries.map((e) => e.id).toList();
-      allFetchedIds.addAll(ids);
-      onProgress(entries.length, ids);
-
-      if (entries.isEmpty || entries.length < LibraryConstants.pageLimit) {
-        return (
-          hitCap: false,
-          fetchedIds: allFetchedIds,
-          newestWatermark: newestWatermark,
-        );
-      }
-      page++;
-    }
-    return (
-      hitCap: true,
-      fetchedIds: allFetchedIds,
-      newestWatermark: newestWatermark,
-    );
+    final lease = requireLease();
+    if (_running != null) return;
+    await _start(lease, forceFull: true);
   }
 
   @override
-  Future<void> syncLibrary({String? state}) async {
-    if (syncStatus.value.isSyncing) {
-      logger.info(
-        'Sync already in progress, skipping incremental sync request.',
-      );
-      return;
+  Future<void> syncFor(
+    LibraryCacheLease lease, {
+    String? state,
+    bool waitForExisting = true,
+  }) async {
+    checkLease(lease);
+    while (_running != null) {
+      if (!waitForExisting) return;
+      try {
+        final waiting = _running;
+        await waiting;
+      } catch (_) {
+        // A separate failed refresh does not consume this request.
+      }
+      checkLease(lease);
+    }
+    await _start(lease, state: state);
+  }
+
+  Future<void> _start(
+    LibraryCacheLease lease, {
+    String? state,
+    bool forceFull = false,
+  }) {
+    final run = Object();
+    _syncRun = run;
+    final future = _sync(lease, run, state: state, forceFull: forceFull);
+    _running = future;
+    return future;
+  }
+
+  Future<void> _sync(
+    LibraryCacheLease lease,
+    Object run, {
+    String? state,
+    required bool forceFull,
+  }) async {
+    bool live() => identical(_syncRun, run) && identical(currentLease, lease);
+    void beforeCommit() {
+      if (!live()) throw StateError('Library sync no longer active');
     }
 
-    logger.info(
-      'Starting incremental library sync (state filter: ${state != null})',
-    );
-    setIsSyncCancelled(false);
-    syncStatus.value = LibrarySyncStatus(isSyncing: true);
-
+    if (live()) syncStatus.value = const LibrarySyncStatus(isSyncing: true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final lastSyncStr = prefs.getString(_lastSyncKey);
-      final lastSync = lastSyncStr != null ? parseAsUtc(lastSyncStr) : null;
+      final cache = await owned.readState(lease.owner);
+      if (!live()) return;
+      final full = forceFull || cache?.initialized != true;
+      final filter = full ? null : state;
+      final previous = DateTime.tryParse(cache?.watermark ?? '');
+      final seriesIds = <String>{};
+      final incremental = <LibraryEntry>[];
+      DateTime? newest;
+      var count = 0;
+      int? snapshotCount;
 
-      logger.fine('Loaded last sync watermark: ${lastSyncStr != null}');
-      String? newestEntryTimestamp;
-
-      var page = 1;
-      var totalFetched = 0;
-      const maxSyncPages = 10;
-
-      while (page <= maxSyncPages) {
-        if (isSyncCancelled) {
-          logger.info('Incremental sync cancelled at page $page');
-          break;
+      for (var page = 1; page <= maxSyncPages; page++) {
+        if (!live()) return;
+        final result = await fetchPage(lease, page, state: filter);
+        if (!live()) return;
+        if (result.isError) {
+          throw ApiException(
+            message: 'Could not complete Library sync',
+            statusCode: 400,
+          );
         }
-
-        final token = await auth.getValidAccessToken();
-        final result = await fetchPage(
-          token,
-          page,
-          sortBy: 'updated_at_desc',
-          state: state,
-        );
-        final entries = result.entries;
-
-        if (entries.isEmpty) {
-          logger.fine('No entries returned for page $page, stopping sync');
-          break;
-        }
-
-        bool reachedKnown = false;
-        final newEntries = <api.LibraryEntry>[];
-
-        for (final e in entries) {
-          final dateStr = e.updatedAt ?? e.createdAt;
-          newestEntryTimestamp ??=
-              dateStr ?? '${e.id}|${e.state}|${e.progressChapter ?? 0}';
-
-          bool isNew = true;
-          if (dateStr != null) {
-            final entryDate = parseAsUtc(dateStr);
-            if (lastSync != null &&
-                entryDate != null &&
-                !entryDate.isAfter(lastSync)) {
-              isNew = false;
-            }
-          } else if (lastSyncStr != null) {
-            if ('${e.id}|${e.state}|${e.progressChapter ?? 0}' == lastSyncStr) {
-              isNew = false;
-            }
+        if (full && result.count != null) {
+          snapshotCount ??= result.count;
+          if (snapshotCount != result.count) {
+            throw const FormatException('Library changed during full import');
           }
+        }
 
-          if (!isNew) {
-            reachedKnown = true;
+        var reachedOlder = false;
+        for (final entry in result.entries) {
+          final timestamp = DateTime.tryParse(
+            entry.updatedAt ?? entry.createdAt ?? '',
+          );
+          if (timestamp != null &&
+              (newest == null || timestamp.isAfter(newest))) {
+            newest = timestamp;
+          }
+          // Equal timestamps can span multiple pages. Only stop at a strictly
+          // older record, and include results with missing timestamps.
+          if (!full &&
+              previous != null &&
+              timestamp != null &&
+              timestamp.isBefore(previous)) {
+            reachedOlder = true;
             break;
           }
-          newEntries.add(e);
+          if (full) {
+            if (!seriesIds.add(entry.series.id)) {
+              throw const FormatException(
+                'Duplicate series in Library snapshot',
+              );
+            }
+          } else {
+            incremental.add(entry);
+          }
         }
-
-        if (newEntries.isNotEmpty) {
-          logger.info(
-            'Saving ${newEntries.length} new/updated entries from page $page',
+        if (full && result.entries.isNotEmpty) {
+          await owned.upsertEntries(
+            lease,
+            result.entries,
+            beforeCommit: beforeCommit,
           );
-          await saveEntries(newEntries);
-          totalFetched += newEntries.length;
-          syncStatus.value = syncStatus.value.copyWith(
-            currentEntries: totalFetched,
-            error: null,
+          if (!live()) return;
+        }
+        count = full ? seriesIds.length : incremental.length;
+        syncStatus.value = syncStatus.value.copyWith(currentEntries: count);
+
+        final more = result.next != null;
+        if (more && result.entries.isEmpty) {
+          throw const FormatException(
+            'Invalid empty Library page with a next page',
           );
         }
-
-        if (reachedKnown) {
-          logger.info(
-            'Reached known entries at page $page. Sync catch-up complete.',
-          );
-          break;
+        if (!live()) return;
+        if (reachedOlder || !more) {
+          if (full) {
+            if (snapshotCount != null && seriesIds.length != snapshotCount) {
+              throw const FormatException('Incomplete Library snapshot');
+            }
+            await owned.finishFullImport(
+              lease,
+              completeSeriesIds: seriesIds,
+              watermark: newest?.toUtc().toIso8601String(),
+              beforeCommit: beforeCommit,
+            );
+          } else if (filter == null &&
+              newest != null &&
+              (previous == null || !newest.isBefore(previous))) {
+            await owned.applyIncrementalSync(
+              lease,
+              incremental,
+              watermark: newest.toUtc().toIso8601String(),
+              beforeCommit: beforeCommit,
+            );
+          } else if (incremental.isNotEmpty) {
+            await owned.upsertEntries(
+              lease,
+              incremental,
+              beforeCommit: beforeCommit,
+            );
+          }
+          if (live()) _incomplete = null;
+          return;
         }
-
-        if (entries.length < LibraryConstants.pageLimit) {
-          logger.fine('Page $page was the last page of results');
-          break;
-        }
-        page++;
       }
-
-      if (!isSyncCancelled) {
-        final newWatermark =
-            newestEntryTimestamp ?? DateTime.now().toUtc().toIso8601String();
-        logger.info('Incremental sync completed. Total fetched: $totalFetched');
-        await prefs.setString(_lastSyncKey, newWatermark);
-      }
-      syncStatus.value = syncStatus.value.copyWith(isSyncing: false);
-    } catch (e) {
-      logger.severe('Incremental sync failed (${e.runtimeType})');
-      syncStatus.value = syncStatus.value.copyWith(
-        isSyncing: false,
-        error: e.toString(),
+      if (live()) _incomplete = lease;
+      throw ApiException(
+        message: 'Library sync reached its page limit',
+        statusCode: 400,
+        code: 'LIBRARY_PAGE_LIMIT',
       );
+    } catch (error) {
+      if (!live()) return;
+      _incomplete = lease;
+      syncStatus.value = syncStatus.value.copyWith(error: 'failed_to_load');
       rethrow;
+    } finally {
+      if (live()) {
+        _running = null;
+        _syncRun = null;
+        syncStatus.value = syncStatus.value.copyWith(isSyncing: false);
+      }
     }
-  }
-
-  @override
-  void resetInitialSyncTask() {
-    _hasPerformedInitialSync = false;
-    _initialSyncTask = null;
   }
 }

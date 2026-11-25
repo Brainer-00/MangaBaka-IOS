@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
-import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:mangabaka_app/features/series/widgets/series_detail_fab.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
@@ -26,6 +24,7 @@ class SeriesDetailWideLayout extends StatelessWidget {
   final Function(String) onStateChanged;
   final Function(int) onRatingChanged;
   final bool isAdding;
+  final bool canAdd;
   final VoidCallback onAdd;
   final VoidCallback onUpdateChapter;
   final VoidCallback onUpdateVolume;
@@ -51,6 +50,7 @@ class SeriesDetailWideLayout extends StatelessWidget {
     required this.onStateChanged,
     required this.onRatingChanged,
     required this.isAdding,
+    this.canAdd = false,
     required this.onAdd,
     required this.onUpdateChapter,
     required this.onUpdateVolume,
@@ -116,8 +116,7 @@ class SeriesDetailWideLayout extends StatelessWidget {
                 ),
                 // Only a signed-in user can add, and only what is not yet in
                 // their library — the same gate the phone's FAB applies.
-                if (entry == null &&
-                    getIt<ProfileAuthService>().isLoggedIn) ...[
+                if (entry == null && canAdd) ...[
                   const SizedBox(height: 18),
                   SeriesAddToLibraryButton(isAdding: isAdding, onAdd: onAdd),
                 ],

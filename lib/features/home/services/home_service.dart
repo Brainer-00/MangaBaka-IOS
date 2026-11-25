@@ -249,25 +249,32 @@ class HomeService {
     final auth = _injectedAuth ?? getIt<ProfileAuthService>();
     if (!auth.isLoggedIn) return null;
 
+    final generation = auth.sessionGeneration;
+    bool current() => generation == auth.sessionGeneration;
     final token = await auth.getValidAccessToken();
+    if (!current()) return null;
     try {
-      return await api.getJson(
+      final result = await api.getJson(
         uri,
         operation: operation,
         parse: parse,
         headers: {'Authorization': 'Bearer $token'},
       );
+      return current() ? result : null;
     } on ApiException catch (error) {
       if (error.statusCode != 401) rethrow;
+      if (!current()) return null;
     }
 
     final recoveredToken = await auth.recoverAfterUnauthorized(token);
-    return api.getJson(
+    if (!current()) return null;
+    final result = await api.getJson(
       uri,
       operation: operation,
       parse: parse,
       headers: {'Authorization': 'Bearer $recoveredToken'},
     );
+    return current() ? result : null;
   }
 
   /// Fetches one rail. A dead rail never takes the whole Home screen down

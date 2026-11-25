@@ -19,7 +19,7 @@ class MbProfile {
   factory MbProfile.fromMeResponse(Map<String, dynamic> json) {
     final data = (json['data'] as Map<String, dynamic>?) ?? json;
     return MbProfile(
-      id: data['id']?.toString() ?? data['sub']?.toString() ?? '',
+      id: _accountId(data['id'] ?? data['sub']),
       role: data['role']?.toString() ?? '',
       scopes: (data['scopes'] as List<dynamic>? ?? [])
           .map((e) => e.toString())
@@ -37,7 +37,7 @@ class MbProfile {
   factory MbProfile.fromUserInfo(Map<String, dynamic> json) {
     final data = (json['data'] as Map<String, dynamic>?) ?? json;
     return MbProfile(
-      id: data['sub']?.toString() ?? data['id']?.toString() ?? '',
+      id: _accountId(data['sub'] ?? data['id']),
       role: data['role']?.toString() ?? 'user',
       scopes: (data['scope'] is String)
           ? (data['scope'] as String).split(' ')
@@ -52,6 +52,8 @@ class MbProfile {
       avatarUrl: _parseAvatar(data),
     );
   }
+
+  static String _accountId(Object? value) => value is String ? value : '';
 
   Map<String, dynamic> toJson() {
     return {

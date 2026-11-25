@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:drift/native.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
@@ -18,6 +19,12 @@ import 'package:mangabaka_app/features/library/services/mappers/db_to_api_mapper
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 
+class _BenchAuth extends ProfileAuthService {
+  _BenchAuth(this.libraryLease);
+  @override
+  final LibraryCacheLease libraryLease;
+}
+
 void main() {
   setUpAll(() {
     if (!GetIt.I.isRegistered<LoggingService>()) {
@@ -31,15 +38,18 @@ void main() {
       addTearDown(db.close);
       final entries = List.generate(size, _entry);
 
-      await db.seriesDao.upsertSeries(entries.map((e) => e.series).toList());
-      await db.libraryEntriesDao.upsertLibraryEntries(entries);
+      final dao = db.ownedLibraryDao;
+      final lease = await dao.activate(
+        VerifiedLibraryOwner.fromVerifiedAccountId('benchmark'),
+      );
+      await dao.upsertEntries(lease, entries);
 
       final readWatch = Stopwatch()..start();
-      final rows = await db.libraryEntriesDao.watchAllEntriesWithSeries().first;
+      final rows = await dao.watchEntries(lease.owner).first;
       readWatch.stop();
 
       final mappingWatch = Stopwatch()..start();
-      final mapped = rows.map(DbToApiMapper.libraryEntryFromDb).toList();
+      final mapped = rows.map(DbToApiMapper.ownedEntryFromDb).toList();
       mappingWatch.stop();
       final jsonDecodes = rows.fold<int>(
         0,
@@ -121,11 +131,19 @@ void main() {
     });
 
     final initial = List.generate(100, _entry);
-    await db.seriesDao.upsertSeries(initial.map((e) => e.series).toList());
-    await db.libraryEntriesDao.upsertLibraryEntries(initial);
+    final dao = db.ownedLibraryDao;
+    final lease = await dao.activate(
+      VerifiedLibraryOwner.fromVerifiedAccountId('benchmark'),
+    );
+    await dao.finishFullImport(
+      lease,
+      entries: initial,
+      completeSeriesIds: {for (final entry in initial) entry.series.id},
+      watermark: null,
+    );
 
     final service = LibraryService(
-      auth: ProfileAuthService(),
+      auth: _BenchAuth(lease),
       database: db,
       httpClient: client,
       watchInstrumentation: LibraryWatchInstrumentation(),
@@ -142,25 +160,26 @@ void main() {
     await firstEmission.future;
 
     final beforeProgress = emissions;
-    await db.libraryEntriesDao.updateEntryProgress(
+    await dao.updateQuickFields(
+      lease,
       'series-0',
-      progressChapter: 2,
+      progressChapter: const Value(2),
     );
     await _waitForQuiescence(() => emissions);
     final progressEmissions = emissions - beforeProgress;
-    final progressed = await db.libraryEntriesDao
-        .watchEntryWithSeries('series-0')
-        .first;
-    expect(progressed?.libraryEntry.progressChapter, 2);
+    final progressed = await dao.watchEntry(lease.owner, 'series-0').first;
+    expect(progressed?.entry.progressChapter, 2);
 
     final beforeState = emissions;
-    await db.libraryEntriesDao.updateEntryState('series-1', 'paused');
+    await dao.updateQuickFields(
+      lease,
+      'series-1',
+      state: const Value('paused'),
+    );
     await _waitForQuiescence(() => emissions);
     final stateEmissions = emissions - beforeState;
-    final paused = await db.libraryEntriesDao
-        .watchEntryWithSeries('series-1')
-        .first;
-    expect(paused?.libraryEntry.state, 'paused');
+    final paused = await dao.watchEntry(lease.owner, 'series-1').first;
+    expect(paused?.entry.state, 'paused');
 
     final syncPage = List.generate(100, (index) {
       final old = initial[index];
@@ -205,12 +224,20 @@ void main() {
     });
 
     final entries = List.generate(100, _entry);
-    await db.seriesDao.upsertSeries(entries.map((e) => e.series).toList());
-    await db.libraryEntriesDao.upsertLibraryEntries(entries);
+    final dao = db.ownedLibraryDao;
+    final lease = await dao.activate(
+      VerifiedLibraryOwner.fromVerifiedAccountId('benchmark'),
+    );
+    await dao.finishFullImport(
+      lease,
+      entries: entries,
+      completeSeriesIds: {for (final entry in entries) entry.series.id},
+      watermark: null,
+    );
 
     final instrumentation = LibraryWatchInstrumentation();
     final service = LibraryService(
-      auth: ProfileAuthService(),
+      auth: _BenchAuth(lease),
       database: db,
       httpClient: client,
       watchInstrumentation: instrumentation,

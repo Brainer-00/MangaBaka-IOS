@@ -33,6 +33,8 @@ class _ProfileScreenState extends State<ProfileScreen> with ProfileDataMixin {
   late final SnapshotService _snapshotService;
 
   bool _wasSyncing = false;
+  late int _profileGeneration;
+  Object? _profileLease;
 
   @override
   ProfileAuthService get auth => _auth;
@@ -54,9 +56,11 @@ class _ProfileScreenState extends State<ProfileScreen> with ProfileDataMixin {
     _auth.addListener(_onAuthStateChanged);
     _libraryService = getIt<LibraryService>();
     _libraryService.syncStatus.addListener(_onSyncStatusChanged);
-    _statisticsService = StatisticsService(getIt<AppDatabase>());
+    _statisticsService = StatisticsService(getIt<AppDatabase>(), _auth);
     _snapshotService = getIt<SnapshotService>();
 
+    _profileGeneration = _auth.sessionGeneration;
+    _profileLease = _auth.libraryLease;
     profile = _auth.cachedProfile;
     if (profile != null) {
       _logger.info('Using cached profile');
@@ -66,10 +70,11 @@ class _ProfileScreenState extends State<ProfileScreen> with ProfileDataMixin {
       fetchRecentlyChanged(initial: true);
       fetchRecentlyAdded(initial: true);
       _logger.fine('Silently refreshing profile data in background');
+      final generation = _profileGeneration;
       _auth
           .fetchProfile(forceRefresh: true)
           .then((p) {
-            if (mounted) {
+            if (mounted && generation == _auth.sessionGeneration) {
               _logger.fine('Background profile refresh complete');
               setState(() => profile = p);
             }
@@ -115,27 +120,26 @@ class _ProfileScreenState extends State<ProfileScreen> with ProfileDataMixin {
 
   void _onAuthStateChanged() {
     if (!mounted) return;
-    _logger.info(
-      'Auth state changed in ProfileScreen. LoggedIn: ${_auth.isLoggedIn}',
-    );
+    final lease = _auth.libraryLease;
+    final generation = _auth.sessionGeneration;
+    final changed =
+        generation != _profileGeneration || !identical(lease, _profileLease);
+    _profileGeneration = generation;
+    _profileLease = lease;
     setState(() {
-      profile = _auth.cachedProfile;
-      if (!_auth.isLoggedIn) {
-        _logger.fine('User logged out. Clearing profile UI state.');
-        totalSeries = 0;
-        chaptersRead = 0;
-        volumesRead = 0;
-        meanScore = 0.0;
-        recentlyChanged.clear();
-        recentlyAdded.clear();
+      if (changed || !_auth.isLoggedIn) {
+        clearPrivateProfileData();
+        _wasSyncing = false;
         error = null;
-        loading = false;
-        profile = null;
-      } else if (profile == null && _auth.isLoggedIn) {
-        _logger.info('User logged in. Triggering bootstrap for profile data.');
-        bootstrap();
       }
+      profile = _auth.cachedProfile;
+      loading = _auth.isLoggedIn && profile == null && error == null;
     });
+    if (changed && lease != null) {
+      fetchStatistics();
+      fetchRecentlyChanged(initial: true);
+      fetchRecentlyAdded(initial: true);
+    }
   }
 
   // -------------------------------------------------------------------------

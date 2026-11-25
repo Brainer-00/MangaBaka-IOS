@@ -25,22 +25,55 @@ abstract class LibraryServiceBase {
   dynamic get logger;
 
   ValueNotifier<LibrarySyncStatus> get syncStatus;
-  bool get isSyncCancelled;
-  void setIsSyncCancelled(bool val);
-
-  Future<void> syncLibrary({String? state});
-  Future<FetchPageResult> fetchPage(
-    String token,
-    int page, {
-    String? state,
-    String? type,
-    String? sortBy,
-  });
-  Future<void> saveEntries(List<api.LibraryEntry> entries);
-  DateTime? parseAsUtc(String dateStr);
   RateLimitCoordinator get rateLimitCoordinator;
 
-  void resetInitialSyncTask();
+  db.LibraryCacheLease? get currentLease => auth.libraryLease;
+  db.OwnedLibraryDao get owned => database.ownedLibraryDao;
+
+  db.LibraryCacheLease requireLease() {
+    final lease = currentLease;
+    if (lease == null) {
+      throw AuthException(
+        message: 'Library account unavailable',
+        code: 'LIBRARY_OWNER_REQUIRED',
+      );
+    }
+    return lease;
+  }
+
+  void checkLease(db.LibraryCacheLease lease) {
+    if (!identical(currentLease, lease)) {
+      throw AuthException(
+        message: 'Library session changed',
+        code: 'SESSION_CHANGED',
+      );
+    }
+  }
+
+  Future<String> tokenFor(db.LibraryCacheLease lease) async {
+    checkLease(lease);
+    final token = await auth.getValidAccessToken();
+    checkLease(lease);
+    return token;
+  }
+
+  Future<String> recoverFor(db.LibraryCacheLease lease, String token) async {
+    checkLease(lease);
+    final recovered = await auth.recoverAfterUnauthorized(token);
+    checkLease(lease);
+    return recovered;
+  }
+
+  Future<void> syncFor(
+    db.LibraryCacheLease lease, {
+    String? state,
+    bool waitForExisting = true,
+  });
+  Future<FetchPageResult> fetchPage(
+    db.LibraryCacheLease lease,
+    int page, {
+    String? state,
+  });
 }
 
 class LibraryService extends LibraryServiceBase
@@ -71,42 +104,16 @@ class LibraryService extends LibraryServiceBase
   @override
   ValueNotifier<LibrarySyncStatus> get syncStatus => _syncStatus;
 
-  @override
-  bool get isSyncCancelled => _isSyncCancelled;
+  final _syncStatus = ValueNotifier(const LibrarySyncStatus());
 
-  @override
-  void setIsSyncCancelled(bool val) => _isSyncCancelled = val;
-
-  @override
-  Future<FetchPageResult> fetchPage(
-    String token,
-    int page, {
-    String? state,
-    String? type,
-    String? sortBy,
-  }) => _fetchPage(token, page, state: state, type: type, sortBy: sortBy);
-
-  @override
-  Future<void> saveEntries(List<api.LibraryEntry> entries) =>
-      _saveEntries(entries);
-
-  @override
-  DateTime? parseAsUtc(String dateStr) => _parseAsUtc(dateStr);
-
-  final ValueNotifier<LibrarySyncStatus> _syncStatus = ValueNotifier(
-    LibrarySyncStatus(),
-  );
-
-  bool _isSyncCancelled = false;
-
-  void cancelSync() {
-    _isSyncCancelled = true;
-    resetInitialSyncTask();
-    _syncStatus.value = _syncStatus.value.copyWith(
-      isSyncing: false,
-      clearError: true,
-      clearInfo: true,
+  Future<void> saveEntries(List<api.LibraryEntry> entries) async {
+    final lease = requireLease();
+    await owned.upsertEntries(
+      lease,
+      entries,
+      beforeCommit: () => checkLease(lease),
     );
+    checkLease(lease);
   }
 
   LibraryService({
@@ -119,56 +126,151 @@ class LibraryService extends LibraryServiceBase
        _db = database ?? getIt<db.AppDatabase>(),
        _httpClient = httpClient ?? http.Client(),
        rateLimitCoordinator =
-           rateLimitCoordinator ?? RateLimitCoordinator.shared;
-
-  Stream<api.LibraryEntry?> watchEntryFromDb(String seriesId) {
-    return _db.libraryEntriesDao
-        .watchEntryWithSeries(seriesId)
-        .map(
-          (dbEntry) => dbEntry != null
-              ? DbToApiMapper.libraryEntryFromDb(dbEntry)
-              : null,
-        )
-        .handleError((error, stackTrace) {
-          _logger.severe('Error watching entry from db (${error.runtimeType})');
-          return null;
-        }, test: (error) => true);
+           rateLimitCoordinator ?? RateLimitCoordinator.shared {
+    _observedLease = currentLease;
+    _auth.addListener(_sessionChanged);
   }
 
+  db.LibraryCacheLease? _observedLease;
+
+  void _sessionChanged() {
+    final lease = currentLease;
+    if (identical(lease, _observedLease)) return;
+    _observedLease = lease;
+    cancelSync();
+  }
+
+  void dispose() {
+    _auth.removeListener(_sessionChanged);
+    cancelSync();
+    _httpClient.close();
+    _syncStatus.dispose();
+  }
+
+  Future<Set<String>> existingSeriesIds(
+    db.LibraryCacheLease lease,
+    Iterable<String> ids,
+  ) async {
+    checkLease(lease);
+    final state = await owned.readState(lease.owner);
+    checkLease(lease);
+    if (state?.initialized != true ||
+        state?.active != true ||
+        state?.generation != lease.generation) {
+      throw AuthException(
+        message: 'Library cache unavailable',
+        code: 'LIBRARY_CACHE_REQUIRED',
+      );
+    }
+    final result = await owned.existingSeriesIds(lease.owner, ids);
+    checkLease(lease);
+    return result;
+  }
+
+  Stream<api.LibraryEntry?> watchEntryFromDb(String seriesId) => _watchOwned(
+    (owner) => owned
+        .watchEntry(owner, seriesId)
+        .map((row) => row == null ? null : DbToApiMapper.ownedEntryFromDb(row)),
+    followSession: true,
+    onInvalidated: (stream) => stream.addSync(null),
+  );
+
   Stream<List<api.LibraryEntry>> watchEntriesFromDb() {
-    final stream = _db.libraryEntriesDao
-        .watchAllEntriesWithSeries()
-        .map((dbEntries) {
-          watchInstrumentation?.queryExecutions++;
-          watchInstrumentation?.mappingPasses++;
-          return dbEntries.map(DbToApiMapper.libraryEntryFromDb).toList();
-        })
-        .handleError((error, stackTrace) {
-          _logger.severe(
-            'Error watching entries from db (${error.runtimeType})',
-          );
-          return <api.LibraryEntry>[];
-        }, test: (error) => true);
+    final stream = _watchOwned(
+      (owner) => owned.watchEntries(owner).map((rows) {
+        watchInstrumentation?.queryExecutions++;
+        watchInstrumentation?.mappingPasses++;
+        return rows.map(DbToApiMapper.ownedEntryFromDb).toList();
+      }),
+    );
     final instrumentation = watchInstrumentation;
     return instrumentation == null
         ? stream
         : _SubscriptionCountingStream(stream, instrumentation);
   }
 
-  Future<FetchPageResult> _fetchPage(
-    String token,
+  // No rows are advertised until the cache has a complete baseline. A
+  // detached Drift subscription may still have events queued, so guard delivery.
+  Stream<T> _watchOwned<T>(
+    Stream<T> Function(db.VerifiedLibraryOwner) query, {
+    bool followSession = false,
+    void Function(MultiStreamController<T>)? onInvalidated,
+  }) {
+    final initial = currentLease;
+    return Stream.multi((out) {
+      StreamSubscription<db.LibraryCacheState?>? stateSubscription;
+      StreamSubscription<T>? rows;
+      db.LibraryCacheLease? bound;
+      var started = false;
+      void detach() {
+        unawaited(stateSubscription?.cancel());
+        unawaited(rows?.cancel());
+        stateSubscription = null;
+        rows = null;
+      }
+
+      void update() {
+        final lease = currentLease;
+        if (started && identical(lease, bound)) return;
+        final changed = started;
+        started = true;
+        bound = lease;
+        detach();
+        if (!followSession && (lease == null || !identical(lease, initial))) {
+          out.closeSync();
+          return;
+        }
+        if (changed || lease == null) onInvalidated?.call(out);
+        if (lease == null) return;
+        bool live() =>
+            identical(currentLease, lease) && identical(bound, lease);
+        void error(Object error, StackTrace stack) {
+          if (live()) out.addErrorSync(error, stack);
+        }
+
+        stateSubscription = owned.watchState(lease.owner).listen((state) {
+          if (!live()) return;
+          if (state?.active != true || state?.generation != lease.generation) {
+            // A newly attached subscriber can receive Drift's earlier cached
+            // state before the activation update is reflected in the query.
+            if (rows == null) return;
+            detach();
+            if (followSession) {
+              onInvalidated?.call(out);
+            } else {
+              out.closeSync();
+            }
+            return;
+          }
+          if (state?.initialized != true || rows != null) return;
+          rows = query(lease.owner).listen((value) {
+            if (live()) out.addSync(value);
+          }, onError: error);
+        }, onError: error);
+      }
+
+      _auth.addListener(update);
+      out.onCancel = () {
+        _auth.removeListener(update);
+        detach();
+      };
+      update();
+    });
+  }
+
+  @override
+  Future<FetchPageResult> fetchPage(
+    db.LibraryCacheLease lease,
     int page, {
     String? state,
-    String? type,
-    String? sortBy,
   }) async {
+    final token = await tokenFor(lease);
     final queryParams = <String, String>{
       'page': page.toString(),
       'limit': LibraryConstants.pageLimit.toString(),
     };
     if (state != null) queryParams['state'] = state;
-    if (type != null) queryParams['type'] = type;
-    if (sortBy != null) queryParams['sort_by'] = sortBy;
+    queryParams['sort_by'] = 'updated_at_desc';
 
     final uri = Uri.parse(
       LibraryConstants.baseUrl,
@@ -185,6 +287,7 @@ class LibraryService extends LibraryServiceBase
           await rateLimitCoordinator.waitForRetryAdmission();
         }
         admissionRequired = false;
+        checkLease(lease);
         final response = await _httpClient
             .get(
               uri,
@@ -199,6 +302,7 @@ class LibraryService extends LibraryServiceBase
           'Library page $page fetch completed with status ${response.statusCode}',
         );
 
+        checkLease(lease);
         if (response.statusCode == 429) {
           rateLimitCoordinator.updateFromRetryAfter(
             RateLimitCoordinator.retryAfterHeader(response.headers),
@@ -225,7 +329,7 @@ class LibraryService extends LibraryServiceBase
           _logger.severe('Unauthorized fetch request for library page $page');
           if (!unauthorizedRecoveryAttempted) {
             unauthorizedRecoveryAttempted = true;
-            currentToken = await _auth.recoverAfterUnauthorized(currentToken);
+            currentToken = await recoverFor(lease, currentToken);
             continue;
           }
           throw AuthException(message: 'Auth failed', code: 'AUTH_FAILED');
@@ -246,6 +350,16 @@ class LibraryService extends LibraryServiceBase
         }
 
         final result = await compute(_parseLibraryPage, response.body);
+        checkLease(lease);
+        final next = result.next;
+        if (next != null) {
+          final continuation = uri.resolve(next);
+          if (continuation.origin != uri.origin ||
+              continuation.path != uri.path ||
+              continuation.queryParameters['page'] != '${page + 1}') {
+            throw const FormatException('Unexpected Library pagination link');
+          }
+        }
         _logger.info(
           'Successfully parsed ${result.entries.length} entries for library page $page',
         );
@@ -258,31 +372,6 @@ class LibraryService extends LibraryServiceBase
       );
       rethrow;
     }
-  }
-
-  Future<void> _saveEntries(List<api.LibraryEntry> entries) async {
-    if (entries.isEmpty) return;
-    await _db.transaction(() async {
-      await _db.seriesDao.upsertSeries(entries.map((e) => e.series).toList());
-      await _db.libraryEntriesDao.upsertLibraryEntries(entries);
-    });
-  }
-
-  DateTime? _parseAsUtc(String dateStr) {
-    if (dateStr.isEmpty) return null;
-    final numValue = int.tryParse(dateStr);
-    if (numValue != null) {
-      if (dateStr.length == 10) {
-        return DateTime.fromMillisecondsSinceEpoch(
-          numValue * 1000,
-          isUtc: true,
-        );
-      }
-      if (dateStr.length == 13) {
-        return DateTime.fromMillisecondsSinceEpoch(numValue, isUtc: true);
-      }
-    }
-    return DateTime.tryParse(dateStr)?.toUtc();
   }
 }
 
@@ -319,14 +408,36 @@ class _SubscriptionCountingStream<T> extends Stream<T> {
 class FetchPageResult {
   final List<api.LibraryEntry> entries;
   final bool isError;
-  FetchPageResult({required this.entries, this.isError = false});
+  final String? next;
+  final int? count;
+  FetchPageResult({
+    required this.entries,
+    this.isError = false,
+    this.next,
+    this.count,
+  });
 }
 
 FetchPageResult _parseLibraryPage(String responseBody) {
   final body = jsonDecode(responseBody) as Map<String, dynamic>;
-  final data = (body['data'] as List<dynamic>? ?? const []);
+  final data = body['data'];
+  if (data is! List) throw const FormatException('Invalid Library page');
+  final pagination = body['pagination'];
+  if (pagination is! Map || !pagination.containsKey('next')) {
+    throw const FormatException('Library page has no pagination metadata');
+  }
+  final next = pagination['next'];
+  final count = pagination['count'];
+  if ((next != null && (next is! String || next.isEmpty)) ||
+      (count != null && (count is! int || count < 0))) {
+    throw const FormatException('Invalid Library pagination metadata');
+  }
   final entries = data
       .map((item) => api.LibraryEntry.fromJson(item as Map<String, dynamic>))
       .toList();
-  return FetchPageResult(entries: entries);
+  return FetchPageResult(
+    entries: entries,
+    next: next as String?,
+    count: count as int?,
+  );
 }

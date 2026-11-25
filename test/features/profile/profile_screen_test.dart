@@ -1,3 +1,4 @@
+import '../../support/library_identity.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mangabaka_app/features/profile/screens/profile_screen.dart';
@@ -12,7 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:mangabaka_app/features/profile/models/mb_profile.dart';
 
-class MockProfileAuthService extends Fake implements ProfileAuthService {
+class MockProfileAuthService extends Fake with WidgetLibraryIdentity {
   @override
   bool get isLoggedIn => false;
   @override
@@ -26,6 +27,7 @@ class MockProfileAuthService extends Fake implements ProfileAuthService {
 class MockSnapshotService extends Fake implements SnapshotService {}
 
 void main() {
+  setUpAll(prepareWidgetLibraryIdentity);
   setUp(() async {
     await resetServiceLocator();
     SharedPreferences.setMockInitialValues({});
@@ -33,15 +35,22 @@ void main() {
     getIt.registerSingleton<AppDatabase>(AppDatabase());
     getIt.registerSingleton<ProfileAuthService>(MockProfileAuthService());
     getIt.registerSingleton<SnapshotService>(MockSnapshotService());
-    getIt.registerLazySingleton<SeriesSearchService>(() => SeriesSearchService());
-    getIt.registerSingleton<LibraryService>(LibraryService(auth: getIt<ProfileAuthService>()));
+    getIt.registerLazySingleton<SeriesSearchService>(
+      () => SeriesSearchService(),
+    );
+    getIt.registerSingleton<LibraryService>(
+      LibraryService(auth: getIt<ProfileAuthService>()),
+    );
   });
 
-  testWidgets('ProfileScreen shows login prompt when not logged in', (WidgetTester tester) async {
-    await tester.pumpWidget(const MaterialApp(
-      home: ProfileScreen(),
-    ));
+  testWidgets('ProfileScreen shows login prompt when not logged in', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: ProfileScreen()));
 
-    expect(find.text('login_prompt_profile'), findsOneWidget); // Key if not translated
+    expect(
+      find.text('login_prompt_profile'),
+      findsOneWidget,
+    ); // Key if not translated
   });
 }

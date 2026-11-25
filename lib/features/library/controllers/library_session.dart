@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:mangabaka_app/core/database/database.dart'
+    show LibraryCacheLease;
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
@@ -29,13 +31,13 @@ class LibrarySession extends ChangeNotifier {
     required this.onEntries,
     ProfileAuthService? auth,
     LibraryService? library,
-  })  : _auth = auth ?? getIt<ProfileAuthService>(),
-        _library = library ?? getIt<LibraryService>() {
-    _loggedIn = _auth.isLoggedIn;
+  }) : _auth = auth ?? getIt<ProfileAuthService>(),
+       _library = library ?? getIt<LibraryService>() {
     _auth.addListener(_onAuthStateChanged);
-    _logger.fine('Library bootstrap: loggedIn=$_loggedIn');
-    if (_loggedIn) _open();
+    _onAuthStateChanged();
   }
+
+  LibraryCacheLease? _lease;
 
   bool _loggedIn = false;
   bool get isLoggedIn => _loggedIn;
@@ -62,46 +64,51 @@ class LibrarySession extends ChangeNotifier {
 
   void _onAuthStateChanged() {
     if (_disposed) return;
-    _logger.info(
-      'Auth state changed in LibraryScreen. LoggedIn: ${_auth.isLoggedIn}',
-    );
     _loggedIn = _auth.isLoggedIn;
-    if (_loggedIn) {
-      _open();
-    } else {
-      _close();
+    final lease = _auth.libraryLease;
+    if (!identical(_lease, lease)) {
+      _lease = lease;
+      unawaited(_subscription?.cancel());
+      _subscription = null;
+      _entriesStream = null;
+      _isIncomplete = false;
+      if (lease != null) {
+        _entriesStream = _library.watchEntriesFromDb();
+        _subscription = _entriesStream!.listen(
+          (entries) {
+            if (!_disposed && identical(_lease, lease)) onEntries(entries);
+          },
+          onError: (Object error) {
+            _logger.warning('Library stream failed (${error.runtimeType})');
+          },
+        );
+        unawaited(_runInitialSync(lease));
+      }
     }
     _safeNotify();
   }
 
-  void _open() {
-    _logger.info('Setting up library entries stream and sync tasks');
-    _entriesStream = _library.watchEntriesFromDb();
-    _subscription?.cancel();
-    _subscription = _entriesStream?.listen(onEntries);
-    // Full import only on first load; later calls do an incremental catch-up.
-    _runInitialSync();
-  }
-
-  void _close() {
-    _entriesStream = null;
-    _subscription?.cancel();
-    _subscription = null;
-    _isIncomplete = false;
-  }
-
-  Future<void> _runInitialSync() async {
+  Future<void> _runInitialSync(LibraryCacheLease lease) async {
     try {
       await _library.performInitialSyncIfNeeded();
-      _logger.info('Initial sync task completed');
+    } catch (error) {
+      _logger.warning('Initial Library sync failed (${error.runtimeType})');
+    } finally {
+      await _readIncomplete(lease);
+    }
+  }
+
+  Future<void> _readIncomplete(LibraryCacheLease lease) async {
+    if (_disposed || !identical(_lease, lease)) return;
+    try {
       final incomplete = await _library.isLibraryIncomplete();
-      if (_disposed) return;
+      if (_disposed || !identical(_lease, lease)) return;
       _isIncomplete = incomplete;
       _safeNotify();
-    } catch (e) {
-      // The local copy is still usable; the banner and a manual retry cover
-      // it, so a failed sync must not take the screen down.
-      _logger.severe('Initial sync task failed (${e.runtimeType})');
+    } catch (error) {
+      _logger.warning(
+        'Library cache status unavailable (${error.runtimeType})',
+      );
     }
   }
 
@@ -124,9 +131,7 @@ class LibrarySession extends ChangeNotifier {
 
     if (_disposed) return null;
     _logger.info('Login successful in library screen');
-    _loggedIn = true;
-    _open();
-    _safeNotify();
+    _onAuthStateChanged();
     return null;
   }
 
@@ -134,11 +139,21 @@ class LibrarySession extends ChangeNotifier {
   /// [LibraryService.syncStatus], which raises the banner, so nothing is
   /// thrown back to the caller.
   Future<void> refresh() async {
-    _logger.info('User triggered manual library refresh from screen');
+    final lease = _lease;
+    if (lease == null) {
+      if (_auth.isLoggedIn) {
+        try {
+          await _auth.fetchProfile(forceRefresh: true);
+        } catch (_) {}
+      }
+      return;
+    }
     try {
       await _library.syncLibrary();
     } catch (e) {
       _logger.severe('Manual refresh failed (${e.runtimeType})');
+    } finally {
+      await _readIncomplete(lease);
     }
   }
 

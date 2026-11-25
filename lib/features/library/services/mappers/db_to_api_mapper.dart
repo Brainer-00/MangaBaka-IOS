@@ -69,6 +69,25 @@ class DbToApiMapper {
     );
   }
 
+  static api.LibraryEntry ownedEntryFromDb(db.OwnedEntryWithSeries dbEntry) {
+    return api.LibraryEntry(
+      id: dbEntry.entry.id,
+      state: dbEntry.entry.state,
+      note: dbEntry.entry.note,
+      progressChapter: dbEntry.entry.progressChapter,
+      progressVolume: dbEntry.entry.progressVolume,
+      numberOfRereads: dbEntry.entry.numberOfRereads,
+      rating: dbEntry.entry.rating,
+      priority: dbEntry.entry.priority,
+      startDate: dbEntry.entry.startDate,
+      finishDate: dbEntry.entry.finishDate,
+      readLink: dbEntry.entry.readLink,
+      isPrivate: dbEntry.entry.isPrivate,
+      listIds: _decodeListIds(dbEntry.entry.listIdsJson),
+      series: seriesFromDb(dbEntry.series),
+    );
+  }
+
   static api.Series seriesFromDb(db.SeriesTableData dbSeries) {
     final source = _decodeJsonObject(dbSeries.source);
 
