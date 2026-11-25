@@ -11,6 +11,7 @@ import 'package:mangabaka_app/core/network/rate_limit_coordinator.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
 import 'package:mangabaka_app/features/library/controllers/library_session.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
+import 'package:mangabaka_app/features/library/models/library_entry_edit.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
@@ -72,6 +73,18 @@ class _CappedLibraryService extends LibraryService {
 
   @override
   int get maxSyncPages => 1;
+}
+
+class _HeldReconciliationService extends LibraryService {
+  _HeldReconciliationService({required super.auth, required super.httpClient});
+
+  final releases = <void Function()>[];
+
+  @override
+  void Function() pauseSyncForReconciliation(LibraryCacheLease lease) {
+    final release = super.pauseSyncForReconciliation(lease);
+    return () => releases.add(release);
+  }
 }
 
 void main() {
@@ -154,6 +167,932 @@ void main() {
   }
 
   group('LibraryService', () {
+    group('complete entry editor API', () {
+      http.Response syncPage({int? chapter, String? timestamp}) =>
+          http.Response(
+            jsonEncode({
+              'pagination': {'next': null, 'count': chapter == null ? 0 : 1},
+              'data': [
+                if (chapter != null)
+                  {
+                    'id': 'entry-1',
+                    'state': 'reading',
+                    'progress_chapter': chapter,
+                    'updated_at': timestamp,
+                    'Series': {'id': '1', 'title': 'Series One'},
+                  },
+              ],
+            }),
+            200,
+          );
+
+      test(
+        'different-series editor writes keep refresh paused until both release',
+        () async {
+          await seedEntry(chapter: 3);
+          final db = getIt<AppDatabase>();
+          await db.customStatement(
+            "INSERT INTO series_table (id, title, cover_url, description) VALUES ('2', 'Two', '', '')",
+          );
+          final lease = mockAuth.libraryLease!;
+          final started = Completer<void>();
+          final oldPage = Completer<http.Response>();
+          final freshPageStarted = Completer<void>();
+          final freshPage = Completer<http.Response>();
+          var pages = 0;
+          final editor = _HeldReconciliationService(
+            auth: mockAuth,
+            httpClient: MockClient((request) async {
+              final id = int.tryParse(request.url.pathSegments.last);
+              if (id == null) {
+                expect(request.url.queryParameters['state'], 'reading');
+                if (++pages == 1) {
+                  started.complete();
+                  return oldPage.future;
+                }
+                freshPageStarted.complete();
+                return freshPage.future;
+              }
+              return http.Response(
+                jsonEncode({
+                  'status': 200,
+                  'data': {
+                    'id': 30 + id,
+                    'series_id': id,
+                    'user_id': lease.owner.id,
+                    'state': 'reading',
+                    'progress_chapter': id + 6,
+                  },
+                }),
+                200,
+              );
+            }),
+          );
+          final sync = editor.syncLibrary(state: 'reading');
+          await started.future;
+          await Future.wait([
+            editor.fetchAuthoritativeLibraryEntry('1'),
+            editor.fetchAuthoritativeLibraryEntry('2'),
+          ]);
+          expect(editor.releases, hasLength(2));
+          final refresh = editor.syncLibrary();
+          editor.releases.first();
+          oldPage.complete(
+            syncPage(chapter: 99, timestamp: '2026-01-09T00:00:00Z'),
+          );
+          expect(
+            (await db.ownedLibraryDao.findEntry(
+              lease.owner,
+              '1',
+            ))!.entry.progressChapter,
+            7,
+          );
+          expect(pages, 1);
+          editor.releases.last();
+          await freshPageStarted.future;
+          freshPage.complete(syncPage());
+          await Future.wait([sync, refresh]);
+          expect(pages, 2);
+          expect(
+            (await db.ownedLibraryDao.findEntry(
+              lease.owner,
+              '1',
+            ))!.entry.progressChapter,
+            7,
+          );
+          expect(
+            (await db.ownedLibraryDao.findEntry(
+              lease.owner,
+              '2',
+            ))!.entry.progressChapter,
+            8,
+          );
+          expect(
+            (await db.ownedLibraryDao.readState(lease.owner))!.watermark,
+            isNull,
+          );
+        },
+      );
+
+      test(
+        'overlapping and repeated pauses share one incremental bootstrap',
+        () async {
+          await seedEntry(chapter: 3);
+          final lease = mockAuth.libraryLease!;
+          final dao = getIt<AppDatabase>().ownedLibraryDao;
+          await dao.finishFullImport(
+            lease,
+            completeSeriesIds: {'1'},
+            watermark: '2026-01-01T00:00:00.000Z',
+          );
+          final starts = List.generate(3, (_) => Completer<void>());
+          final pages = List.generate(3, (_) => Completer<http.Response>());
+          var requests = 0;
+          service = LibraryService(
+            auth: mockAuth,
+            httpClient: MockClient((_) {
+              final index = requests++;
+              starts[index].complete();
+              return pages[index].future;
+            }),
+          );
+          final bootstrap = service.performInitialSyncIfNeeded();
+          expect(service.performInitialSyncIfNeeded(), same(bootstrap));
+          final finished = Completer<void>();
+          unawaited(bootstrap.then((_) => finished.complete()));
+          await starts[0].future;
+          final releaseFirst = service.pauseSyncForReconciliation(lease);
+          final releaseSecond = service.pauseSyncForReconciliation(lease);
+          final manual = service.syncLibrary();
+          releaseFirst();
+          pages[0].complete(
+            syncPage(chapter: 1, timestamp: '2026-01-09T00:00:00Z'),
+          );
+          expect(
+            (await dao.readState(lease.owner))!.watermark,
+            '2026-01-01T00:00:00.000Z',
+          );
+          expect(requests, 1);
+          expect(finished.isCompleted, isFalse);
+          releaseSecond();
+          await starts[1].future;
+          final releaseThird = service.pauseSyncForReconciliation(lease);
+          pages[1].complete(http.Response('{}', 503));
+          expect((await storedEntry()).progressChapter, 3);
+          expect(requests, 2);
+          releaseThird();
+          await starts[2].future;
+          expect(finished.isCompleted, isFalse);
+          pages[2].complete(
+            syncPage(chapter: 7, timestamp: '2026-01-02T00:00:00Z'),
+          );
+          await Future.wait([bootstrap, manual, finished.future]);
+          await service.performInitialSyncIfNeeded();
+          expect(requests, 3);
+          expect((await storedEntry()).progressChapter, 7);
+          expect(
+            (await dao.readState(lease.owner))!.watermark,
+            '2026-01-02T00:00:00.000Z',
+          );
+        },
+      );
+
+      test(
+        'resumed failure reaches both bootstrap callers and leaves retry available',
+        () async {
+          await seedEntry(chapter: 3);
+          final lease = mockAuth.libraryLease!;
+          final dao = getIt<AppDatabase>().ownedLibraryDao;
+          final first = Completer<void>();
+          final oldPage = Completer<http.Response>();
+          var requests = 0;
+          service = LibraryService(
+            auth: mockAuth,
+            httpClient: MockClient((_) async {
+              switch (++requests) {
+                case 1:
+                  first.complete();
+                  return oldPage.future;
+                case 2:
+                  return http.Response('{}', 503);
+                default:
+                  return syncPage(
+                    chapter: 8,
+                    timestamp: '2026-01-03T00:00:00Z',
+                  );
+              }
+            }),
+          );
+          final a = service.performInitialSyncIfNeeded();
+          final b = service.performInitialSyncIfNeeded();
+          final failures = Future.wait([
+            expectLater(a, throwsA(isA<ApiException>())),
+            expectLater(b, throwsA(isA<ApiException>())),
+          ]);
+          await first.future;
+          final release = service.pauseSyncForReconciliation(lease);
+          release();
+          await failures;
+          expect((await storedEntry()).progressChapter, 3);
+          expect((await dao.readState(lease.owner))!.watermark, isNull);
+          oldPage.complete(
+            syncPage(chapter: 1, timestamp: '2026-01-09T00:00:00Z'),
+          );
+          await service.performInitialSyncIfNeeded();
+          expect(requests, 3);
+          expect((await storedEntry()).progressChapter, 8);
+          expect(
+            (await dao.readState(lease.owner))!.watermark,
+            '2026-01-03T00:00:00.000Z',
+          );
+        },
+      );
+
+      for (final switchAccount in [false, true]) {
+        test('paused bootstrap settles on switch=$switchAccount', () async {
+          await seedEntry(chapter: 3);
+          final lease = mockAuth.libraryLease!;
+          final dao = getIt<AppDatabase>().ownedLibraryDao;
+          final started = Completer<void>();
+          final oldPage = Completer<http.Response>();
+          var requests = 0;
+          service = LibraryService(
+            auth: mockAuth,
+            httpClient: MockClient((_) {
+              requests++;
+              started.complete();
+              return oldPage.future;
+            }),
+          );
+          final bootstrap = service.performInitialSyncIfNeeded();
+          final settled = switchAccount
+              ? expectLater(bootstrap, throwsA(isA<AuthException>()))
+              : expectLater(bootstrap, completes);
+          await started.future;
+          final release = service.pauseSyncForReconciliation(lease);
+          final refresh = service.syncLibrary();
+          final refreshSettled = switchAccount
+              ? expectLater(refresh, throwsA(isA<AuthException>()))
+              : expectLater(refresh, completes);
+          if (switchAccount) {
+            final next = await dao.activate(
+              VerifiedLibraryOwner.fromVerifiedAccountId('paused-b'),
+            );
+            mockAuth.useLease(next);
+          } else {
+            service.cancelSync();
+          }
+          await Future.wait([settled, refreshSettled]);
+          release();
+          oldPage.complete(
+            syncPage(chapter: 1, timestamp: '2026-01-09T00:00:00Z'),
+          );
+          expect((await storedEntry()).progressChapter, 3);
+          expect((await dao.readState(lease.owner))!.watermark, isNull);
+          expect(requests, 1);
+        });
+      }
+
+      test('stale page cannot resurrect validated remote absence', () async {
+        await seedEntry(chapter: 3);
+        final lease = mockAuth.libraryLease!;
+        final dao = getIt<AppDatabase>().ownedLibraryDao;
+        final started = Completer<void>();
+        final oldPage = Completer<http.Response>();
+        var pages = 0;
+        service = LibraryService(
+          auth: mockAuth,
+          httpClient: MockClient((request) async {
+            if (request.url.path.endsWith('/my/library/1')) {
+              return http.Response('{"status":404}', 404);
+            }
+            if (++pages == 1) {
+              started.complete();
+              return oldPage.future;
+            }
+            return syncPage();
+          }),
+        );
+        final sync = service.syncLibrary();
+        await started.future;
+        expect(await service.fetchAuthoritativeLibraryEntry('1'), isNull);
+        oldPage.complete(
+          syncPage(chapter: 99, timestamp: '2026-01-09T00:00:00Z'),
+        );
+        await sync;
+        expect(await dao.findEntry(lease.owner, '1'), isNull);
+        expect((await dao.readState(lease.owner))!.watermark, isNull);
+        expect(await getIt<AppDatabase>().seriesDao.findSeries('1'), isNotNull);
+        expect(pages, 2);
+      });
+      test('editor read restarts an interrupted initial import', () async {
+        final dao = getIt<AppDatabase>().ownedLibraryDao;
+        final lease = await dao.activate(
+          VerifiedLibraryOwner.fromVerifiedAccountId('initial-resume'),
+        );
+        mockAuth.useLease(lease);
+        await getIt<AppDatabase>().customStatement(
+          "INSERT INTO series_table (id, title, cover_url, description) VALUES ('1', 'One', '', '')",
+        );
+        final firstStarted = Completer<void>();
+        final oldPage = Completer<http.Response>();
+        final resumed = Completer<void>();
+        var pageCalls = 0;
+        service = LibraryService(
+          auth: mockAuth,
+          httpClient: MockClient((request) async {
+            if (request.url.path.endsWith('/my/library')) {
+              pageCalls++;
+              if (pageCalls == 1) {
+                firstStarted.complete();
+                return oldPage.future;
+              }
+              resumed.complete();
+              return http.Response(
+                '{"pagination":{"next":null,"count":1},"data":[{"id":"34","state":"reading","progress_chapter":7,"Series":{"id":"1","title":"One"}}]}',
+                200,
+              );
+            }
+            return http.Response(
+              '{"status":200,"data":{"id":34,"series_id":1,"user_id":"initial-resume","state":"reading","progress_chapter":7}}',
+              200,
+            );
+          }),
+        );
+        final old = service.performInitialSyncIfNeeded();
+        await firstStarted.future;
+        expect(
+          (await service.fetchAuthoritativeLibraryEntry('1'))!.progressChapter,
+          7,
+        );
+        await resumed.future;
+        oldPage.complete(
+          http.Response(
+            '{"pagination":{"next":null,"count":0},"data":[]}',
+            200,
+          ),
+        );
+        await old;
+        await service.watchEntriesFromDb().first;
+        expect(
+          (await dao.findEntry(lease.owner, '1'))!.entry.progressChapter,
+          7,
+        );
+        expect((await dao.readState(lease.owner))!.initialized, isTrue);
+        expect(pageCalls, 2);
+      });
+      for (final status in [500, 502, 503, 504]) {
+        test('HTTP $status write remains uncertain without replay', () async {
+          await seedEntry();
+          var writes = 0;
+          service = LibraryService(
+            auth: mockAuth,
+            httpClient: MockClient((request) async {
+              if (request.method == 'PATCH') {
+                writes++;
+                return http.Response('{}', status);
+              }
+              return http.Response('{}', 503);
+            }),
+          );
+          final result = await service.updateCompleteLibraryEntry(
+            LibraryEntryDraft(
+              lease: mockAuth.libraryLease!,
+              seriesId: '1',
+              rating: const EntryField.set(20),
+            ),
+          );
+          expect(result.outcome, LibrarySaveOutcome.uncertain);
+          expect(writes, 1);
+          expect((await storedEntry()).progressChapter, 0);
+        });
+      }
+
+      test(
+        'validated absence removes only owned entry and preserves metadata',
+        () async {
+          await seedEntry();
+          var response = http.Response('{}', 404);
+          service = LibraryService(
+            auth: mockAuth,
+            httpClient: MockClient((_) async => response),
+          );
+          await expectLater(
+            service.fetchAuthoritativeLibraryEntry('1'),
+            throwsFormatException,
+          );
+          expect(await storedEntry(), isNotNull);
+          response = http.Response('{"status":404}', 404);
+          expect(await service.fetchAuthoritativeLibraryEntry('1'), isNull);
+          expect(
+            await getIt<AppDatabase>().ownedLibraryDao.findEntry(
+              mockAuth.libraryLease!.owner,
+              '1',
+            ),
+            isNull,
+          );
+          expect(
+            await getIt<AppDatabase>().seriesDao.findSeries('1'),
+            isNotNull,
+          );
+        },
+      );
+      http.Response entryResponse([Map<String, Object?> fields = const {}]) =>
+          http.Response(
+            jsonEncode({
+              'status': 200,
+              'data': {
+                'id': 34,
+                'series_id': 1,
+                'user_id': 'account-a',
+                'state': 'reading',
+                'progress_chapter': 7,
+                'priority': 20,
+                'rating': null,
+                'progress_volume': null,
+                'number_of_rereads': 2,
+                'note': 'private',
+                'start_date': '2026-02-21T00:00:00.000Z',
+                'finish_date': null,
+                'read_link': 'https://example.org/read',
+                'is_private': true,
+                ...fields,
+              },
+            }),
+            200,
+          );
+
+      LibraryEntryDraft draft() => LibraryEntryDraft(
+        lease: mockAuth.libraryLease!,
+        seriesId: '1',
+        state: const EntryField.set('reading'),
+        priority: const EntryField.set(25),
+        startDate: const EntryField.set('2026-02-21'),
+        finishDate: const EntryField.set(null),
+        progressChapter: const EntryField.set(7),
+        progressVolume: const EntryField.set(0),
+        numberOfRereads: const EntryField.set(2),
+        rating: const EntryField.set(0),
+        readLink: const EntryField.set('https://example.org/read'),
+        note: const EntryField.set(null),
+        isPrivate: const EntryField.set(true),
+        lists: const EntryField.set([5, 7]),
+      );
+
+      test(
+        'an authoritative cache write rolls back if its lease is revoked at commit',
+        () async {
+          final pause = _PauseOwnedInsert();
+          final db = AppDatabase.forTesting(
+            NativeDatabase.memory().interceptWith(pause),
+          );
+          addTearDown(db.close);
+          await db.customStatement(
+            "INSERT INTO series_table (id, title, cover_url, description) VALUES ('1', 'One', '', '')",
+          );
+          final dao = db.ownedLibraryDao;
+          final lease = await dao.activate(
+            VerifiedLibraryOwner.fromVerifiedAccountId('account-a'),
+          );
+          mockAuth.useLease(lease);
+          service = LibraryService(
+            database: db,
+            auth: mockAuth,
+            httpClient: MockClient((_) async => entryResponse()),
+          );
+          final pending = expectLater(
+            service.fetchAuthoritativeLibraryEntry('1'),
+            throwsA(isA<AuthException>()),
+          );
+          await pause.inserted.future;
+          mockAuth.useLease(null);
+          pause.release.complete();
+          await pending;
+          expect(await dao.findEntry(lease.owner, '1'), isNull);
+        },
+      );
+
+      test('entry transport failure differs from a missing entry', () async {
+        service = LibraryService(
+          auth: mockAuth,
+          httpClient: MockClient(
+            (_) async => throw http.ClientException('offline'),
+          ),
+        );
+        await expectLater(
+          service.fetchAuthoritativeLibraryEntry('1'),
+          throwsA(isA<NetworkException>()),
+        );
+      });
+      test(
+        'an older Library page cannot overwrite the confirmed edit',
+        () async {
+          await seedEntry(chapter: 2);
+          final started = Completer<void>();
+          final older = Completer<http.Response>();
+          var pages = 0;
+          service = LibraryService(
+            auth: mockAuth,
+            httpClient: MockClient((request) async {
+              if (request.url.path.endsWith('/my/library')) {
+                if (++pages > 1) return syncPage();
+                started.complete();
+                return older.future;
+              }
+              if (request.method == 'PATCH') {
+                return http.Response('{"status":200,"data":true}', 200);
+              }
+              return entryResponse({
+                'Entries': [
+                  {'library_entry_id': 34, 'library_list_id': 5},
+                ],
+              });
+            }),
+          );
+          final refresh = service.syncLibrary();
+          await started.future;
+          expect(
+            (await service.updateCompleteLibraryEntry(draft())).outcome,
+            LibrarySaveOutcome.saved,
+          );
+          older.complete(
+            http.Response(
+              jsonEncode({
+                'pagination': {'next': null, 'count': 1},
+                'data': [
+                  {
+                    'id': '34',
+                    'state': 'reading',
+                    'progress_chapter': 2,
+                    'Series': {'id': '1', 'title': 'Series One'},
+                  },
+                ],
+              }),
+              200,
+            ),
+          );
+          await refresh;
+          expect((await storedEntry()).progressChapter, 7);
+          expect((await storedEntry()).listIdsJson, '[5]');
+          expect(pages, 2);
+        },
+      );
+
+      test(
+        'accepted write after an account switch returns refresh pending',
+        () async {
+          final started = Completer<void>();
+          final reply = Completer<http.Response>();
+          var requests = 0;
+          service = LibraryService(
+            auth: mockAuth,
+            httpClient: MockClient((request) {
+              requests++;
+              started.complete();
+              return reply.future;
+            }),
+          );
+          final save = service.updateCompleteLibraryEntry(draft());
+          await started.future;
+          final dao = getIt<AppDatabase>().ownedLibraryDao;
+          final lease = await dao.activate(
+            VerifiedLibraryOwner.fromVerifiedAccountId('account-b'),
+          );
+          mockAuth.useLease(lease);
+          reply.complete(http.Response('{"status":200,"data":true}', 200));
+          expect((await save).outcome, LibrarySaveOutcome.refreshPending);
+          expect(requests, 1);
+          expect(await dao.findEntry(lease.owner, '1'), isNull);
+        },
+      );
+
+      for (final status in [400, 403, 404, 409, 429]) {
+        test('rejected PATCH preserves owned fields (HTTP $status)', () async {
+          await seedEntry(chapter: 3);
+          final lease = mockAuth.libraryLease!;
+          await getIt<AppDatabase>().customStatement(
+            "UPDATE owned_library_entries SET list_ids_json = '[5]' WHERE owner_id = ?",
+            [lease.owner.id],
+          );
+          var calls = 0;
+          service = LibraryService(
+            auth: mockAuth,
+            rateLimitCoordinator: RateLimitCoordinator(),
+            httpClient: MockClient((request) async {
+              calls++;
+              expect(request.method, 'PATCH');
+              return http.Response('{}', status, headers: {'retry-after': '0'});
+            }),
+          );
+          await expectLater(
+            service.updateCompleteLibraryEntry(draft()),
+            throwsA(
+              isA<ApiException>().having((e) => e.statusCode, 'status', status),
+            ),
+          );
+          expect(calls, 1);
+          expect((await storedEntry()).progressChapter, 3);
+          expect((await storedEntry()).listIdsJson, '[5]');
+        });
+      }
+
+      test('401 recovers credentials without replaying the PATCH', () async {
+        var calls = 0;
+        service = LibraryService(
+          auth: mockAuth,
+          httpClient: MockClient((_) async {
+            calls++;
+            return http.Response('{}', 401);
+          }),
+        );
+        await expectLater(
+          service.updateCompleteLibraryEntry(draft()),
+          throwsA(isA<AuthException>()),
+        );
+        expect(calls, 1);
+        expect(mockAuth.rejectedTokens, ['access-old']);
+      });
+
+      test(
+        'queued quick progress waits for the full edit and its readback',
+        () async {
+          await seedEntry();
+          final started = Completer<void>();
+          final reply = Completer<http.Response>();
+          final methods = <String>[];
+          service = LibraryService(
+            auth: mockAuth,
+            httpClient: MockClient((request) async {
+              methods.add(request.method);
+              if (request.method == 'PATCH') {
+                started.complete();
+                return reply.future;
+              }
+              return request.method == 'GET'
+                  ? entryResponse()
+                  : http.Response('{}', 200);
+            }),
+          );
+          final edit = service.updateCompleteLibraryEntry(draft());
+          await started.future;
+          final quick = service.updateLibraryEntryProgress(
+            '1',
+            progressChapter: 8,
+          );
+          expect(methods, ['PATCH']);
+          reply.complete(http.Response('{"status":200,"data":true}', 200));
+          expect((await edit).outcome, LibrarySaveOutcome.saved);
+          await quick;
+          expect(methods, ['PATCH', 'GET', 'PUT']);
+          expect((await storedEntry()).progressChapter, 8);
+        },
+      );
+
+      test(
+        'stale draft and late GET cannot write after switching accounts',
+        () async {
+          await seedEntry(chapter: 2);
+          final oldDraft = draft();
+          final started = Completer<void>();
+          final reply = Completer<http.Response>();
+          var calls = 0;
+          service = LibraryService(
+            auth: mockAuth,
+            httpClient: MockClient((_) {
+              calls++;
+              started.complete();
+              return reply.future;
+            }),
+          );
+          final read = expectLater(
+            service.fetchAuthoritativeLibraryEntry('1'),
+            throwsA(isA<AuthException>()),
+          );
+          await started.future;
+          final dao = getIt<AppDatabase>().ownedLibraryDao;
+          final newLease = await dao.activate(
+            VerifiedLibraryOwner.fromVerifiedAccountId('account-b'),
+          );
+          mockAuth.useLease(newLease);
+          reply.complete(entryResponse());
+          await read;
+          await expectLater(
+            service.updateCompleteLibraryEntry(oldDraft),
+            throwsA(isA<AuthException>()),
+          );
+          expect(calls, 1);
+          expect((await storedEntry()).progressChapter, 2);
+          expect(await dao.findEntry(newLease.owner, '1'), isNull);
+        },
+      );
+
+      test(
+        'validates and reconciles authoritative identity and memberships',
+        () async {
+          await seedEntry();
+          var reply = entryResponse();
+          service = LibraryService(
+            auth: mockAuth,
+            httpClient: MockClient((_) async => reply),
+          );
+          final entry = (await service.fetchAuthoritativeLibraryEntry('1'))!;
+          expect(entry.listIds, isNull);
+          expect(entry.startDate, '2026-02-21');
+          expect(entry.priority, 20);
+          expect(entry.numberOfRereads, 2);
+          expect(entry.note, 'private');
+          expect(entry.readLink, 'https://example.org/read');
+          expect(entry.isPrivate, isTrue);
+          expect(entry.progressChapter, 7);
+          reply = entryResponse({
+            'Entries': [
+              {'library_entry_id': 34, 'library_list_id': 5},
+            ],
+          });
+          expect((await service.fetchAuthoritativeLibraryEntry('1'))!.listIds, [
+            5,
+          ]);
+          reply = entryResponse();
+          expect(
+            (await service.fetchAuthoritativeLibraryEntry('1'))!.listIds,
+            isNull,
+          );
+          expect((await storedEntry()).listIdsJson, '[5]');
+          reply = entryResponse({'Entries': []});
+          expect(
+            (await service.fetchAuthoritativeLibraryEntry('1'))!.listIds,
+            isEmpty,
+          );
+          reply = entryResponse({'progress_chapter': 7.5});
+          await expectLater(
+            service.fetchAuthoritativeLibraryEntry('1'),
+            throwsFormatException,
+          );
+          expect((await storedEntry()).progressChapter, 7);
+          for (final bad in [
+            {'user_id': 'other'},
+            {'series_id': 2},
+          ]) {
+            reply = entryResponse(bad);
+            await expectLater(
+              service.fetchAuthoritativeLibraryEntry('1'),
+              throwsFormatException,
+            );
+          }
+          reply = http.Response('{"status":404}', 404);
+          expect(await service.fetchAuthoritativeLibraryEntry('1'), isNull);
+        },
+      );
+
+      test('lists follow trusted links and reject another origin', () async {
+        final paths = <Uri>[];
+        var next = '?page=2';
+        service = LibraryService(
+          auth: mockAuth,
+          httpClient: MockClient((request) async {
+            paths.add(request.url);
+            final first = request.url.queryParameters['page'] == null;
+            return http.Response(
+              jsonEncode({
+                'status': 200,
+                'pagination': {'next': first ? next : null},
+                'data': [
+                  {'id': first ? 1 : 2, 'name': 'List', 'is_private': first},
+                ],
+              }),
+              200,
+            );
+          }),
+        );
+        final lease = mockAuth.libraryLease!;
+        final lists = await service.fetchAccountLibraryLists(lease);
+        expect(lists.map((list) => list.id), [1, 2]);
+        expect(lists.map((list) => list.isPrivate), [true, false]);
+        next = 'https://elsewhere.example/v2/my/library/lists?page=2';
+        await expectLater(
+          service.fetchAccountLibraryLists(lease),
+          throwsFormatException,
+        );
+        expect(paths, hasLength(3));
+      });
+
+      test(
+        'create and patch send intentional fields and use normalized GET',
+        () async {
+          await seedEntry();
+          final methods = <String>[];
+          final payloads = <Object?>[];
+          service = LibraryService(
+            auth: mockAuth,
+            httpClient: MockClient((request) async {
+              methods.add(request.method);
+              if (methods.length == 1) {
+                return http.Response('{"status":404}', 404);
+              }
+              if (request.method == 'POST') {
+                expect((await storedEntry()).id, 'entry-1');
+              }
+              if (request.method == 'GET') {
+                return entryResponse({'Entries': []});
+              }
+              payloads.add(jsonDecode(request.body));
+              final status = request.method == 'POST' ? 201 : 200;
+              return http.Response('{"status":$status,"data":true}', status);
+            }),
+          );
+          final created = await service.createCompleteLibraryEntry(draft());
+          expect(created.outcome, LibrarySaveOutcome.saved);
+          expect(created.entry!.rating, isNull);
+          expect(created.entry!.progressVolume, isNull);
+          expect(payloads.single, {
+            'state': 'reading',
+            'priority': 25,
+            'start_date': '2026-02-21',
+            'finish_date': null,
+            'progress_chapter': 7,
+            'progress_volume': 0,
+            'number_of_rereads': 2,
+            'read_link': 'https://example.org/read',
+            'is_private': true,
+            'rating': 0,
+            'note': null,
+            'lists': [5, 7],
+          });
+          final updated = await service.updateCompleteLibraryEntry(
+            LibraryEntryDraft(
+              lease: mockAuth.libraryLease!,
+              seriesId: '1',
+              lists: const EntryField.set([]),
+            ),
+          );
+          expect(updated.entry!.listIds, isEmpty);
+          expect(payloads.last, {'lists': []});
+          expect(methods, ['GET', 'POST', 'GET', 'PATCH', 'GET']);
+        },
+      );
+
+      test(
+        'validates dates, ranges and list count without dropping explicit nulls',
+        () {
+          final lease = mockAuth.libraryLease!;
+          expect(
+            LibraryEntryDraft(
+              lease: lease,
+              seriesId: '1',
+              note: const EntryField.set(null),
+            ).toJson(),
+            {'note': null},
+          );
+          expect(
+            () => LibraryEntryDraft(
+              lease: lease,
+              seriesId: '1',
+              startDate: const EntryField.set('2026-02-30'),
+            ).toJson(),
+            throwsArgumentError,
+          );
+          expect(
+            () => LibraryEntryDraft(
+              lease: lease,
+              seriesId: '1',
+              rating: const EntryField.set(101),
+            ).toJson(),
+            throwsArgumentError,
+          );
+          expect(
+            () => LibraryEntryDraft(
+              lease: lease,
+              seriesId: '1',
+              lists: EntryField.set(List.generate(31, (i) => i + 1)),
+            ).toJson(),
+            throwsArgumentError,
+          );
+        },
+      );
+
+      test(
+        'distinguishes duplicate, uncertain create and accepted write awaiting refresh',
+        () async {
+          await seedEntry();
+          var exists = true;
+          var ambiguous = false;
+          var writes = 0;
+          service = LibraryService(
+            auth: mockAuth,
+            httpClient: MockClient((request) async {
+              if (request.method == 'POST') {
+                writes++;
+                if (ambiguous) {
+                  exists = true;
+                  throw http.ClientException('disconnected');
+                }
+                return http.Response('{"status":201,"data":true}', 201);
+              }
+              return exists
+                  ? entryResponse()
+                  : http.Response('{"status":404}', 404);
+            }),
+          );
+          await expectLater(
+            service.createCompleteLibraryEntry(draft()),
+            throwsA(
+              isA<ApiException>().having((e) => e.statusCode, 'status', 409),
+            ),
+          );
+          expect(writes, 0);
+          exists = false;
+          expect(
+            (await service.createCompleteLibraryEntry(draft())).outcome,
+            LibrarySaveOutcome.refreshPending,
+          );
+          ambiguous = true;
+          final result = await service.createCompleteLibraryEntry(draft());
+          expect(result.outcome, LibrarySaveOutcome.uncertain);
+          expect(result.entry, isNotNull);
+          expect(writes, 2);
+        },
+      );
+    });
     test(
       'new lease catches up initialized cache once and retries failures',
       () async {

@@ -69,6 +69,8 @@ abstract class LibraryServiceBase {
     String? state,
     bool waitForExisting = true,
   });
+  void cancelSync();
+  void Function() pauseSyncForReconciliation(db.LibraryCacheLease lease);
   Future<FetchPageResult> fetchPage(
     db.LibraryCacheLease lease,
     int page, {

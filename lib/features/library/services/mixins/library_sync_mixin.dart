@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/database/database.dart';
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
@@ -7,11 +9,15 @@ import 'package:mangabaka_app/features/library/services/library_service.dart';
 
 mixin LibrarySyncMixin on LibraryServiceBase {
   Object? _syncRun;
+  Completer<void>? _interruptRun;
   Future<void>? _running;
   final Map<LibraryCacheLease, Future<void>> _initialSyncs = {};
   LibraryCacheLease? _completedInitial;
   int _cancelGeneration = 0;
   LibraryCacheLease? _incomplete;
+  LibraryCacheLease? _pauseLease;
+  int _pauseCount = 0;
+  Completer<void>? _pauseReleased;
 
   int get maxSyncPages => AppConstants.libraryMaxPages;
 
@@ -60,13 +66,51 @@ mixin LibrarySyncMixin on LibraryServiceBase {
     if (generation == _cancelGeneration) _completedInitial = lease;
   }
 
+  @override
   void cancelSync() {
     _cancelGeneration++;
+    final interrupt = _interruptRun;
+    _interruptRun = null;
+    if (interrupt != null && !interrupt.isCompleted) interrupt.complete();
+    _pauseLease = null;
+    _pauseCount = 0;
+    final released = _pauseReleased;
+    _pauseReleased = null;
+    if (released != null && !released.isCompleted) released.complete();
     _syncRun = null;
     _running = null;
     _initialSyncs.clear();
     _completedInitial = null;
     syncStatus.value = const LibrarySyncStatus();
+  }
+
+  @override
+  void Function() pauseSyncForReconciliation(LibraryCacheLease lease) {
+    checkLease(lease);
+    final generation = _cancelGeneration;
+    if (_pauseCount++ == 0) {
+      _pauseLease = lease;
+      _pauseReleased = Completer<void>();
+      if (_syncRun != null) {
+        _syncRun = null;
+        _interruptRun?.complete();
+        syncStatus.value = const LibrarySyncStatus();
+      }
+    }
+    var done = false;
+    return () {
+      if (done) return;
+      done = true;
+      if (!identical(_pauseLease, lease) || generation != _cancelGeneration) {
+        return;
+      }
+      _pauseCount--;
+      if (_pauseCount != 0) return;
+      final released = _pauseReleased;
+      _pauseReleased = null;
+      _pauseLease = null;
+      released?.complete();
+    };
   }
 
   Future<void> syncLibrary({String? state}) async {
@@ -77,6 +121,12 @@ mixin LibrarySyncMixin on LibraryServiceBase {
 
   Future<void> importFullLibrary() async {
     final lease = requireLease();
+    final generation = _cancelGeneration;
+    while (_pauseReleased != null) {
+      await _pauseReleased!.future;
+      checkLease(lease);
+      if (generation != _cancelGeneration) return;
+    }
     if (_running != null) return;
     await _start(lease, forceFull: true);
   }
@@ -88,17 +138,26 @@ mixin LibrarySyncMixin on LibraryServiceBase {
     bool waitForExisting = true,
   }) async {
     checkLease(lease);
-    while (_running != null) {
-      if (!waitForExisting) return;
-      try {
-        final waiting = _running;
-        await waiting;
-      } catch (_) {
-        // A separate failed refresh does not consume this request.
+    final generation = _cancelGeneration;
+    while (true) {
+      final pause = _pauseReleased;
+      final running = _running;
+      if (pause != null) {
+        await pause.future;
+      } else if (running != null) {
+        if (!waitForExisting) return;
+        try {
+          await running;
+        } catch (_) {
+          // A separate failed refresh does not consume this request.
+        }
+      } else {
+        await _start(lease, state: state);
+        return;
       }
       checkLease(lease);
+      if (generation != _cancelGeneration) return;
     }
-    await _start(lease, state: state);
   }
 
   Future<void> _start(
@@ -106,11 +165,50 @@ mixin LibrarySyncMixin on LibraryServiceBase {
     String? state,
     bool forceFull = false,
   }) {
-    final run = Object();
-    _syncRun = run;
-    final future = _sync(lease, run, state: state, forceFull: forceFull);
+    final generation = _cancelGeneration;
+    // Publish the logical Future before the attempt can notify listeners.
+    final future = Future<void>.microtask(
+      () => _runLogicalSync(lease, generation, state, forceFull),
+    );
     _running = future;
     return future;
+  }
+
+  Future<void> _runLogicalSync(
+    LibraryCacheLease lease,
+    int generation,
+    String? state,
+    bool forceFull,
+  ) async {
+    bool active() =>
+        generation == _cancelGeneration && identical(currentLease, lease);
+    try {
+      while (active()) {
+        final pause = _pauseReleased;
+        if (pause != null) {
+          await pause.future;
+          continue;
+        }
+        final run = Object();
+        final interrupted = Completer<void>();
+        _syncRun = run;
+        _interruptRun = interrupted;
+        // Future.any observes late errors from the abandoned attempt.
+        // Its run token also fences every database commit.
+        await Future.any([
+          _sync(lease, run, state: state, forceFull: forceFull),
+          interrupted.future,
+        ]);
+        if (identical(_syncRun, run)) return;
+      }
+    } finally {
+      if (active()) {
+        _running = null;
+        _syncRun = null;
+        _interruptRun = null;
+        syncStatus.value = syncStatus.value.copyWith(isSyncing: false);
+      }
+    }
   }
 
   Future<void> _sync(
@@ -242,12 +340,6 @@ mixin LibrarySyncMixin on LibraryServiceBase {
       _incomplete = lease;
       syncStatus.value = syncStatus.value.copyWith(error: 'failed_to_load');
       rethrow;
-    } finally {
-      if (live()) {
-        _running = null;
-        _syncRun = null;
-        syncStatus.value = syncStatus.value.copyWith(isSyncing: false);
-      }
     }
   }
 }

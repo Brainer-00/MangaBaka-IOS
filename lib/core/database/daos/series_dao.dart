@@ -5,6 +5,10 @@ class SeriesDao extends DatabaseAccessor<AppDatabase> with _$SeriesDaoMixin {
   final _logger = LoggingService.logger;
   SeriesDao(super.db);
 
+  Future<SeriesTableData?> findSeries(String id) => (select(
+    seriesTable,
+  )..where((row) => row.id.equals(id))).getSingleOrNull();
+
   Future<SeriesTableData?> getLatestUpdatedSeries() async {
     try {
       return await (select(seriesTable)
