@@ -22,7 +22,11 @@ class SyncProgressOverlay extends StatelessWidget {
     return ValueListenableBuilder<LibrarySyncStatus>(
       valueListenable: libraryService.syncStatus,
       builder: (context, status, child) {
-        if (status.currentEntries == 0 && status.error == null) {
+        if (status.isServerDown ||
+            (status.pageLimitReached &&
+                !status.isSyncing &&
+                status.error == null) ||
+            (status.currentEntries == 0 && status.error == null)) {
           return const SizedBox.shrink();
         }
 
@@ -60,8 +64,12 @@ class SyncProgressOverlay extends StatelessWidget {
     LibrarySyncStatus status, {
     required bool isDesktop,
   }) {
-    final hasError = status.error != null;
+    final errorKey = status.error;
+    final hasError = errorKey != null;
     final l10n = LocalizationService();
+    final detail = errorKey == null
+        ? l10n.translate('keep_app_open')
+        : l10n.translate(errorKey);
     final colors = context.colors;
     final errorText = MbPalette.ensureContrast(
       colors.error,
@@ -167,10 +175,9 @@ class SyncProgressOverlay extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          hasError
-                              ? (status.error ??
-                                    l10n.translate('an_error_occurred'))
-                              : l10n.translate('keep_app_open'),
+                          detail == errorKey
+                              ? l10n.translate('an_error_occurred')
+                              : detail,
                           style: AppTypography.sans(
                             color: hasError
                                 ? errorText

@@ -47,11 +47,6 @@ class LibrarySession extends ChangeNotifier {
 
   StreamSubscription<List<LibraryEntry>>? _subscription;
 
-  /// True when the local copy is known to be missing entries — the initial
-  /// import hit its page limit and never finished.
-  bool _isIncomplete = false;
-  bool get isIncomplete => _isIncomplete;
-
   bool _disposed = false;
 
   @override
@@ -71,7 +66,6 @@ class LibrarySession extends ChangeNotifier {
       unawaited(_subscription?.cancel());
       _subscription = null;
       _entriesStream = null;
-      _isIncomplete = false;
       if (lease != null) {
         _entriesStream = _library.watchEntriesFromDb();
         _subscription = _entriesStream!.listen(
@@ -82,33 +76,17 @@ class LibrarySession extends ChangeNotifier {
             _logger.warning('Library stream failed (${error.runtimeType})');
           },
         );
-        unawaited(_runInitialSync(lease));
+        unawaited(_runInitialSync());
       }
     }
     _safeNotify();
   }
 
-  Future<void> _runInitialSync(LibraryCacheLease lease) async {
+  Future<void> _runInitialSync() async {
     try {
       await _library.performInitialSyncIfNeeded();
     } catch (error) {
       _logger.warning('Initial Library sync failed (${error.runtimeType})');
-    } finally {
-      await _readIncomplete(lease);
-    }
-  }
-
-  Future<void> _readIncomplete(LibraryCacheLease lease) async {
-    if (_disposed || !identical(_lease, lease)) return;
-    try {
-      final incomplete = await _library.isLibraryIncomplete();
-      if (_disposed || !identical(_lease, lease)) return;
-      _isIncomplete = incomplete;
-      _safeNotify();
-    } catch (error) {
-      _logger.warning(
-        'Library cache status unavailable (${error.runtimeType})',
-      );
     }
   }
 
@@ -152,8 +130,6 @@ class LibrarySession extends ChangeNotifier {
       await _library.reconcileLibrary(lease);
     } catch (e) {
       _logger.severe('Manual refresh failed (${e.runtimeType})');
-    } finally {
-      await _readIncomplete(lease);
     }
   }
 

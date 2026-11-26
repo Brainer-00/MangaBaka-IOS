@@ -256,6 +256,34 @@ void main() {
     );
   });
 
+  test('canonical yellow stays exact across supported preset variants', () {
+    const yellow = Color(0xFFFBD24B);
+    const other = Color(0xFF1B203A);
+    for (final preset in ThemePresets.all) {
+      for (final base in [?preset.dark, ?preset.light]) {
+        final palette = base.withAccent(yellow);
+        expect(palette.accent, yellow);
+        expect(palette.onAccent, Colors.black);
+        expect(palette.progressIndicator, yellow);
+        expect(palette.accentOn(yellow), Colors.black);
+        expect(
+          palette.accentForeground,
+          MbPalette.contrastRatio(yellow, base.surface) >= 4.5
+              ? yellow
+              : base.text,
+        );
+        expect(
+          base.withAccent(other).accent,
+          MbPalette.ensureContrast(other, base.surface, minimum: 3.0),
+        );
+        expect(
+          base.withAccent(other).onAccent,
+          MbPalette.readableOn(base.withAccent(other).accent),
+        );
+      }
+    }
+  });
+
   test('accent overrides meet both ink and surface contrast floors', () {
     final custom = EirenYuPalette.dark.withAccent(const Color(0xFF1B203A));
     expect(custom.accent, isNot(const Color(0xFF1B203A)));

@@ -31,7 +31,6 @@ class RatingIconButton extends StatelessWidget {
       child: IconButton(
         icon: RatingStar(
           icon: hasRating ? Icons.star : Icons.star_border,
-          surface: colors.surface,
           size: 24,
         ),
         onPressed: () {

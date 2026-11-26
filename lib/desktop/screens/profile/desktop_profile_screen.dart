@@ -630,7 +630,13 @@ class _OverviewRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 14),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: AppConstants.textMutedColor),
+          Icon(
+            icon,
+            size: 18,
+            color: icon == Icons.star_rounded
+                ? AppConstants.starColor
+                : AppConstants.textMutedColor,
+          ),
           const SizedBox(width: 14),
           Expanded(
             child: Text(

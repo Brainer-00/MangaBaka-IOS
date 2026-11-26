@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_appauth/flutter_appauth.dart';
@@ -393,7 +394,10 @@ void main() {
       expect(storage.values, isEmpty);
     }
 
-    Future<void> expectRefreshFailedAndSessionPreserved(Object error) async {
+    Future<void> expectRefreshFailedAndSessionPreserved(
+      Object error, {
+      bool networkFailure = false,
+    }) async {
       await seedExpiredSession();
       auth = ProfileAuthService(
         storage: storage,
@@ -403,11 +407,17 @@ void main() {
       await expectLater(
         auth.getValidAccessToken(),
         throwsA(
-          isA<AuthException>().having(
-            (exception) => exception.code,
-            'code',
-            'TOKEN_REFRESH_FAILED',
-          ),
+          isA<AuthException>()
+              .having(
+                (exception) => exception.code,
+                'code',
+                'TOKEN_REFRESH_FAILED',
+              )
+              .having(
+                (exception) => exception.isNetworkFailure,
+                'isNetworkFailure',
+                networkFailure,
+              ),
         ),
       );
       expect(storage.values[AuthStorage.kAccessToken], 'access-old');
@@ -439,6 +449,28 @@ void main() {
     test('arbitrary generic PlatformException preserves session', () {
       return expectRefreshFailedAndSessionPreserved(
         PlatformException(code: '401', details: const {'status': 401}),
+      );
+    });
+
+    test(
+      'native offline token refresh keeps the session and network category',
+      () {
+        return expectRefreshFailedAndSessionPreserved(
+          FlutterAppAuthPlatformException(
+            code: 'token_failed',
+            platformErrorDetails: FlutterAppAuthPlatformErrorDetails(
+              domain: 'NSURLErrorDomain',
+            ),
+          ),
+          networkFailure: true,
+        );
+      },
+    );
+
+    test('socket failure refreshing a token preserves the session', () {
+      return expectRefreshFailedAndSessionPreserved(
+        const SocketException('offline'),
+        networkFailure: true,
       );
     });
 

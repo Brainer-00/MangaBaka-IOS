@@ -139,7 +139,7 @@ class _RatingSelectionDialogState extends State<RatingSelectionDialog>
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(8),
-                        child: RatingStar(surface: badge, size: 24),
+                        child: RatingStar(size: 24),
                       ),
                     ),
                     Expanded(
@@ -171,7 +171,6 @@ class _RatingSelectionDialogState extends State<RatingSelectionDialog>
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           RatingStar(
-                            surface: colors.background,
                             icon: hasRating ? Icons.star : Icons.star_outline,
                             size: 28,
                           ),
@@ -197,7 +196,9 @@ class _RatingSelectionDialogState extends State<RatingSelectionDialog>
                     RatingSliderStep.step25 => 4,
                     RatingSliderStep.step1 => 100,
                   },
-                  activeColor: colors.accentOn(colors.surface, minimum: 3),
+                  activeColor: colors.usesCanonicalYellow
+                      ? colors.accent
+                      : colors.accentOn(colors.surface, minimum: 3),
                   inactiveColor: colors.border,
                   onChanged: _busy || outcome != null
                       ? null

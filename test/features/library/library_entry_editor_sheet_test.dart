@@ -233,6 +233,56 @@ void main() {
     await tester.pump();
   }
 
+  for (final palette in [EirenYuPalette.light, EirenYuPalette.dark]) {
+    testWidgets('Editor Save and Paused use yellow in ${palette.brightness}', (
+      tester,
+    ) async {
+      const yellow = Color(0xFFFBD24B);
+      await show(tester, palette: palette.withAccent(yellow));
+      final save = find.descendant(
+        of: find.byType(FilledButton),
+        matching: action('save'),
+      );
+      expect(
+        DefaultTextStyle.of(tester.element(save)).style.color,
+        Colors.black,
+      );
+      final saveMaterial = find.descendant(
+        of: find.byType(FilledButton),
+        matching: find.byType(Material),
+      );
+      expect(tester.widget<Material>(saveMaterial).color, yellow);
+
+      final dropdown = find.byType(LibraryStatusDropdown);
+      await tester.ensureVisible(dropdown);
+      await tester.tap(dropdown);
+      await tester.pumpAndSettle();
+      final pausedRow = find.descendant(
+        of: find.byType(MenuItemButton),
+        matching: find.text(tr('paused').toUpperCase()),
+      );
+      final menuGlyph = find.descendant(
+        of: find.ancestor(of: pausedRow, matching: find.byType(MenuItemButton)),
+        matching: find.byIcon(Icons.pause_circle_outline),
+      );
+      expect(tester.widget<Icon>(menuGlyph).color, yellow);
+      expect(tester.getSize(menuGlyph), const Size.square(17));
+      await tester.ensureVisible(pausedRow);
+      await tester.tap(pausedRow);
+      await tester.pumpAndSettle();
+      final style = tester
+          .widget<OutlinedButton>(
+            find.descendant(
+              of: dropdown,
+              matching: find.byType(OutlinedButton),
+            ),
+          )
+          .style!;
+      expect(style.backgroundColor!.resolve({}), yellow);
+      expect(style.side!.resolve({}), BorderSide.none);
+    });
+  }
+
   testWidgets('Markdown toolbar preserves selection and native undo', (
     tester,
   ) async {

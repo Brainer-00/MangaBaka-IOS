@@ -89,13 +89,15 @@ class LibraryStatusDropdown extends StatelessWidget {
                 foregroundColor: ink,
                 disabledBackgroundColor: colors.surfaceRaised,
                 disabledForegroundColor: colors.textMuted,
-                side: BorderSide(
-                  color: MbPalette.ensureContrast(
-                    fill,
-                    colors.surface,
-                    minimum: 3,
-                  ),
-                ),
+                side: value == 'paused'
+                    ? BorderSide.none
+                    : BorderSide(
+                        color: MbPalette.ensureContrast(
+                          fill,
+                          colors.surface,
+                          minimum: 3,
+                        ),
+                      ),
                 shape: const StadiumBorder(),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -158,11 +160,7 @@ class LibraryStatusDropdown extends StatelessWidget {
               width: 21,
               child: Center(
                 child: state == 'paused'
-                    ? SemanticYellowIcon(
-                        surface: surface,
-                        icon: _icon(state),
-                        size: 17,
-                      )
+                    ? SemanticYellowIcon(icon: _icon(state), size: 17)
                     : Icon(
                         _icon(state),
                         size: 17,

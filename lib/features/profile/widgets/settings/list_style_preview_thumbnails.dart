@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/settings/settings_enums.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 
@@ -78,12 +79,10 @@ class ListStylePreviewThumbnails extends StatelessWidget {
                     const SizedBox(height: 3),
                     Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.star_rounded,
                           size: 6,
-                          color: context.colors.textMuted.withValues(
-                            alpha: 0.2,
-                          ),
+                          color: AppConstants.starColor,
                         ),
                         const SizedBox(width: 2),
                         Container(

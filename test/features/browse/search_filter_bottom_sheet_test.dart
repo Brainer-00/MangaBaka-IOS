@@ -110,6 +110,7 @@ void main() {
       for (final colors in [
         EirenYuPalette.dark,
         EirenYuPalette.light,
+        EirenYuPalette.light.withAccent(const Color(0xFFFBD24B)),
         ThemePresets.byId('nord')!.dark!,
       ]) {
         palette.value = colors;
@@ -124,6 +125,9 @@ void main() {
           expect(state.value, expected);
           final chip = tester.widget<ActionChip>(find.byType(ActionChip));
           final label = tester.widget<Text>(find.text('Action'));
+          if (colors.usesCanonicalYellow && expected == TriState.include) {
+            expect(label.style!.color, colors.text);
+          }
           expect(
             MbPalette.contrastRatio(label.style!.color!, chip.backgroundColor!),
             greaterThanOrEqualTo(4.5),

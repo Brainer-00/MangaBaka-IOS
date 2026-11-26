@@ -162,11 +162,7 @@ class ThemeMiniaturePreview extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        RatingStar(
-                          surface: palette.background,
-                          icon: Icons.star,
-                          size: 7,
-                        ),
+                        RatingStar(icon: Icons.star, size: 7),
                         const SizedBox(width: 2),
                         Container(
                           height: 2,

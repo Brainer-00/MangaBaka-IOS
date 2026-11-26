@@ -100,7 +100,6 @@ class SeriesMyListCard extends StatelessWidget {
                     children: [
                       RatingStar(
                         icon: rating == null ? Icons.star_border : Icons.star,
-                        surface: colors.surface,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -159,14 +158,6 @@ class _ProgressRow extends StatelessWidget {
             colors.surfaceRaised,
             minimum: 3.0,
           );
-    final track =
-        paused && MbPalette.contrastRatio(statusColor, colors.surfaceRaised) < 3
-        ? MbPalette.ensureContrast(
-            colors.surfaceRaised,
-            statusColor,
-            minimum: 3,
-          )
-        : colors.surfaceRaised;
     final pct = (total != null && total! > 0)
         ? (value / total!).clamp(0.0, 1.0)
         : 0.0;
@@ -224,9 +215,11 @@ class _ProgressRow extends StatelessWidget {
               child: Container(
                 height: 5,
                 decoration: BoxDecoration(
-                  color: track,
+                  color: colors.surfaceRaised,
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: colors.border, width: 1),
+                  border: paused
+                      ? null
+                      : Border.all(color: colors.border, width: 1),
                 ),
                 child: FractionallySizedBox(
                   alignment: Alignment.centerLeft,

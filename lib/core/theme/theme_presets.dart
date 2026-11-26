@@ -14,7 +14,7 @@ class ThemePresets {
   static const defaultId = 'eirenyu';
   static const accentSwatches = <Color>[
     Color(0xFF5BBD74),
-    Color(0xFFFBD24B),
+    AppConstants.semanticYellow,
     Color(0xFFFB923C),
     Color(0xFFF43F5E),
     Color(0xFFF472B6),

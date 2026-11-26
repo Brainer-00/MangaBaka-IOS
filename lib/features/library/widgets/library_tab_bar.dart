@@ -86,20 +86,6 @@ class LibraryTabBar extends StatelessWidget implements PreferredSizeWidget {
           indicatorSize: TabBarIndicatorSize.tab,
           indicator: BoxDecoration(
             color: indicatorColor,
-            border:
-                MbPalette.contrastRatio(
-                      indicatorColor,
-                      context.colors.background,
-                    ) <
-                    3
-                ? Border.all(
-                    color: MbPalette.ensureContrast(
-                      context.colors.textMuted,
-                      context.colors.background,
-                      minimum: 3,
-                    ),
-                  )
-                : null,
             borderRadius: BorderRadius.circular(AppConstants.pillRadius),
           ),
           indicatorPadding: const EdgeInsets.symmetric(

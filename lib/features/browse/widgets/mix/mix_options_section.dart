@@ -131,7 +131,9 @@ class MixToggleRow extends StatelessWidget {
             minimum: 3.0,
           )
         : colors.accentOn(colors.surface, minimum: 3.0);
-    final activeTrack = colors.accentOn(colors.surface, minimum: 3.0);
+    final activeTrack = colors.usesCanonicalYellow
+        ? colors.accent
+        : colors.accentOn(colors.surface, minimum: 3.0);
 
     return Padding(
       padding: EdgeInsets.only(top: isFirst ? 4 : 0, bottom: isLast ? 4 : 0),

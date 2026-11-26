@@ -135,7 +135,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
       errorBackground,
       minimum: 4.5,
     );
-    final progressColor = colors.accentOn(colors.surfaceRaised, minimum: 3);
+    final progressColor = colors.progressIndicator;
 
     return PopScope(
       // Block back-dismissal while downloading/installing.

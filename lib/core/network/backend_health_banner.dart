@@ -73,11 +73,7 @@ class _DownBar extends StatelessWidget {
           color: surface,
           child: Row(
             children: [
-              SemanticYellowIcon(
-                surface: surface,
-                icon: Icons.cloud_off_rounded,
-                size: 18,
-              ),
+              SemanticYellowIcon(icon: Icons.cloud_off_rounded, size: 18),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(

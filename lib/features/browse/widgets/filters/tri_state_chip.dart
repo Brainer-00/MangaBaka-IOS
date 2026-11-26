@@ -31,11 +31,7 @@ class TriStateChip extends StatelessWidget {
           colors.accent.withValues(alpha: 0.2),
           colors.surface,
         );
-        textColor = MbPalette.ensureContrast(
-          colors.accent,
-          backgroundColor,
-          minimum: 4.5,
-        );
+        textColor = colors.accentOn(backgroundColor);
         icon = Icons.check;
         break;
       case TriState.exclude:

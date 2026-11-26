@@ -34,7 +34,7 @@ class StandoutPickCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (icon == Icons.star_rounded)
-            RatingStar(surface: context.colors.surface, size: 22)
+            RatingStar(size: 22)
           else
             Icon(icon, color: context.colors.text, size: 22),
           const SizedBox(height: 8),

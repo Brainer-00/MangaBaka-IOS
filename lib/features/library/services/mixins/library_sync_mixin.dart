@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:io';
+
+import 'package:http/http.dart' as http;
 
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/database/database.dart';
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
+import 'package:mangabaka_app/core/network/backend_health_service.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/library/models/library_sync_status.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
@@ -15,7 +19,6 @@ mixin LibrarySyncMixin on LibraryServiceBase {
   final Map<LibraryCacheLease, Future<void>> _initialSyncs = {};
   LibraryCacheLease? _completedInitial;
   int _cancelGeneration = 0;
-  LibraryCacheLease? _incomplete;
   LibraryCacheLease? _pauseLease;
   int _pauseCount = 0;
   Completer<void>? _pauseReleased;
@@ -27,7 +30,25 @@ mixin LibrarySyncMixin on LibraryServiceBase {
     if (lease == null) return false;
     final state = await owned.readState(lease.owner);
     return identical(lease, currentLease) &&
-        (state?.initialized != true || identical(_incomplete, lease));
+        (state?.initialized != true || syncStatus.value.pageLimitReached);
+  }
+
+  Future<void> retryInterruptedSync() async {
+    final lease = currentLease;
+    if (lease == null || !syncStatus.value.isServerDown) return;
+    try {
+      await _running;
+    } catch (_) {
+      // The failed attempt must finish before reconciliation can start again.
+    }
+    if (!identical(currentLease, lease) || !syncStatus.value.isServerDown) {
+      return;
+    }
+    try {
+      await reconcileLibrary(lease);
+    } catch (_) {
+      // The retry publishes its own status using the same run fences.
+    }
   }
 
   Future<void> performInitialSyncIfNeeded() {
@@ -69,7 +90,11 @@ mixin LibrarySyncMixin on LibraryServiceBase {
   }
 
   @override
-  void cancelSync() {
+  void cancelSync() => _cancelSync(preserveImportStatus: true);
+
+  void resetSyncForAccount() => _cancelSync(preserveImportStatus: false);
+
+  void _cancelSync({required bool preserveImportStatus}) {
     _cancelGeneration++;
     final interrupt = _interruptRun;
     _interruptRun = null;
@@ -84,7 +109,13 @@ mixin LibrarySyncMixin on LibraryServiceBase {
     _reconciliation = null;
     _initialSyncs.clear();
     _completedInitial = null;
-    syncStatus.value = const LibrarySyncStatus();
+    syncStatus.value = preserveImportStatus
+        ? syncStatus.value.copyWith(
+            isSyncing: false,
+            currentEntries: 0,
+            clearError: true,
+          )
+        : const LibrarySyncStatus();
   }
 
   @override
@@ -97,7 +128,11 @@ mixin LibrarySyncMixin on LibraryServiceBase {
       if (_syncRun != null) {
         _syncRun = null;
         _interruptRun?.complete();
-        syncStatus.value = const LibrarySyncStatus();
+        syncStatus.value = syncStatus.value.copyWith(
+          isSyncing: false,
+          currentEntries: 0,
+          clearError: true,
+        );
       }
     }
     var done = false;
@@ -272,11 +307,19 @@ mixin LibrarySyncMixin on LibraryServiceBase {
       if (!live()) throw StateError('Library sync no longer active');
     }
 
-    if (live()) syncStatus.value = const LibrarySyncStatus(isSyncing: true);
+    if (!live()) return;
+    syncStatus.value = syncStatus.value.copyWith(
+      isSyncing: true,
+      currentEntries: 0,
+      clearError: true,
+    );
+    bool? initialized;
+    var full = false;
     try {
       final cache = await owned.readState(lease.owner);
       if (!live()) return;
-      final full = forceFull || cache?.initialized != true;
+      initialized = cache?.initialized == true;
+      full = forceFull || !initialized;
       final filter = full ? null : state;
       final previous = DateTime.tryParse(cache?.watermark ?? '');
       final seriesIds = <String>{};
@@ -394,11 +437,20 @@ mixin LibrarySyncMixin on LibraryServiceBase {
               beforeCommit: beforeCommit,
             );
           }
-          if (live()) _incomplete = null;
+          if (live() && full) {
+            syncStatus.value = syncStatus.value.copyWith(
+              initialImportIncomplete: false,
+              pageLimitReached: false,
+            );
+          }
           return;
         }
       }
-      if (live()) _incomplete = lease;
+      if (full && snapshotCount != null && count >= snapshotCount) {
+        throw const FormatException(
+          'Unexpected continuation at Library page limit',
+        );
+      }
       throw ApiException(
         message: 'Library sync reached its page limit',
         statusCode: 400,
@@ -406,8 +458,29 @@ mixin LibrarySyncMixin on LibraryServiceBase {
       );
     } catch (error) {
       if (!live()) return;
-      _incomplete = lease;
-      syncStatus.value = syncStatus.value.copyWith(error: 'failed_to_load');
+      final limitReached =
+          full && error is ApiException && error.code == 'LIBRARY_PAGE_LIMIT';
+      final serverDown =
+          error is NetworkException ||
+          error is TimeoutException ||
+          error is SocketException ||
+          error is http.ClientException ||
+          (error is AuthException && error.isNetworkFailure) ||
+          (error is ApiException && isServerErrorStatus(error.statusCode));
+      syncStatus.value = syncStatus.value.copyWith(
+        error: serverDown || limitReached ? null : 'failed_to_load',
+        isServerDown: serverDown,
+        initialImportIncomplete: initialized == null ? null : !initialized,
+        pageLimitReached: limitReached ? true : null,
+      );
+      if (serverDown && live()) {
+        backendHealth?.reportServerFailure(
+          context: 'library-sync',
+          statusCode: error is ApiException ? error.statusCode : null,
+          error: error,
+          immediate: true,
+        );
+      }
       rethrow;
     }
   }

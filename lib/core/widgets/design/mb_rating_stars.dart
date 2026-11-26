@@ -27,7 +27,7 @@ class MbRatingStars extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        RatingStar(size: fontSize + 4, surface: context.colors.surface),
+        RatingStar(size: fontSize + 4),
         const SizedBox(width: 3),
         Text(
           r.toStringAsFixed(outOf > 10 ? 0 : 1),

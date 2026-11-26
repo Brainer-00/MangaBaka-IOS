@@ -102,7 +102,9 @@ class _SeriesSegmentedControlState extends State<SeriesSegmentedControl>
           vertical: 6,
         ),
         labelPadding: EdgeInsets.zero,
-        labelColor: colors.accentOn(colors.accent),
+        labelColor: colors.usesCanonicalYellow
+            ? colors.onAccent
+            : colors.accentOn(colors.accent),
         unselectedLabelColor: MbPalette.ensureContrast(
           colors.text,
           colors.background,

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/utils/date_utils.dart' as mb_date;
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
-import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 
 class DateDialog extends StatelessWidget {
@@ -17,10 +16,8 @@ class DateDialog extends StatelessWidget {
     final endFormatted = mb_date.AppDateUtils.formatFullDate(end);
     final l10n = LocalizationService();
     final colors = context.colors;
-    final accentIconColor = MbPalette.ensureContrast(
-      colors.accent,
+    final accentIconColor = colors.accentOn(
       Color.alphaBlend(colors.accent.withValues(alpha: 0.12), colors.surface),
-      minimum: 4.5,
     );
 
     return AlertDialog(

@@ -258,33 +258,30 @@ void main() {
             palette: palette,
             Row(
               children: [
-                RatingStar(surface: palette.surface, icon: Icons.star_rounded),
-                RatingStar(
-                  surface: palette.surface,
-                  icon: Icons.star_outline_rounded,
-                ),
+                RatingStar(icon: Icons.star_rounded),
+                RatingStar(icon: Icons.star_outline_rounded),
               ],
             ),
           ),
         );
         for (final icon in [Icons.star_rounded, Icons.star_outline_rounded]) {
-          expect(tester.widget<Icon>(find.byIcon(icon)).color, yellow);
+          final glyph = find.byIcon(icon);
+          expect(tester.widget<Icon>(glyph).color, yellow);
+          expect(tester.getSize(glyph), const Size.square(18));
+          final star = find.ancestor(
+            of: glyph,
+            matching: find.byType(RatingStar),
+          );
+          expect(tester.getRect(star), tester.getRect(glyph));
         }
-        if (MbPalette.contrastRatio(yellow, palette.surface) < 3) {
-          final backing = tester.widgetList<DecoratedBox>(
+        for (final type in [DecoratedBox, Padding]) {
+          expect(
             find.descendant(
               of: find.byType(RatingStar),
-              matching: find.byType(DecoratedBox),
+              matching: find.byType(type),
             ),
+            findsNothing,
           );
-          expect(backing, hasLength(2));
-          for (final box in backing) {
-            final fill = (box.decoration as BoxDecoration).color!;
-            expect(
-              MbPalette.contrastRatio(yellow, fill),
-              greaterThanOrEqualTo(3),
-            );
-          }
         }
       }
     },

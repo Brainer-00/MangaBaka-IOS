@@ -13,6 +13,9 @@ import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/theme/theme_controller.dart';
 import 'package:mangabaka_app/core/theme/theme_presets.dart';
 import 'package:mangabaka_app/core/widgets/design/eirenyu_mark.dart';
+import 'package:mangabaka_app/core/widgets/design/mb_nav.dart';
+import 'package:mangabaka_app/features/series/widgets/series_detail_fab.dart';
+import 'package:mangabaka_app/features/series/widgets/series_segmented_control.dart';
 import 'package:mangabaka_app/features/profile/widgets/settings/appearance_settings.dart';
 import 'package:mangabaka_app/features/profile/widgets/settings/theme_miniature_preview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -327,6 +330,144 @@ void main() {
       expect(
         find.descendant(of: preview, matching: find.byType(Icon)),
         findsNWidgets(10),
+      );
+    }
+  });
+
+  testWidgets('saved yellow drives navigation, Appearance and series fills', (
+    tester,
+  ) async {
+    final settings = SettingsManager();
+    final controller = ThemeController()..init();
+    addTearDown(controller.dispose);
+    await settings.setThemeMode(AppThemeMode.system);
+    final dispatcher = tester.binding.platformDispatcher;
+    addTearDown(dispatcher.clearPlatformBrightnessTestValue);
+    const yellow = Color(0xFFFBD24B);
+    expect(ThemePresets.accentSwatches[1], yellow);
+
+    await tester.pumpWidget(
+      ListenableBuilder(
+        listenable: controller,
+        builder: (_, _) => MaterialApp(
+          theme: AppTheme.build(
+            showTooltips: true,
+            palette: controller.lightPalette,
+          ),
+          darkTheme: AppTheme.build(
+            showTooltips: true,
+            palette: controller.darkPalette,
+          ),
+          themeMode: ThemeMode.system,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Column(
+                children: [
+                  SeriesAddToLibraryButton(editorOpen: false, onAdd: () {}),
+                  SeriesSegmentedControl(
+                    selectedTab: 'Info',
+                    onTabChanged: (_) {},
+                  ),
+                  const AppearanceSettings(),
+                ],
+              ),
+            ),
+            bottomNavigationBar: MbBottomNav(
+              destinations: const [
+                MbNavDestination(
+                  icon: Icons.home_outlined,
+                  selectedIcon: Icons.home_rounded,
+                  label: 'Home',
+                ),
+              ],
+              selectedIndex: 0,
+              onDestinationSelected: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final swatch = find.byKey(const Key('appearance_accent_1'));
+    await tester.ensureVisible(swatch);
+    await tester.tap(swatch);
+    await tester.pumpAndSettle();
+    expect(settings.accentOverride, yellow.toARGB32());
+
+    for (final brightness in Brightness.values) {
+      dispatcher.platformBrightnessTestValue = brightness;
+      await tester.pumpAndSettle();
+      final mode = find.byKey(const Key('appearance_mode_system'));
+      await tester.ensureVisible(mode);
+      await tester.pumpAndSettle();
+      final rawChip = tester.widget<RawChip>(
+        find.descendant(of: mode, matching: find.byType(RawChip)),
+      );
+      expect(rawChip.selected, isTrue);
+      expect(rawChip.selectedColor, yellow);
+      expect(rawChip.labelStyle!.color, Colors.black);
+
+      final nav = find.byType(MbBottomNav);
+      final activeNav = tester.widget<AnimatedContainer>(
+        find.descendant(of: nav, matching: find.byType(AnimatedContainer)),
+      );
+      expect((activeNav.decoration as BoxDecoration).color, yellow);
+      expect(
+        tester.widget<Icon>(find.byIcon(Icons.home_rounded)).color,
+        Colors.black,
+      );
+
+      final preview = find.byKey(
+        Key('appearance_preview_${brightness.name}_eirenyu'),
+      );
+      final previewNav = find.descendant(
+        of: preview,
+        matching: find.byKey(const Key('appearance_preview_active_nav')),
+      );
+      expect(
+        (tester.widget<Container>(previewNav).decoration as BoxDecoration)
+            .color,
+        yellow,
+      );
+      expect(
+        tester
+            .widget<Icon>(
+              find.descendant(of: previewNav, matching: find.byType(Icon)),
+            )
+            .color,
+        Colors.black,
+      );
+      final preset = find.byKey(
+        Key('appearance_preset_${brightness.name}_eirenyu'),
+      );
+      final check = find.descendant(
+        of: preset,
+        matching: find.byIcon(Icons.check_circle),
+      );
+      expect(tester.widget<Icon>(check).color, yellow);
+
+      final add = find.byKey(const Key('add_to_library_button'));
+      final material = tester.widget<Material>(
+        find.descendant(of: add, matching: find.byType(Material)),
+      );
+      expect(material.color, yellow);
+      expect(material.textStyle!.color, Colors.black);
+      final tabs = tester.widget<TabBar>(find.byType(TabBar));
+      expect((tabs.indicator as BoxDecoration).color, yellow);
+      expect(tabs.labelColor, Colors.black);
+
+      final theme = Theme.of(tester.element(add));
+      expect(theme.colorScheme.primary, yellow);
+      expect(theme.colorScheme.onPrimary, Colors.black);
+      expect(theme.progressIndicatorTheme.color, yellow);
+      expect(theme.sliderTheme.activeTrackColor, yellow);
+      expect(
+        theme.switchTheme.trackColor!.resolve({WidgetState.selected}),
+        yellow,
+      );
+      expect(
+        theme.switchTheme.thumbColor!.resolve({WidgetState.selected}),
+        Colors.black,
       );
     }
   });

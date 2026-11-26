@@ -52,7 +52,7 @@ class StatisticCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: icon == Icons.star
-                    ? RatingStar(surface: colors.surface, icon: icon, size: 18)
+                    ? RatingStar(icon: icon, size: 18)
                     : Icon(icon, color: mutedOnCard, size: 18),
               ),
             ],

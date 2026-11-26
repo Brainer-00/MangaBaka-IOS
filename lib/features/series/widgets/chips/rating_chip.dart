@@ -29,7 +29,7 @@ class RatingChip extends StatelessWidget {
     );
     return MiniBadge(
       text: '$userRating / 100',
-      iconWidget: RatingStar(surface: background, icon: Icons.star),
+      iconWidget: RatingStar(icon: Icons.star),
       backgroundColor: background,
       hoverColor: AppConstants.starColor.withValues(alpha: 0.15),
       onTap: onTap,

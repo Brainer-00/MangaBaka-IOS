@@ -17,6 +17,7 @@ import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:flutter/foundation.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/network/rate_limit_coordinator.dart';
+import 'package:mangabaka_app/core/network/backend_health_service.dart';
 
 abstract class LibraryServiceBase {
   db.AppDatabase get database;
@@ -26,6 +27,7 @@ abstract class LibraryServiceBase {
 
   ValueNotifier<LibrarySyncStatus> get syncStatus;
   RateLimitCoordinator get rateLimitCoordinator;
+  BackendHealthService? get backendHealth;
 
   db.LibraryCacheLease? get currentLease => auth.libraryLease;
   db.OwnedLibraryDao get owned => database.ownedLibraryDao;
@@ -86,6 +88,9 @@ class LibraryService extends LibraryServiceBase
   final db.AppDatabase _db;
   final http.Client _httpClient;
 
+  @override
+  final BackendHealthService? backendHealth;
+
   @visibleForTesting
   final LibraryWatchInstrumentation? watchInstrumentation;
 
@@ -128,10 +133,20 @@ class LibraryService extends LibraryServiceBase
   }) : _auth = auth,
        _db = database ?? getIt<db.AppDatabase>(),
        _httpClient = httpClient ?? http.Client(),
+       backendHealth = getIt.isRegistered<BackendHealthService>()
+           ? getIt<BackendHealthService>()
+           : null,
        rateLimitCoordinator =
            rateLimitCoordinator ?? RateLimitCoordinator.shared {
     _observedLease = currentLease;
     _auth.addListener(_sessionChanged);
+    backendHealth?.status.addListener(_onBackendHealthChanged);
+  }
+
+  void _onBackendHealthChanged() {
+    if (backendHealth?.status.value == BackendHealthStatus.healthy) {
+      unawaited(retryInterruptedSync());
+    }
   }
 
   db.LibraryCacheLease? _observedLease;
@@ -140,12 +155,13 @@ class LibraryService extends LibraryServiceBase
     final lease = currentLease;
     if (identical(lease, _observedLease)) return;
     _observedLease = lease;
-    cancelSync();
+    resetSyncForAccount();
   }
 
   void dispose() {
     _auth.removeListener(_sessionChanged);
-    cancelSync();
+    backendHealth?.status.removeListener(_onBackendHealthChanged);
+    resetSyncForAccount();
     _httpClient.close();
     _syncStatus.dispose();
   }
@@ -306,6 +322,9 @@ class LibraryService extends LibraryServiceBase
         );
 
         checkLease(lease);
+        if (!isServerErrorStatus(response.statusCode)) {
+          backendHealth?.reportSuccess();
+        }
         if (response.statusCode == 429) {
           rateLimitCoordinator.updateFromRetryAfter(
             RateLimitCoordinator.retryAfterHeader(response.headers),

@@ -96,10 +96,7 @@ class SeriesTitleBlock extends StatelessWidget {
                 if (rating > 0) ...[
                   WidgetSpan(
                     alignment: PlaceholderAlignment.middle,
-                    child: RatingStar(
-                      surface: colors.background,
-                      size: isWide ? 13 : 12,
-                    ),
+                    child: RatingStar(size: isWide ? 13 : 12),
                   ),
                   TextSpan(text: ' ${rating.toStringAsFixed(1)}'),
                 ],

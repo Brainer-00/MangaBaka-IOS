@@ -63,7 +63,7 @@ class ExternalRatingsSection extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              RatingStar(icon: Icons.stars_rounded, surface: colors.background),
+              const RatingStar(icon: Icons.stars_rounded),
               const SizedBox(width: 8),
               Text(
                 avg.toStringAsFixed(1),
@@ -130,7 +130,7 @@ class ExternalRatingsSection extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _getFavicon(context, key),
+              _getFavicon(key),
               const SizedBox(width: 8),
               Text(
                 rating.toString(),
@@ -235,10 +235,9 @@ class ExternalRatingsSection extends StatelessWidget {
     }
   }
 
-  Widget _getFavicon(BuildContext context, String key) {
+  Widget _getFavicon(String key) {
     final domain = _getDomain(key);
-    final colors = context.colors;
-    final star = RatingStar(size: 16, surface: colors.background);
+    const star = RatingStar(size: 16);
 
     if (domain.isEmpty) {
       return star;

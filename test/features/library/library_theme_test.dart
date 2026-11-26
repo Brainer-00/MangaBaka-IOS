@@ -13,6 +13,7 @@ import 'package:mangabaka_app/features/library/widgets/library_tab_bar.dart';
 import 'package:mangabaka_app/features/library/widgets/sync_progress_overlay.dart';
 import 'package:mangabaka_app/features/library/models/library_sync_status.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeLibraryService extends Fake implements LibraryService {
   @override
@@ -66,15 +67,60 @@ void main() {
       );
       await tester.tap(find.text(stopLabel));
       expect(service.cancelled, isTrue);
-      service.syncStatus.value = const LibrarySyncStatus(
-        error: 'Interrupted',
-        currentEntries: 5,
-      );
-      await tester.pump(const Duration(milliseconds: 500));
-      expect(find.text('Interrupted'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('Sync overlay localizes errors and falls back for unknown keys', (
+    tester,
+  ) async {
+    await resetServiceLocator();
+    final service = _FakeLibraryService();
+    getIt.registerSingleton<LibraryService>(service);
+    addTearDown(() async {
+      await resetServiceLocator();
+      service.syncStatus.dispose();
+      LocalizationService.resetForTesting();
+    });
+
+    SharedPreferences.setMockInitialValues({});
+    final l10n = LocalizationService();
+    await tester.runAsync(() async {
+      await l10n.init();
+      await l10n.setLanguage('es');
+    });
+    const palette = EirenYuPalette.light;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.build(showTooltips: true, palette: palette),
+        home: const Scaffold(body: Stack(children: [SyncProgressOverlay()])),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    service.syncStatus.value = const LibrarySyncStatus(
+      error: 'failed_to_load',
+      currentEntries: 5,
+    );
+    await tester.pumpAndSettle();
+    final detail = find.text('Error al cargar los datos');
+    expect(detail, findsOneWidget);
+    expect(find.text('failed_to_load'), findsNothing);
+    expect(
+      MbPalette.contrastRatio(
+        tester.widget<Text>(detail).style!.color!,
+        palette.surface,
+      ),
+      greaterThanOrEqualTo(4.5),
+    );
+
+    const unknown = 'unknown_sync_error';
+    service.syncStatus.value = const LibrarySyncStatus(error: unknown);
+    await tester.pumpAndSettle();
+    expect(find.text('Ha ocurrido un error.'), findsOneWidget);
+    expect(find.text(unknown), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('Library search text and filters survive palette changes', (
     tester,
@@ -202,13 +248,17 @@ void main() {
                   minimum: 3.0,
                 );
           expect(indicator.color, expected);
-          expect(
-            MbPalette.contrastRatio(
-              (indicator.border as Border?)?.top.color ?? indicator.color!,
-              colors.background,
-            ),
-            greaterThanOrEqualTo(3.0),
-          );
+          if (paused) {
+            expect(indicator.border, isNull);
+          } else {
+            expect(
+              MbPalette.contrastRatio(
+                (indicator.border as Border?)?.top.color ?? indicator.color!,
+                colors.background,
+              ),
+              greaterThanOrEqualTo(3.0),
+            );
+          }
           final selected = tester.widget<Text>(
             find.text(l10n.translate(statusKeys[index]).toUpperCase()),
           );

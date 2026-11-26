@@ -123,6 +123,7 @@ void main() {
   final palettes = <String, MbPalette>{
     'EirenYu Dark': EirenYuPalette.dark,
     'EirenYu Light': EirenYuPalette.light,
+    'Light yellow': EirenYuPalette.light.withAccent(const Color(0xFFFBD24B)),
     'Nord': ThemePresets.byId('nord')!.dark!,
     'custom accent': EirenYuPalette.dark.withAccent(const Color(0xFF808080)),
   };
@@ -228,26 +229,21 @@ void main() {
       final starFinder = find.byIcon(Icons.star_rounded);
       final star = tester.widget<Icon>(starFinder);
       expect(star.color, AppConstants.starColor);
-      final starWidget = tester.widget<RatingStar>(
-        find.ancestor(of: starFinder, matching: find.byType(RatingStar)),
+      final starWidget = find.ancestor(
+        of: starFinder,
+        matching: find.byType(RatingStar),
       );
-      final hasBacking =
-          MbPalette.contrastRatio(star.color!, starWidget.surface) < 3;
-      if (hasBacking) {
-        final decorations = find
-            .ancestor(of: starFinder, matching: find.byType(DecoratedBox))
-            .evaluate()
-            .map((element) => element.widget as DecoratedBox);
+      expect(tester.getRect(starWidget), tester.getRect(starFinder));
+      expect(tester.getSize(starFinder), const Size.square(24));
+      final slider = tester.widget<Slider>(find.byType(Slider));
+      if (palette.usesCanonicalYellow) {
+        expect(slider.activeColor, const Color(0xFFFBD24B));
+      } else {
         expect(
-          decorations.map((box) => (box.decoration as BoxDecoration).color),
-          contains(AppConstants.primaryBackground),
+          MbPalette.contrastRatio(slider.activeColor!, palette.surface),
+          greaterThanOrEqualTo(3),
         );
       }
-      final slider = tester.widget<Slider>(find.byType(Slider));
-      expect(
-        MbPalette.contrastRatio(slider.activeColor!, palette.surface),
-        greaterThanOrEqualTo(3),
-      );
       expect(tester.takeException(), isNull);
     });
   }

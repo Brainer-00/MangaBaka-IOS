@@ -8,6 +8,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/core/network/rate_limit_coordinator.dart';
+import 'package:mangabaka_app/core/network/backend_health_service.dart';
+import 'package:mangabaka_app/features/library/helpers/library_filter_helper.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
 import 'package:mangabaka_app/features/library/controllers/library_session.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
@@ -1441,7 +1443,8 @@ void main() {
         expect((await dao.readState(b.owner))!.watermark, isNull);
         expect(await dao.listEntries(b.owner), isEmpty);
         expect(service.syncStatus.value.isSyncing, isFalse);
-        expect(session.isIncomplete, isFalse);
+        expect(service.syncStatus.value.initialImportIncomplete, isFalse);
+        expect(service.syncStatus.value.pageLimitReached, isFalse);
         expect(visible.expand((entries) => entries), isEmpty);
       },
     );
@@ -1513,7 +1516,8 @@ void main() {
         await Future<void>.delayed(Duration.zero);
         expect(requests, 1);
         expect(await service.isLibraryIncomplete(), isFalse);
-        expect(session.isIncomplete, isFalse);
+        expect(service.syncStatus.value.initialImportIncomplete, isFalse);
+        expect(service.syncStatus.value.pageLimitReached, isFalse);
       },
     );
     test(
@@ -1720,6 +1724,144 @@ void main() {
       },
     );
 
+    test(
+      'offline refresh preserves 51 owned entries and retries on recovery',
+      () async {
+        final health = BackendHealthService(
+          client: MockClient((_) async => http.Response('', 200)),
+        );
+        getIt.registerSingleton(
+          health,
+          dispose: (service) => service.dispose(),
+        );
+        final lease = mockAuth.libraryLease!;
+        final dao = getIt<AppDatabase>().ownedLibraryDao;
+        final data = [
+          for (var i = 1; i <= 51; i++)
+            {
+              'id': 'entry-$i',
+              'state': i == 51 ? 'paused' : 'reading',
+              'Series': {'id': '$i', 'title': 'Series $i'},
+            },
+        ];
+        await dao.finishFullImport(
+          lease,
+          completeSeriesIds: {for (var i = 1; i <= 51; i++) '$i'},
+          watermark: '2026-01-01T00:00:00Z',
+          entries: data.map(LibraryEntry.fromJson).toList(),
+        );
+        var offline = true;
+        var requests = 0;
+        service.dispose();
+        service = LibraryService(
+          auth: mockAuth,
+          httpClient: MockClient((_) async {
+            requests++;
+            if (offline) throw http.ClientException('offline');
+            return http.Response(
+              jsonEncode({
+                'pagination': {'next': null, 'count': 51},
+                'data': data,
+              }),
+              200,
+            );
+          }),
+        );
+        addTearDown(service.dispose);
+
+        await expectLater(
+          service.reconcileLibrary(lease),
+          throwsA(isA<http.ClientException>()),
+        );
+        expect(health.isDown, isTrue);
+        expect(service.syncStatus.value.isServerDown, isTrue);
+        expect(service.syncStatus.value.error, isNull);
+        expect(await service.isLibraryIncomplete(), isFalse);
+        final cached = await service.watchEntriesFromDb().first;
+        expect(cached, hasLength(51));
+        final counts = LibraryFilterHelper(
+          allEntries: cached,
+          query: '',
+          contentPreferences: const [],
+        ).counts;
+        expect(counts, containsPair('all', 51));
+        expect(counts, containsPair('reading', 50));
+        expect(counts, containsPair('paused', 1));
+        final search = LibraryFilterHelper(
+          allEntries: cached,
+          query: 'Series 51',
+          contentPreferences: const [],
+        ).result;
+        expect(search.getByTab('paused').single.series.id, '51');
+
+        final recovered = Completer<void>();
+        service.syncStatus.addListener(() {
+          final status = service.syncStatus.value;
+          if (!status.isSyncing &&
+              status.currentEntries == 51 &&
+              !recovered.isCompleted) {
+            recovered.complete();
+          }
+        });
+        offline = false;
+        await health.checkNow();
+        await recovered.future.timeout(const Duration(seconds: 10));
+        expect(requests, 2);
+        expect(health.isDown, isFalse);
+        expect(service.syncStatus.value.isServerDown, isFalse);
+        expect(service.syncStatus.value.error, isNull);
+        expect(await dao.listEntries(lease.owner), hasLength(51));
+      },
+    );
+
+    test(
+      'initial import and failed refresh are distinct from pagination exhaustion',
+      () async {
+        final dao = getIt<AppDatabase>().ownedLibraryDao;
+        final initial = await dao.activate(
+          VerifiedLibraryOwner.fromVerifiedAccountId('new-account'),
+        );
+        mockAuth.useLease(initial);
+        service.dispose();
+        service = LibraryService(
+          auth: mockAuth,
+          httpClient: MockClient(
+            (_) async => http.Response('{"data":[]}', 200),
+          ),
+        );
+        addTearDown(service.dispose);
+        await expectLater(
+          service.performInitialSyncIfNeeded(),
+          throwsFormatException,
+        );
+        expect(service.syncStatus.value.initialImportIncomplete, isTrue);
+        expect(service.syncStatus.value.pageLimitReached, isFalse);
+        expect(service.syncStatus.value.error, 'failed_to_load');
+        expect((await dao.readState(initial.owner))!.initialized, isFalse);
+
+        mockAuth.useLease(null);
+        expect(service.syncStatus.value.initialImportIncomplete, isFalse);
+        expect(service.syncStatus.value.error, isNull);
+        final initialized = await dao.activate(
+          VerifiedLibraryOwner.fromVerifiedAccountId('another-account'),
+        );
+        await dao.finishFullImport(
+          initialized,
+          completeSeriesIds: {},
+          watermark: null,
+        );
+        mockAuth.useLease(initialized);
+        await expectLater(
+          service.reconcileLibrary(initialized),
+          throwsFormatException,
+        );
+        expect(service.syncStatus.value.initialImportIncomplete, isFalse);
+        expect(service.syncStatus.value.pageLimitReached, isFalse);
+        expect(service.syncStatus.value.isServerDown, isFalse);
+        expect(service.syncStatus.value.error, 'failed_to_load');
+      },
+    );
+
     test('capped full import keeps previous rows and watermark', () async {
       await seedEntry();
       final lease = mockAuth.libraryLease!;
@@ -1747,6 +1889,13 @@ void main() {
         unorderedEquals(['1', '2']),
       );
       expect((await dao.readState(lease.owner))!.watermark, 'original');
+      expect(service.syncStatus.value.pageLimitReached, isTrue);
+      expect(service.syncStatus.value.initialImportIncomplete, isFalse);
+      expect(service.syncStatus.value.error, isNull);
+      service.cancelSync();
+      expect(service.syncStatus.value.pageLimitReached, isTrue);
+      mockAuth.useLease(null);
+      expect(service.syncStatus.value.pageLimitReached, isFalse);
     });
 
     test(

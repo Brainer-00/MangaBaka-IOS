@@ -64,13 +64,16 @@ void main() {
             ),
             greaterThanOrEqualTo(4.5),
           );
-          expect(
-            MbPalette.contrastRatio(
-              style.side!.resolve({})!.color,
-              colors.surface,
-            ),
-            greaterThanOrEqualTo(3),
-          );
+          final side = style.side!.resolve({})!;
+          if (status == 'paused') {
+            expect(statusColor, const Color(0xFFFBD24B));
+            expect(side, BorderSide.none);
+          } else {
+            expect(
+              MbPalette.contrastRatio(side.color, colors.surface),
+              greaterThanOrEqualTo(3),
+            );
+          }
           final icon = find
               .descendant(of: dropdown, matching: find.byType(Icon))
               .first;
@@ -195,7 +198,7 @@ void main() {
   }
 
   testWidgets(
-    'Light paused progress keeps canonical yellow on a readable track',
+    'Paused uses clean yellow status controls and progress in Light mode',
     (tester) async {
       final palette = EirenYuPalette.light;
       final series = Series.fromJson({
@@ -249,12 +252,38 @@ void main() {
           track = widget.decoration! as BoxDecoration;
           return false;
         });
-        expect(fill.color, AppConstants.warningColor);
+        expect(fill.color, const Color(0xFFFBD24B));
+        expect(track!.color, palette.surfaceRaised);
+        expect(track!.border, isNull);
         expect(
-          MbPalette.contrastRatio(fill.color!, track!.color!),
-          greaterThanOrEqualTo(3),
+          (indicator.widget as FractionallySizedBox).widthFactor,
+          isIn([0.2, 0.25]),
         );
       }
+      final dropdown = find.byType(LibraryStatusDropdown);
+      final style = tester
+          .widget<OutlinedButton>(
+            find.descendant(
+              of: dropdown,
+              matching: find.byType(OutlinedButton),
+            ),
+          )
+          .style!;
+      expect(style.backgroundColor!.resolve({}), const Color(0xFFFBD24B));
+      expect(
+        style.foregroundColor!.resolve({}),
+        AppConstants.primaryBackground,
+      );
+      expect(style.side!.resolve({}), BorderSide.none);
+      await tester.tap(dropdown);
+      await tester.pumpAndSettle();
+      final glyph = find.descendant(
+        of: find.byType(MenuItemButton),
+        matching: find.byIcon(Icons.pause_circle_outline),
+      );
+      expect(tester.widget<Icon>(glyph).color, const Color(0xFFFBD24B));
+      expect(tester.getSize(glyph), const Size.square(17));
+      expect(tester.takeException(), isNull);
     },
   );
 

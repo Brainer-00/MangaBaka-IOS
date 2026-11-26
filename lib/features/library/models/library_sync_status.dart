@@ -3,12 +3,16 @@ class LibrarySyncStatus {
   final int currentEntries;
   final String? error;
   final bool isServerDown;
+  final bool initialImportIncomplete;
+  final bool pageLimitReached;
 
   const LibrarySyncStatus({
     this.isSyncing = false,
     this.currentEntries = 0,
     this.error,
     this.isServerDown = false,
+    this.initialImportIncomplete = false,
+    this.pageLimitReached = false,
   });
 
   LibrarySyncStatus copyWith({
@@ -16,6 +20,8 @@ class LibrarySyncStatus {
     int? currentEntries,
     String? error,
     bool? isServerDown,
+    bool? initialImportIncomplete,
+    bool? pageLimitReached,
     bool clearError = false,
     // Kept for backwards compatibility — no-op.
     String? infoMessage,
@@ -26,6 +32,9 @@ class LibrarySyncStatus {
       currentEntries: currentEntries ?? this.currentEntries,
       error: clearError ? null : (error ?? this.error),
       isServerDown: clearError ? false : (isServerDown ?? this.isServerDown),
+      initialImportIncomplete:
+          initialImportIncomplete ?? this.initialImportIncomplete,
+      pageLimitReached: pageLimitReached ?? this.pageLimitReached,
     );
   }
 

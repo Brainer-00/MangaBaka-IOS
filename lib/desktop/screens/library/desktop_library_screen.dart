@@ -263,11 +263,9 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
             LibraryStatusBanners(
               loggedIn: _session.isLoggedIn,
               status: status,
-              isIncomplete: _session.isIncomplete,
               onRetrySync: _session.refresh,
               onDismissError: () => _libraryService.syncStatus.value =
                   _libraryService.syncStatus.value.copyWith(clearError: true),
-              onImportFullLibrary: _libraryService.importFullLibrary,
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(

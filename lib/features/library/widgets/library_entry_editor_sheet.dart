@@ -960,7 +960,11 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
       enabledBorder: outline,
       disabledBorder: outline,
       focusedBorder: outline.copyWith(
-        borderSide: BorderSide(color: colors.accent),
+        borderSide: BorderSide(
+          color: colors.usesCanonicalYellow
+              ? colors.accentOn(colors.surfaceRaised, minimum: 3)
+              : colors.accent,
+        ),
       ),
       errorBorder: outline.copyWith(
         borderSide: BorderSide(color: colors.error),

@@ -180,6 +180,8 @@ class AppTheme {
   static ChipThemeData _chip(MbPalette palette) => ChipThemeData(
     backgroundColor: palette.surfaceRaised,
     selectedColor: palette.accent,
+    secondarySelectedColor: palette.usesCanonicalYellow ? palette.accent : null,
+    checkmarkColor: palette.usesCanonicalYellow ? palette.onAccent : null,
     side: BorderSide.none,
     labelStyle: AppTypography.display(color: palette.text, fontSize: 12),
     secondaryLabelStyle: AppTypography.display(

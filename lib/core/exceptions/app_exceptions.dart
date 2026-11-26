@@ -63,11 +63,14 @@ class DatabaseException extends AppException {
 }
 
 class AuthException extends AppException {
+  final bool isNetworkFailure;
+
   AuthException({
     required super.message,
     super.code,
     super.originalError,
     super.stackTrace,
+    this.isNetworkFailure = false,
   });
 }
 

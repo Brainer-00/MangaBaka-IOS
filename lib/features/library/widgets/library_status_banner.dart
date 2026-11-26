@@ -38,7 +38,7 @@ class LibraryStatusBanner extends StatelessWidget {
       child: Row(
         children: [
           if (icon == Icons.warning_amber_rounded)
-            SemanticYellowIcon(surface: background, icon: icon, size: 18)
+            SemanticYellowIcon(icon: icon, size: 18)
           else
             Icon(icon, color: foreground, size: 18),
           const SizedBox(width: 8),

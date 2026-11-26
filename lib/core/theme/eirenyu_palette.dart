@@ -26,20 +26,30 @@ class MbPalette {
   final Color accent, onAccent, text, textMuted;
   final Color star, success, warning, error, info;
 
-  /// Accent adapted for a particular background. The stored brand accent
-  /// remains unchanged for fills and persisted preferences.
-  Color accentOn(Color background, {double minimum = 4.5}) =>
-      ensureContrast(accent, background, minimum: minimum);
+  bool get usesCanonicalYellow => accent == AppConstants.semanticYellow;
+
+  /// Foreground ink against a particular surface.
+  Color accentOn(Color background, {double minimum = 4.5}) {
+    if (usesCanonicalYellow && contrastRatio(accent, background) < minimum) {
+      return ensureContrast(
+        background == accent ? onAccent : text,
+        background,
+        minimum: minimum,
+      );
+    }
+    return ensureContrast(accent, background, minimum: minimum);
+  }
 
   /// Accent used as small text or an icon on the base surface.
   Color get accentForeground => accentOn(surface);
 
-  /// The active linear-progress indicator needs non-text contrast with its
-  /// raised track, rather than text contrast with the base surface.
-  Color get progressIndicator => accentOn(surfaceRaised, minimum: 3.0);
+  Color get progressIndicator =>
+      usesCanonicalYellow ? accent : accentOn(surfaceRaised, minimum: 3.0);
 
   MbPalette withAccent(Color color) {
-    final adjusted = ensureContrast(color, surface, minimum: 3.0);
+    final adjusted = color == AppConstants.semanticYellow
+        ? color
+        : ensureContrast(color, surface, minimum: 3.0);
     return MbPalette(
       brightness: brightness,
       background: background,

@@ -34,9 +34,9 @@ class BackendHealthService {
     http.Client? client,
     Duration? probeInterval,
     int? failureThreshold,
-  })  : _client = client ?? http.Client(),
-        _probeInterval = probeInterval ?? const Duration(seconds: 15),
-        _failureThreshold = failureThreshold ?? 3;
+  }) : _client = client ?? http.Client(),
+       _probeInterval = probeInterval ?? const Duration(seconds: 15),
+       _failureThreshold = failureThreshold ?? 3;
 
   static final _logger = LoggingService.logger;
 
@@ -81,15 +81,19 @@ class BackendHealthService {
   ///
   /// Pass the HTTP [statusCode] when there was a response. A 429 is logged but
   /// does not count toward the backend being down — it means the client is
-  /// sending too fast, not that the origin is unreachable.
+  /// sending too fast, not that the origin is unreachable. Use [immediate]
+  /// when a feature needs the shared notice for a failed user-facing refresh.
   void reportServerFailure({
     required String context,
     int? statusCode,
     Object? error,
+    bool immediate = false,
   }) {
     if (statusCode == 429) {
-      _logger.fine('Backend health: rate-limited (HTTP 429) on $context — '
-          'not counted against backend health');
+      _logger.fine(
+        'Backend health: rate-limited (HTTP 429) on $context — '
+        'not counted against backend health',
+      );
       return;
     }
 
@@ -99,7 +103,7 @@ class BackendHealthService {
     _consecutiveFailures++;
 
     if (status.value != BackendHealthStatus.down &&
-        _consecutiveFailures >= _failureThreshold) {
+        (immediate || _consecutiveFailures >= _failureThreshold)) {
       final previous = status.value;
       status.value = BackendHealthStatus.down;
       _logger.warning(

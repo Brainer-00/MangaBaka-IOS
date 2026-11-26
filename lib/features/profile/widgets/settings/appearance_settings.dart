@@ -301,6 +301,9 @@ class AppearanceSettings extends StatelessWidget {
     Brightness brightness,
   ) {
     final colors = context.colors;
+    final selectionColor = colors.usesCanonicalYellow
+        ? colors.accent
+        : colors.accentForeground;
     return Semantics(
       button: true,
       selected: selected,
@@ -315,7 +318,7 @@ class AppearanceSettings extends StatelessWidget {
             color: palette.background,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? colors.accentForeground : palette.border,
+              color: selected ? selectionColor : palette.border,
               width: selected ? 2 : 1,
             ),
           ),
@@ -358,11 +361,13 @@ class AppearanceSettings extends StatelessWidget {
                     Icon(
                       Icons.check_circle,
                       size: 16,
-                      color: MbPalette.ensureContrast(
-                        colors.accentForeground,
-                        palette.background,
-                        minimum: 3,
-                      ),
+                      color: colors.usesCanonicalYellow
+                          ? selectionColor
+                          : MbPalette.ensureContrast(
+                              selectionColor,
+                              palette.background,
+                              minimum: 3,
+                            ),
                     ),
                 ],
               ),

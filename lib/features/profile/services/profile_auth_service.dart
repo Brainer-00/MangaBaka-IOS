@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -5,11 +6,13 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_appauth/flutter_appauth.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/database/database.dart';
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
+import 'package:mangabaka_app/core/network/backend_health_service.dart';
 import 'package:mangabaka_app/features/profile/models/mb_profile.dart';
 import 'package:mangabaka_app/features/profile/services/auth/auth_network_client.dart';
 import 'package:mangabaka_app/features/profile/services/auth/auth_storage.dart';
@@ -479,9 +482,19 @@ class ProfileAuthService extends ChangeNotifier {
         throw SessionExpiredException();
       }
 
+      // Retain the failure category without exposing native error details.
       throw AuthException(
         message: 'Failed to refresh tokens',
         code: 'TOKEN_REFRESH_FAILED',
+        isNetworkFailure:
+            e is NetworkException ||
+            e is SocketException ||
+            e is http.ClientException ||
+            e is TimeoutException ||
+            (e is ApiException && isServerErrorStatus(e.statusCode)) ||
+            (e is FlutterAppAuthPlatformException &&
+                e.platformErrorDetails.domain == 'NSURLErrorDomain' &&
+                e.platformErrorDetails.error == null),
       );
     }
 

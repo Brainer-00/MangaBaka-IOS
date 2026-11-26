@@ -236,11 +236,15 @@ void main() {
       EirenYuPalette.dark.surface,
     );
 
-    palette.value = EirenYuPalette.light;
+    palette.value = EirenYuPalette.light.withAccent(const Color(0xFFFBD24B));
     await tester.pumpAndSettle();
     expect(
       tester.widget<AlertDialog>(find.byType(AlertDialog)).backgroundColor,
       EirenYuPalette.light.surface,
+    );
+    expect(
+      tester.widget<Icon>(find.byIcon(Icons.calendar_today_rounded)).color,
+      EirenYuPalette.light.text,
     );
     await tester.tap(find.text(LocalizationService().translate('close')));
     await tester.pumpAndSettle();
