@@ -53,7 +53,7 @@ class HomeTrendingSection extends StatelessWidget {
       children: [
         MbSectionHeader(title: l10n.translate('trending'), onAction: onViewAll),
         SizedBox(
-          height: 34,
+          height: MediaQuery.textScalerOf(context).scale(12.5) + 31.5,
           child: ListView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(
@@ -68,11 +68,15 @@ class HomeTrendingSection extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
               ],
-              Container(
-                width: 1,
-                height: 18,
-                margin: const EdgeInsets.fromLTRB(2, 8, 10, 8),
-                color: context.colors.border,
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: 2, end: 10),
+                child: Center(
+                  child: Container(
+                    width: 1,
+                    height: 18,
+                    color: context.colors.border,
+                  ),
+                ),
               ),
               _Pill(
                 label: '7d',

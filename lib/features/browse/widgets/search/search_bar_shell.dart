@@ -108,8 +108,7 @@ class _SearchBarShellState extends State<SearchBarShell> {
   late final SearchBarController _controller;
   late SearchFilters _filters;
 
-  final LayerLink _layerLink = LayerLink();
-  OverlayEntry? _overlayEntry;
+  final _overlay = OverlayPortalController();
 
   @override
   void initState() {
@@ -154,7 +153,6 @@ class _SearchBarShellState extends State<SearchBarShell> {
 
   @override
   void dispose() {
-    _hideOverlay();
     _text.removeListener(_onStateChanged);
     _controller.removeListener(_onStateChanged);
     _controller.dispose();
@@ -166,56 +164,54 @@ class _SearchBarShellState extends State<SearchBarShell> {
   void _onStateChanged() {
     if (!mounted) return;
     setState(() {});
-    _updateOverlay();
-  }
-
-  // ─── Overlay ─────────────────────────────────────────────────────────────
-
-  void _updateOverlay() {
-    if (!_controller.isOverlayVisible) {
-      _hideOverlay();
-      return;
-    }
-    if (_overlayEntry == null) {
-      _overlayEntry = _createOverlayEntry();
-      Overlay.of(context).insert(_overlayEntry!);
-    } else {
-      _overlayEntry!.markNeedsBuild();
+    final visible = _controller.isOverlayVisible;
+    if (visible != _overlay.isShowing) {
+      if (visible) {
+        _overlay.show();
+      } else {
+        _overlay.hide();
+      }
     }
   }
 
-  void _hideOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
-  }
+  Widget _buildSuggestions(BuildContext context, OverlayChildLayoutInfo info) {
+    final field = MatrixUtils.transformRect(
+      info.childPaintTransform,
+      Offset.zero & info.childSize,
+    );
+    final media = MediaQuery.of(context);
+    final bottomInset = media.viewInsets.bottom + media.padding.bottom;
+    final below =
+        info.overlaySize.height - bottomInset - field.bottom - _overlayGap;
+    final above = field.top - media.padding.top - _overlayGap;
+    // Keep results attached to the field while reserving room for the keyboard.
+    final placeAbove = below < 160 && above > below;
+    final maxHeight = placeAbove ? above : below;
+    if (maxHeight <= 0) return const SizedBox.shrink();
 
-  OverlayEntry _createOverlayEntry() {
-    final size = (context.findRenderObject() as RenderBox).size;
-
-    return OverlayEntry(
-      builder: (context) => Positioned(
-        width: size.width,
-        child: CompositedTransformFollower(
-          link: _layerLink,
-          showWhenUnlinked: false,
-          offset: Offset(0.0, size.height + _overlayGap),
-          child: Material(
-            elevation: 8,
-            color: Colors.transparent,
-            child: SearchSuggestionsPanel(
-              results: _controller.results,
-              onResultTapped: _controller.selectResult,
-              showSuggestions: true,
-              selectedIndex: _controller.selectedIndex,
-              onResultHovered: widget.onResultHovered,
-            ),
+    return Positioned(
+      left: field.left,
+      width: field.width,
+      top: placeAbove ? null : field.bottom + _overlayGap,
+      bottom: placeAbove
+          ? info.overlaySize.height - field.top + _overlayGap
+          : null,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: Material(
+          elevation: 8,
+          color: Colors.transparent,
+          child: SearchSuggestionsPanel(
+            results: _controller.results,
+            onResultTapped: _controller.selectResult,
+            showSuggestions: true,
+            selectedIndex: _controller.selectedIndex,
+            onResultHovered: widget.onResultHovered,
           ),
         ),
       ),
     );
   }
-
-  // ─── Build ───────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -224,8 +220,9 @@ class _SearchBarShellState extends State<SearchBarShell> {
       listenable: rebuildOn == null
           ? LocalizationService()
           : Listenable.merge([LocalizationService(), rebuildOn]),
-      builder: (context, _) => CompositedTransformTarget(
-        link: _layerLink,
+      builder: (context, _) => OverlayPortal.overlayChildLayoutBuilder(
+        controller: _overlay,
+        overlayChildBuilder: _buildSuggestions,
         child: _buildTextField(context),
       ),
     );
@@ -260,6 +257,7 @@ class _SearchBarShellState extends State<SearchBarShell> {
       controller: _text,
       focusNode: _focusNode,
       style: baseStyle,
+      textAlignVertical: TextAlignVertical.center,
       textInputAction: TextInputAction.search,
       onChanged: _controller.onTextChanged,
       onSubmitted: (text) {

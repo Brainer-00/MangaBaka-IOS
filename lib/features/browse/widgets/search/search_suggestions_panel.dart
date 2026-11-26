@@ -5,7 +5,7 @@ import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/features/series/models/autocomplete_series_result.dart';
 import 'package:mangabaka_app/core/widgets/design/mb_cover.dart';
 
-class SearchSuggestionsPanel extends StatelessWidget {
+class SearchSuggestionsPanel extends StatefulWidget {
   final List<AutocompleteSeriesResult> results;
   final ValueChanged<AutocompleteSeriesResult> onResultTapped;
   final bool showSuggestions;
@@ -22,12 +22,35 @@ class SearchSuggestionsPanel extends StatelessWidget {
   });
 
   @override
+  State<SearchSuggestionsPanel> createState() => _SearchSuggestionsPanelState();
+}
+
+class _SearchSuggestionsPanelState extends State<SearchSuggestionsPanel> {
+  final _selectedTile = GlobalKey();
+
+  @override
+  void didUpdateWidget(SearchSuggestionsPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedIndex == oldWidget.selectedIndex) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = _selectedTile.currentContext;
+      if (!mounted || context == null) return;
+      Scrollable.ensureVisible(
+        context,
+        alignmentPolicy: widget.selectedIndex > oldWidget.selectedIndex
+            ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd
+            : ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AnimatedSize(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
       alignment: Alignment.topCenter,
-      child: showSuggestions
+      child: widget.showSuggestions
           ? _buildSuggestionsList(context)
           : const SizedBox.shrink(),
     );
@@ -41,18 +64,20 @@ class SearchSuggestionsPanel extends StatelessWidget {
         boxShadow: AppConstants.softShadow,
       ),
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: List.generate(results.length, (index) {
-          final result = results[index];
-          return _buildResultTile(
-            context,
-            result,
-            index == selectedIndex,
-            isFirst: index == 0,
-            isLast: index == results.length - 1,
-          );
-        }),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(widget.results.length, (index) {
+            final result = widget.results[index];
+            return _buildResultTile(
+              context,
+              result,
+              index == widget.selectedIndex,
+              isFirst: index == 0,
+              isLast: index == widget.results.length - 1,
+            );
+          }),
+        ),
       ),
     );
   }
@@ -74,14 +99,15 @@ class SearchSuggestionsPanel extends StatelessWidget {
     );
 
     return Material(
+      key: isSelected ? _selectedTile : null,
       color: isSelected
           ? context.colors.accent.withValues(alpha: 0.12)
           : Colors.transparent,
       borderRadius: borderRadius,
       child: InkWell(
-        onTap: () => onResultTapped(result),
+        onTap: () => widget.onResultTapped(result),
         onHover: (hovering) {
-          if (hovering) onResultHovered?.call(result);
+          if (hovering) widget.onResultHovered?.call(result);
         },
         splashColor: context.colors.accent.withValues(alpha: 0.08),
         borderRadius: borderRadius,
@@ -122,12 +148,13 @@ class SearchSuggestionsPanel extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
-                    Row(
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 3,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        if (result.type.isNotEmpty) ...[
+                        if (result.type.isNotEmpty)
                           _buildTypeBadge(context, result.type),
-                          const SizedBox(width: 6),
-                        ],
                         if (result.year != null)
                           Text(
                             '${result.year}',
@@ -140,7 +167,15 @@ class SearchSuggestionsPanel extends StatelessWidget {
                         if (result.genres.isNotEmpty &&
                             (result.type.isNotEmpty || result.year != null))
                           Text(
-                            '  ·  ${result.genres.take(2).map((g) => g.isNotEmpty ? g[0].toUpperCase() + g.substring(1) : g).join(', ')}',
+                            result.genres
+                                .take(2)
+                                .map(
+                                  (genre) => genre.isEmpty
+                                      ? genre
+                                      : genre[0].toUpperCase() +
+                                            genre.substring(1),
+                                )
+                                .join(', '),
                             style: AppTypography.sans(
                               color: context.colors.textMuted,
                               fontSize: 11,

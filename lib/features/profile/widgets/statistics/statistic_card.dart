@@ -1,5 +1,6 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/widgets/design/rating_star.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
@@ -41,8 +42,6 @@ class StatisticCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                   style: AppTypography.display(
                     color: colors.text,
                     fontSize: 28,
@@ -52,7 +51,9 @@ class StatisticCard extends StatelessWidget {
               const SizedBox(width: 8),
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Icon(icon, color: mutedOnCard, size: 18),
+                child: icon == Icons.star
+                    ? RatingStar(surface: colors.surface, icon: icon, size: 18)
+                    : Icon(icon, color: mutedOnCard, size: 18),
               ),
             ],
           ),

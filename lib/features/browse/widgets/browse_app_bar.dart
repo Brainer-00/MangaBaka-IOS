@@ -119,13 +119,15 @@ class BrowseResultCount extends StatelessWidget {
             color: context.colors.textMuted,
           ),
           const SizedBox(width: 6),
-          Text(
-            '$total${isCapped ? '+' : ''} $typeLabel',
-            style: AppTypography.sans(
-              color: context.colors.textMuted,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.0,
+          Flexible(
+            child: Text(
+              '$total${isCapped ? '+' : ''} $typeLabel',
+              style: AppTypography.sans(
+                color: context.colors.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.0,
+              ),
             ),
           ),
         ],

@@ -4,6 +4,7 @@ import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
+import 'package:mangabaka_app/core/widgets/design/rating_star.dart';
 import 'package:mangabaka_app/features/library/constants/library_screen_constants.dart';
 
 class LibraryStatusDropdown extends StatelessWidget {
@@ -153,10 +154,25 @@ class LibraryStatusDropdown extends StatelessWidget {
         child: Row(
           spacing: 10,
           children: [
-            Icon(
-              _icon(state),
-              size: 17,
-              color: MbPalette.ensureContrast(statusColor, surface, minimum: 3),
+            SizedBox(
+              width: 21,
+              child: Center(
+                child: state == 'paused'
+                    ? SemanticYellowIcon(
+                        surface: surface,
+                        icon: _icon(state),
+                        size: 17,
+                      )
+                    : Icon(
+                        _icon(state),
+                        size: 17,
+                        color: MbPalette.ensureContrast(
+                          statusColor,
+                          surface,
+                          minimum: 3,
+                        ),
+                      ),
+              ),
             ),
             Expanded(
               child: Text(

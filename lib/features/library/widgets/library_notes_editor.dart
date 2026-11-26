@@ -101,7 +101,10 @@ class _LibraryNotesEditorState extends State<LibraryNotesEditor> {
         children: [
           Semantics(
             header: true,
-            child: Text(_t('library_editor_notes'), style: text),
+            child: Padding(
+              padding: const EdgeInsetsDirectional.only(start: 12, end: 12),
+              child: Text(_t('library_editor_notes'), style: text),
+            ),
           ),
           Semantics(
             role: SemanticsRole.tabBar,
@@ -141,21 +144,24 @@ class _LibraryNotesEditorState extends State<LibraryNotesEditor> {
             offstage: _preview,
             child: ExcludeFocus(
               excluding: _preview,
-              child: TextField(
-                key: const ValueKey('library_editor_notes'),
-                controller: widget.controller,
-                focusNode: _focus,
-                enabled: widget.enabled,
-                minLines: 3,
-                maxLines: 6,
-                keyboardType: TextInputType.multiline,
-                textInputAction: TextInputAction.newline,
-                enableIMEPersonalizedLearning: false,
-                style: text,
-                decoration: widget.decoration.copyWith(
-                  errorText: _preview ? null : field.errorText,
+              child: Semantics(
+                label: _t('library_editor_notes'),
+                child: TextField(
+                  key: const ValueKey('library_editor_notes'),
+                  controller: widget.controller,
+                  focusNode: _focus,
+                  enabled: widget.enabled,
+                  minLines: 3,
+                  maxLines: 6,
+                  keyboardType: TextInputType.multiline,
+                  textInputAction: TextInputAction.newline,
+                  enableIMEPersonalizedLearning: false,
+                  style: text,
+                  decoration: widget.decoration.copyWith(
+                    errorText: _preview ? null : field.errorText,
+                  ),
+                  onChanged: field.didChange,
                 ),
-                onChanged: field.didChange,
               ),
             ),
           ),
@@ -186,18 +192,21 @@ class _LibraryNotesEditorState extends State<LibraryNotesEditor> {
             ),
           ValueListenableBuilder(
             valueListenable: widget.controller,
-            builder: (context, value, _) => Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                Text(_t('notes_markdown_supported')),
-                Text(
-                  _t(
-                    'notes_character_count',
-                  ).replaceAll('{count}', '${value.text.characters.length}'),
-                ),
-              ],
+            builder: (context, value, _) => Padding(
+              padding: const EdgeInsetsDirectional.only(start: 12, end: 12),
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  Text(_t('notes_markdown_supported')),
+                  Text(
+                    _t(
+                      'notes_character_count',
+                    ).replaceAll('{count}', '${value.text.characters.length}'),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

@@ -51,11 +51,13 @@ class AppConstants {
 
   /// Ink used on top of [accentColor] fills (buttons, active nav, badges).
   static const Color onAccent = Color(0xFF0B140D);
-  static const Color starColor = Color(0xFFFBD24B);
+  static const Color semanticYellow = Color(0xFFFBD24B);
+  static const Color starColor = semanticYellow;
+  static const Color pausedColor = semanticYellow;
 
   static const Color borderColor = Color(0xFF262626);
   static const Color successColor = Color(0xFF4ADE80);
-  static const Color warningColor = Color(0xFFFBD24B);
+  static const Color warningColor = semanticYellow;
   static const Color errorColor = Color(0xFFF87171);
   static const Color infoColor = Color(0xFF60A5FA);
   static const Color rereadingColor = Color(0xFF4FA6C8);
@@ -113,7 +115,7 @@ class AppConstants {
       case 'completed':
         return textColor;
       case 'paused':
-        return warningColor;
+        return pausedColor;
       case 'dropped':
         return errorColor;
       case 'plan_to_read':

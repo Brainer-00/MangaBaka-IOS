@@ -2,6 +2,7 @@ import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
+import 'package:mangabaka_app/core/widgets/design/rating_star.dart';
 
 class LibraryStatusBanner extends StatelessWidget {
   final String message;
@@ -36,7 +37,10 @@ class LibraryStatusBanner extends StatelessWidget {
       decoration: BoxDecoration(color: background),
       child: Row(
         children: [
-          Icon(icon, color: foreground, size: 18),
+          if (icon == Icons.warning_amber_rounded)
+            SemanticYellowIcon(surface: background, icon: icon, size: 18)
+          else
+            Icon(icon, color: foreground, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

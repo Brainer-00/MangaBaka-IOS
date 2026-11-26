@@ -8,6 +8,7 @@ import 'package:mangabaka_app/core/database/database.dart'
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/widgets/route_dismiss_guard.dart';
 import 'package:mangabaka_app/desktop/desktop_layout.dart';
@@ -811,11 +812,14 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             spacing: 12,
             children: [
-              LibraryStatusDropdown(
-                value: _state,
-                onChanged: enabled
-                    ? (value) => setState(() => _state = value)
-                    : null,
+              _labeledField(
+                _t('status'),
+                LibraryStatusDropdown(
+                  value: _state,
+                  onChanged: enabled
+                      ? (value) => setState(() => _state = value)
+                      : null,
+                ),
               ),
               _input(_Field.priority, helper: '10–30'),
               if (pairFields)
@@ -849,7 +853,7 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
               ),
               LibraryNotesEditor(
                 controller: _controllers[_Field.note]!,
-                decoration: _decoration(_t(_Field.note.label)),
+                decoration: _decoration(),
                 validator: (value) => _validate(_Field.note, value ?? ''),
                 enabled: enabled,
               ),
@@ -887,44 +891,71 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
   );
 
   Widget _input(_Field field, {String? hint, String? helper, Widget? suffix}) {
-    return TextFormField(
-      key: ValueKey(field.label),
-      controller: _controllers[field],
-      enabled: _editable,
-      keyboardType: switch (field) {
-        _Field.readLink => TextInputType.url,
-        _Field.startDate || _Field.finishDate => TextInputType.datetime,
-        _ => TextInputType.numberWithOptions(decimal: field == _Field.priority),
-      },
-      textInputAction: TextInputAction.next,
-      enableIMEPersonalizedLearning: false,
-      autocorrect: false,
-      style: TextStyle(color: context.colors.text),
-      decoration: _decoration(_t(field.label)).copyWith(
-        hintText: hint,
-        helperText: helper,
-        helperMaxLines: 3,
-        suffixIcon: suffix,
+    final label = _t(field.label);
+    return _labeledField(
+      label,
+      Semantics(
+        label: label,
+        child: TextFormField(
+          key: ValueKey(field.label),
+          controller: _controllers[field],
+          enabled: _editable,
+          keyboardType: switch (field) {
+            _Field.readLink => TextInputType.url,
+            _Field.startDate || _Field.finishDate => TextInputType.datetime,
+            _ => TextInputType.numberWithOptions(
+              decimal: field == _Field.priority,
+            ),
+          },
+          textInputAction: TextInputAction.next,
+          enableIMEPersonalizedLearning: false,
+          autocorrect: false,
+          style: TextStyle(color: context.colors.text),
+          textAlignVertical: TextAlignVertical.center,
+          decoration: _decoration().copyWith(
+            hintText: hint,
+            helperText: helper,
+            helperMaxLines: 3,
+            suffixIcon: suffix,
+          ),
+          validator: (value) => _validate(field, value ?? ''),
+        ),
       ),
-      validator: (value) => _validate(field, value ?? ''),
     );
   }
 
-  InputDecoration _decoration(String label) {
+  Widget _labeledField(String label, Widget control) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    spacing: 6,
+    children: [
+      Padding(
+        padding: const EdgeInsetsDirectional.only(start: 12, end: 12),
+        child: ExcludeSemantics(
+          child: Text(
+            label,
+            style: AppTypography.sans(
+              color: MbPalette.ensureContrast(
+                context.colors.textMuted,
+                context.colors.surface,
+                minimum: 4.5,
+              ),
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+      control,
+    ],
+  );
+
+  InputDecoration _decoration() {
     final colors = context.colors;
     final outline = OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
       borderSide: BorderSide.none,
+      gapPadding: 0,
     );
     return InputDecoration(
-      labelText: label,
-      labelStyle: TextStyle(
-        color: MbPalette.ensureContrast(
-          colors.textMuted,
-          colors.surfaceRaised,
-          minimum: 4.5,
-        ),
-      ),
       border: outline,
       enabledBorder: outline,
       disabledBorder: outline,
@@ -940,6 +971,13 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
       fillColor: colors.surfaceRaised,
       filled: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      helperStyle: TextStyle(
+        color: MbPalette.ensureContrast(
+          colors.textMuted,
+          colors.surface,
+          minimum: 4.5,
+        ),
+      ),
       errorMaxLines: 4,
     );
   }

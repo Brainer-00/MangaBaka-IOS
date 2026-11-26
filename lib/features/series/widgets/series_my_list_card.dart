@@ -144,7 +144,7 @@ class _ProgressRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final paused = statusColor == AppConstants.warningColor;
+    final paused = statusColor == AppConstants.pausedColor;
     final statusText = MbPalette.ensureContrast(
       paused && MbPalette.contrastRatio(statusColor, colors.surface) < 4.5
           ? colors.text
@@ -182,7 +182,7 @@ class _ProgressRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: Text(

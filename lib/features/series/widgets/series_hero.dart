@@ -5,6 +5,7 @@ import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/utils/widget_utils.dart';
+import 'package:mangabaka_app/core/widgets/design/rating_star.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 
 /// Kicker (mono) + serif title + alternate titles + byline. Sits beside the
@@ -30,11 +31,6 @@ class SeriesTitleBlock extends StatelessWidget {
     }
     if (series.status.isNotEmpty && series.status.toLowerCase() != 'null') {
       parts.add(series.status.toUpperCase());
-    }
-    final rating = series.rating;
-    final parsed = double.tryParse(rating);
-    if (parsed != null && parsed > 0) {
-      parts.add('★ ${parsed.toStringAsFixed(1)}');
     }
     return parts.join(' · ');
   }
@@ -69,6 +65,7 @@ class SeriesTitleBlock extends StatelessWidget {
       minimum: 4.5,
     );
     final kicker = _buildKicker();
+    final rating = double.tryParse(series.rating) ?? 0;
     final byline = _buildByline(l10n);
 
     final otherTitles = <String>[];
@@ -89,9 +86,25 @@ class SeriesTitleBlock extends StatelessWidget {
       crossAxisAlignment: crossAxisAlignment,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (kicker.isNotEmpty) ...[
-          Text(
-            kicker,
+        if (kicker.isNotEmpty || rating > 0) ...[
+          Text.rich(
+            TextSpan(
+              children: [
+                if (kicker.isNotEmpty) TextSpan(text: kicker),
+                if (kicker.isNotEmpty && rating > 0)
+                  const TextSpan(text: ' · '),
+                if (rating > 0) ...[
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: RatingStar(
+                      surface: colors.background,
+                      size: isWide ? 13 : 12,
+                    ),
+                  ),
+                  TextSpan(text: ' ${rating.toStringAsFixed(1)}'),
+                ],
+              ],
+            ),
             textAlign: textAlign,
             style: AppTypography.monoLabel(
               color: colors.accentOn(colors.background),

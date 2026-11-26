@@ -828,6 +828,57 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final (viewport, scale) in [
+    (const Size(390, 844), 2.0),
+    (const Size(820, 1180), 1.5),
+    (const Size(1032, 1376), 1.5),
+  ]) {
+    testWidgets('Long Series Detail title clears the toolbar at $viewport', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = viewport;
+      tester.view.padding = const FakeViewPadding(top: 24, bottom: 20);
+      addTearDown(tester.view.reset);
+      const longTitle =
+          'The exceptionally long account of a journey across the northern seas';
+      final series = Series.fromJson({
+        'id': '123',
+        'title': longTitle,
+        'description': 'A description.',
+        'native_title': 'Eine Geschichte von einer langen Reise',
+        'rating': 92,
+        'type': 'manga',
+      });
+      mockSeriesService.seriesResponse = series;
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          ),
+          home: SeriesDetailScreen(series: series),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final hero = find.byType(SeriesTitleBlock);
+      final heading = find.descendant(
+        of: hero,
+        matching: find.text(longTitle.toUpperCase()),
+      );
+      final back = find.byIcon(Icons.arrow_back);
+      expect(
+        tester.getTopLeft(heading).dy,
+        greaterThan(tester.getBottomLeft(back).dy),
+      );
+      expect(tester.getTopLeft(heading).dx, greaterThan(0));
+      expect(tester.getTopRight(heading).dx, lessThan(viewport.width));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final entry in palettes.entries) {
     testWidgets('${entry.key} tracking actions and FAB keep readable colors', (
       tester,

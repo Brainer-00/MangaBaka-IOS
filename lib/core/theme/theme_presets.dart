@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 
 class ThemePreset {
@@ -36,9 +37,9 @@ class ThemePresets {
     onAccent: Color(0xFF0B140D),
     text: Color(0xFFFFFFFF),
     textMuted: Color(0xFF8E8E8E),
-    star: Color(0xFFFBD24B),
+    star: AppConstants.starColor,
     success: Color(0xFF4ADE80),
-    warning: Color(0xFFFBD24B),
+    warning: AppConstants.warningColor,
     error: Color(0xFFF87171),
     info: Color(0xFF60A5FA),
   );
@@ -52,7 +53,6 @@ class ThemePresets {
     int? surfaceRaised,
     int? border,
     int? textMuted,
-    int? star,
     int? success,
     int? warning,
     int? error,
@@ -78,7 +78,7 @@ class ThemePresets {
       textMuted: textMuted == null
           ? Color.lerp(bg, fg, dark ? 0.70 : 0.66)!
           : Color(textMuted),
-      star: star == null ? base.star : Color(star),
+      star: base.star,
       success: success == null ? base.success : Color(success),
       warning: warning == null ? base.warning : Color(warning),
       error: error == null ? base.error : Color(error),
@@ -133,7 +133,6 @@ class ThemePresets {
         surfaceRaised: 0xFF313244,
         border: 0xFF45475A,
         textMuted: 0xFFA6ADC8,
-        star: 0xFFF9E2AF,
         success: 0xFFA6E3A1,
         warning: 0xFFFAB387,
         error: 0xFFF38BA8,
@@ -148,7 +147,6 @@ class ThemePresets {
         surfaceRaised: 0xFFE2D9EF,
         border: 0xFFC7B9D7,
         textMuted: 0xFF5C5F75,
-        star: 0xFFDF8E1D,
         success: 0xFF40A02B,
         warning: 0xFFFE640B,
         error: 0xFFD20F39,
@@ -166,7 +164,6 @@ class ThemePresets {
         surfaceRaised: 0xFF343746,
         border: 0xFF44475A,
         textMuted: 0xFFA0A7C8,
-        star: 0xFFF1FA8C,
         success: 0xFF50FA7B,
         warning: 0xFFFFB86C,
         error: 0xFFFF5555,
@@ -183,7 +180,6 @@ class ThemePresets {
         text: 0xFFECEFF4,
         surfaceRaised: 0xFF434C5E,
         border: 0xFF4C566A,
-        star: 0xFFEBCB8B,
         success: 0xFFA3BE8C,
         warning: 0xFFD08770,
         error: 0xFFBF616A,

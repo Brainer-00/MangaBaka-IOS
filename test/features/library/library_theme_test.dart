@@ -191,16 +191,22 @@ void main() {
           final indicator =
               tester.widget<TabBar>(find.byType(TabBar)).indicator!
                   as BoxDecoration;
-          final expected = MbPalette.ensureContrast(
-            statusKeys[index] == 'all'
-                ? EirenYuPalette.crimsonMoon
-                : AppConstants.getColorForState(statusKeys[index]),
-            colors.background,
-            minimum: 3.0,
-          );
+          final paused = statusKeys[index] == 'paused';
+          final expected = paused
+              ? const Color(0xFFFBD24B)
+              : MbPalette.ensureContrast(
+                  statusKeys[index] == 'all'
+                      ? EirenYuPalette.crimsonMoon
+                      : AppConstants.getColorForState(statusKeys[index]),
+                  colors.background,
+                  minimum: 3.0,
+                );
           expect(indicator.color, expected);
           expect(
-            MbPalette.contrastRatio(indicator.color!, colors.background),
+            MbPalette.contrastRatio(
+              (indicator.border as Border?)?.top.color ?? indicator.color!,
+              colors.background,
+            ),
             greaterThanOrEqualTo(3.0),
           );
           final selected = tester.widget<Text>(

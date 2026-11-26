@@ -332,8 +332,6 @@ class AppearanceSettings extends StatelessWidget {
                   Expanded(
                     child: Text(
                       _names[preset.id] ?? preset.id,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: palette.text,
                         fontSize: 12,
@@ -577,31 +575,45 @@ class _AccentPickerState extends State<_AccentPicker> {
     );
   }
 
-  Widget _channelSlider(String channel) => Row(
-    children: [
-      SizedBox(
-        width: 80,
-        child: Text(LocalizationService().translate('appearance_$channel')),
+  Widget _channelSlider(String channel) {
+    final label = Text(LocalizationService().translate('appearance_$channel'));
+    final slider = Slider(
+      key: Key('appearance_picker_$channel'),
+      value: switch (channel) {
+        'hue' => hsv.hue,
+        'saturation' => hsv.saturation,
+        _ => hsv.value,
+      },
+      min: 0,
+      max: channel == 'hue' ? 360 : 1,
+      onChanged: (v) => setState(
+        () => hsv = switch (channel) {
+          'hue' => hsv.withHue(v),
+          'saturation' => hsv.withSaturation(v),
+          _ => hsv.withValue(v),
+        },
       ),
-      Expanded(
-        child: Slider(
-          key: Key('appearance_picker_$channel'),
-          value: switch (channel) {
-            'hue' => hsv.hue,
-            'saturation' => hsv.saturation,
-            _ => hsv.value,
-          },
-          min: 0,
-          max: channel == 'hue' ? 360 : 1,
-          onChanged: (v) => setState(
-            () => hsv = switch (channel) {
-              'hue' => hsv.withHue(v),
-              'saturation' => hsv.withSaturation(v),
-              _ => hsv.withValue(v),
-            },
-          ),
-        ),
-      ),
-    ],
-  );
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final labelWidth = MediaQuery.textScalerOf(context).scale(80);
+        if (constraints.maxWidth < labelWidth + 120) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              label,
+              SizedBox(width: double.infinity, child: slider),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            SizedBox(width: labelWidth, child: label),
+            Expanded(child: slider),
+          ],
+        );
+      },
+    );
+  }
 }

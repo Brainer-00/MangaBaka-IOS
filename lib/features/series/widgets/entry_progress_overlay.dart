@@ -91,6 +91,38 @@ class EntryProgressOverlay extends StatelessWidget {
 
     if (!showProgress && !showRemaining) return const SizedBox.shrink();
 
+    final scaled = MediaQuery.textScalerOf(context).scale(11) > 11;
+    if (scaled) {
+      return PositionedDirectional(
+        top: 8,
+        start: 8,
+        end: 8,
+        child: Wrap(
+          alignment: showRemaining
+              ? WrapAlignment.spaceBetween
+              : WrapAlignment.end,
+          spacing: 4,
+          runSpacing: 4,
+          children: [
+            if (showRemaining)
+              Container(
+                padding: _badgePadding,
+                decoration: _badge,
+                child: _remainingText(remaining),
+              ),
+            if (showProgress)
+              _tappable(
+                context,
+                child: Container(
+                  padding: _badgePadding,
+                  decoration: _badge,
+                  child: _progressText(total),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
     if (showProgress && showRemaining && cardWidth < _combineBelowWidth) {
       return _combined(context, remaining: remaining, total: total);
     }
@@ -206,7 +238,9 @@ class EntryProgressOverlay extends StatelessWidget {
     return Text(
       '$prefix$_progress${total > 0 ? '/$total' : ''}',
       style: AppTypography.sans(
-        color: Colors.white,
+        color: entry?.state == 'paused'
+            ? AppConstants.pausedColor
+            : Colors.white,
         fontWeight: FontWeight.bold,
         fontSize: 11,
       ),
@@ -217,7 +251,7 @@ class EntryProgressOverlay extends StatelessWidget {
     return Text(
       '$remaining',
       style: AppTypography.sans(
-        color: AppConstants.warningColor,
+        color: AppConstants.semanticYellow,
         fontWeight: FontWeight.bold,
         fontSize: 11,
       ),

@@ -1,5 +1,6 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/widgets/design/rating_star.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
@@ -32,7 +33,10 @@ class StandoutPickCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: context.colors.text, size: 22),
+          if (icon == Icons.star_rounded)
+            RatingStar(surface: context.colors.surface, size: 22)
+          else
+            Icon(icon, color: context.colors.text, size: 22),
           const SizedBox(height: 8),
           Text(
             label,

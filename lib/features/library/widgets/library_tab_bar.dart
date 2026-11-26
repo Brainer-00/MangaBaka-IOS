@@ -65,11 +65,16 @@ class LibraryTabBar extends StatelessWidget implements PreferredSizeWidget {
         // The original status colours remain the source for this interpolation.
         // Only the rendered indicator is adjusted when it would disappear into
         // the app bar, such as Completed white on a light palette.
-        final indicatorColor = MbPalette.ensureContrast(
-          statusColor,
-          context.colors.background,
-          minimum: 3.0,
-        );
+        final pausedWeight =
+            (tabs[lower].key == 'paused' ? 1 - t : 0) +
+            (tabs[upper].key == 'paused' ? t : 0);
+        final indicatorColor = pausedWeight > 0
+            ? statusColor
+            : MbPalette.ensureContrast(
+                statusColor,
+                context.colors.background,
+                minimum: 3.0,
+              );
 
         return TabBar(
           controller: controller,
@@ -81,6 +86,20 @@ class LibraryTabBar extends StatelessWidget implements PreferredSizeWidget {
           indicatorSize: TabBarIndicatorSize.tab,
           indicator: BoxDecoration(
             color: indicatorColor,
+            border:
+                MbPalette.contrastRatio(
+                      indicatorColor,
+                      context.colors.background,
+                    ) <
+                    3
+                ? Border.all(
+                    color: MbPalette.ensureContrast(
+                      context.colors.textMuted,
+                      context.colors.background,
+                      minimum: 3,
+                    ),
+                  )
+                : null,
             borderRadius: BorderRadius.circular(AppConstants.pillRadius),
           ),
           indicatorPadding: const EdgeInsets.symmetric(
@@ -153,6 +172,8 @@ class _LibraryTab extends StatelessWidget implements PreferredSizeWidget {
         padding: const EdgeInsets.symmetric(horizontal: 22),
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
           children: [
             Text(
               label.toUpperCase(),

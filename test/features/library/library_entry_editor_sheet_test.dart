@@ -875,6 +875,59 @@ void main() {
     expect(editor(), findsNothing);
   });
 
+  testWidgets('Field labels and helper share the editable text inset', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(375, 667);
+    addTearDown(tester.view.reset);
+    library.entry = existing();
+    await show(tester, edit: true, textScale: 1.3);
+    final priority = field('library_editor_priority');
+    await tester.ensureVisible(priority);
+    await tester.pumpAndSettle();
+    final priorityLabel = label('library_editor_priority');
+    final helper = find.text('10–30');
+    final input = find.descendant(
+      of: priority,
+      matching: find.byType(EditableText),
+    );
+    expect(
+      tester.getTopLeft(input).dx,
+      closeTo(tester.getTopLeft(priorityLabel).dx, 1),
+    );
+    expect(
+      tester.getTopLeft(input).dx,
+      closeTo(tester.getTopLeft(helper).dx, 1),
+    );
+    expect(
+      tester.getBottomLeft(priorityLabel).dy,
+      lessThan(tester.getTopLeft(input).dy),
+    );
+    expect(
+      tester.getBottomLeft(input).dy,
+      lessThan(tester.getTopLeft(helper).dy),
+    );
+    final status = find.byType(LibraryStatusDropdown);
+    final chevron = find.descendant(
+      of: status,
+      matching: find.byIcon(Icons.keyboard_arrow_down_rounded),
+    );
+    final statusText = find.descendant(
+      of: status,
+      matching: find.text(tr('reading').toUpperCase()),
+    );
+    expect(
+      tester.getCenter(chevron).dy,
+      closeTo(tester.getCenter(statusText).dy, 1),
+    );
+    expect(
+      tester.getTopLeft(label('status')).dx,
+      tester.getTopLeft(priorityLabel).dx,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Status options stay above the compact phone keyboard', (
     tester,
   ) async {
@@ -901,26 +954,34 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final width in [390.0, 430.0, 768.0, 1100.0]) {
-    testWidgets('Markdown toolbar, status and preview fit width $width', (
+  for (final (size, scale) in [
+    (const Size(390, 844), 1.0),
+    (const Size(430, 932), 1.5),
+    (const Size(744, 1133), 2.0),
+    (const Size(820, 1180), 1.3),
+    (const Size(1032, 1376), 1.5),
+    (const Size(568, 320), 1.5),
+    (const Size(1180, 820), 1.5),
+    (const Size(375, 900), 2.0),
+    (const Size(1100, 810), 1.8),
+  ]) {
+    testWidgets('Markdown toolbar, status and preview fit $size at $scale', (
       tester,
     ) async {
       tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = Size(width, 810);
-      DesktopLayout.debugOverride = width >= 1000;
+      tester.view.physicalSize = size;
+      final desktop = size == const Size(1100, 810);
+      DesktopLayout.debugOverride = desktop;
       addTearDown(() {
         tester.view.reset();
         DesktopLayout.debugOverride = null;
       });
       await show(
         tester,
-        textScale: 1.8,
-        palette: width == 430 ? EirenYuPalette.light : EirenYuPalette.dark,
+        textScale: scale,
+        palette: size.width == 430 ? EirenYuPalette.light : EirenYuPalette.dark,
       );
-      expect(
-        find.byType(Dialog),
-        width >= 1000 ? findsOneWidget : findsNothing,
-      );
+      expect(find.byType(Dialog), desktop ? findsOneWidget : findsNothing);
       final status = find.byType(LibraryStatusDropdown);
       await tester.ensureVisible(status);
       await tester.tap(status);
@@ -930,9 +991,18 @@ void main() {
       await tester.tap(paused);
       await tester.pumpAndSettle();
       await enter(tester, 'library_editor_notes', '**Responsive**');
+      if (size.width == 375) {
+        final bold = find.byTooltip(tr('notes_bold'));
+        final more = find.byTooltip(tr('notes_more'));
+        expect(
+          tester.getTopLeft(more).dy,
+          greaterThan(tester.getTopLeft(bold).dy),
+        );
+      }
       await tap(tester, 'notes_preview');
       expect(find.text('Responsive', findRichText: true), findsOneWidget);
       expect(action('save').hitTestable(), findsOneWidget);
+      expect(action('cancel').hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }

@@ -45,13 +45,17 @@ class HomeRail extends StatelessWidget {
     if (!loading && series.isEmpty) return const SizedBox.shrink();
 
     final itemCount = loading ? _skeletonCount : series.length;
+    final scaler = MediaQuery.textScalerOf(context);
+    final metadataGrowth =
+        (scaler.scale(13) - 13) * 2.5 + (scaler.scale(11) - 11) * 1.6;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (showHeader) MbSectionHeader(title: title, onAction: onViewAll),
         SizedBox(
-          height: coverWidth * 1.5 + 62,
+          height:
+              coverWidth * 1.5 + 62 + metadataGrowth.clamp(0, double.infinity),
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(

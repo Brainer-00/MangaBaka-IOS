@@ -91,6 +91,9 @@ class _SeriesDetailAppBarState extends State<SeriesDetailAppBar> {
 
     return SliverLayoutBuilder(
       builder: (context, constraints) {
+        final scaler = MediaQuery.textScalerOf(context);
+        final titleSize = widget.isWide ? 38.0 : 25.0;
+        final titleGrowth = (scaler.scale(titleSize) - titleSize) * 3.25;
         final metrics = SeriesAppBarMetrics(
           isWide: widget.isWide,
           isLandscape: isLandscape,
@@ -98,6 +101,7 @@ class _SeriesDetailAppBarState extends State<SeriesDetailAppBar> {
           scrollOffset: constraints.scrollOffset,
           horizontalPadding: widget.horizontalPadding,
           hasEntry: widget.entry != null,
+          titleGrowth: titleGrowth.clamp(0, double.infinity).toDouble(),
         );
 
         return SliverAppBar(
@@ -152,6 +156,7 @@ class _SeriesDetailAppBarState extends State<SeriesDetailAppBar> {
             icon: Icons.arrow_back,
             // Labelled in both orientations, per the design.
             label: l10n.translate('back'),
+            size: 44,
             showBg: metrics.controlsNeedBackground,
             blurEnabled: _transitionComplete,
           ).animate().fadeIn(duration: 400.ms),
@@ -216,7 +221,7 @@ class _SeriesDetailAppBarState extends State<SeriesDetailAppBar> {
       icon: icon,
       showBg: metrics.controlsNeedBackground,
       blurEnabled: _transitionComplete,
-      size: 36,
+      size: 44,
       iconSize: 20,
     ).animate().fadeIn(delay: delay, duration: 400.ms);
   }

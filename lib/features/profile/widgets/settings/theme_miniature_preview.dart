@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/widgets/design/rating_star.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 
 /// A static, scaled drawing of Home using the effective palette.
@@ -161,7 +162,11 @@ class ThemeMiniaturePreview extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.star, size: 7, color: palette.star),
+                        RatingStar(
+                          surface: palette.background,
+                          icon: Icons.star,
+                          size: 7,
+                        ),
                         const SizedBox(width: 2),
                         Container(
                           height: 2,

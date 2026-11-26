@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/constants/app_constants.dart';
 
 /// Semantic UI colors. Fixed photographic overlays stay local to widgets.
 @immutable
@@ -176,7 +177,7 @@ class EirenYuPalette {
     onAccent: Color(0xFFFFFFFF),
     text: moonlight,
     textMuted: Color(0xFFAFB3C5),
-    star: Color(0xFFFFD36B),
+    star: AppConstants.starColor,
     success: Color(0xFF69D69B),
     warning: Color(0xFFFFC875),
     error: Color(0xFFFF8293),
@@ -193,7 +194,7 @@ class EirenYuPalette {
     onAccent: Color(0xFFFFFFFF),
     text: Color(0xFF181725),
     textMuted: Color(0xFF575467),
-    star: Color(0xFF916500),
+    star: AppConstants.starColor,
     success: Color(0xFF177648),
     warning: Color(0xFF925A00),
     error: Color(0xFFB62440),

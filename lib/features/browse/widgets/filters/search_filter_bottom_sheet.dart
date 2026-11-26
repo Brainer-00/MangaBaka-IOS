@@ -135,8 +135,10 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                       ),
                       child: Text(l10n.translate('reset').toUpperCase()),
                     );
-                    final title = Row(
-                      mainAxisSize: MainAxisSize.min,
+                    final title = Wrap(
+                      spacing: 8,
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           l10n.translate('filters').toUpperCase(),
@@ -147,7 +149,6 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                         ),
                         // Keep the active-filter count beside the title.
                         if (_filters.activeFiltersCount > 0) ...[
-                          const SizedBox(width: 8),
                           MbBadge.accent(
                             label: '${_filters.activeFiltersCount}',
                           ),
@@ -181,21 +182,30 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                       ),
                     );
 
-                    if (constraints.maxWidth < 390) {
+                    if (constraints.maxWidth <
+                        MediaQuery.textScalerOf(context).scale(390)) {
                       return Column(
                         children: [
                           title,
                           const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [resetButton, applyButton],
+                          SizedBox(
+                            width: double.infinity,
+                            child: OverflowBar(
+                              alignment: MainAxisAlignment.spaceBetween,
+                              overflowSpacing: 4,
+                              children: [resetButton, applyButton],
+                            ),
                           ),
                         ],
                       );
                     }
                     return Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [resetButton, title, applyButton],
+                      children: [
+                        resetButton,
+                        Flexible(child: title),
+                        applyButton,
+                      ],
                     );
                   },
                 ),

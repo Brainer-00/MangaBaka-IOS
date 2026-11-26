@@ -29,6 +29,7 @@ class SeriesAppBarMetrics {
   /// Whether the series is in the library — the delete control only exists
   /// then, and the title has to leave room for it.
   final bool hasEntry;
+  final double titleGrowth;
 
   /// Content stops widening here, matching the page body beneath.
   static const double _maxContentWidth = 1400;
@@ -40,13 +41,16 @@ class SeriesAppBarMetrics {
     required this.scrollOffset,
     required this.horizontalPadding,
     required this.hasEntry,
+    this.titleGrowth = 0,
   });
 
   /// Height of the banner before any scrolling. Landscape is shorter because
   /// the whole viewport is.
   double get expandedHeight {
-    if (isWide) return isLandscape ? 330 : 380;
-    return isLandscape ? 220 : 300;
+    final base = isWide
+        ? (isLandscape ? 330.0 : 380.0)
+        : (isLandscape ? 220.0 : 300.0);
+    return base + titleGrowth;
   }
 
   double get coverHeight {
@@ -91,7 +95,7 @@ class SeriesAppBarMetrics {
   double get titleEndPadding {
     if (!showsBannerActions) return 16.0 + horizontalMargin;
     // Share alone, or share and delete.
-    return (hasEntry ? 104.0 : 60.0) + horizontalMargin;
+    return (hasEntry ? 120.0 : 68.0) + horizontalMargin;
   }
 
   /// Whether share and delete appear on the banner itself.
