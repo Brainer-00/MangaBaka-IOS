@@ -119,11 +119,12 @@ void main() {
       tester.view.physicalSize = const Size(320, 700);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      final controller = TabController(length: 7, vsync: const TestVSync());
+      final controller = TabController(length: 8, vsync: const TestVSync());
       addTearDown(controller.dispose);
       final palette = ValueNotifier<MbPalette>(EirenYuPalette.dark);
       addTearDown(palette.dispose);
       const statusKeys = [
+        'all',
         'reading',
         'paused',
         'completed',
@@ -191,7 +192,9 @@ void main() {
               tester.widget<TabBar>(find.byType(TabBar)).indicator!
                   as BoxDecoration;
           final expected = MbPalette.ensureContrast(
-            AppConstants.getColorForState(statusKeys[index]),
+            statusKeys[index] == 'all'
+                ? EirenYuPalette.crimsonMoon
+                : AppConstants.getColorForState(statusKeys[index]),
             colors.background,
             minimum: 3.0,
           );
@@ -245,8 +248,8 @@ void main() {
               .color!;
       final expectedMidpoint = MbPalette.ensureContrast(
         Color.lerp(
+          EirenYuPalette.crimsonMoon,
           AppConstants.getColorForState('reading'),
-          AppConstants.getColorForState('paused'),
           controller.animation!.value,
         )!,
         EirenYuPalette.light.background,
@@ -257,7 +260,7 @@ void main() {
         MbPalette.contrastRatio(midpoint, EirenYuPalette.light.background),
         greaterThanOrEqualTo(3.0),
       );
-      for (final (index, key) in [(0, 'reading'), (1, 'paused')]) {
+      for (final (index, key) in [(0, 'all'), (1, 'reading')]) {
         final weight = (1.0 - (controller.animation!.value - index).abs())
             .clamp(0.0, 1.0);
         final swipeBackground = Color.alphaBlend(

@@ -87,7 +87,7 @@ class _StateSelectionSectionState extends State<StateSelectionSection> {
                   widget.onStateChanged(value);
                 }
               },
-              items: LibraryScreenConstants.tabs.map((tab) {
+              items: LibraryScreenConstants.statusTabs.map((tab) {
                 return DesktopDropdownItem<String>(
                   value: tab.key,
                   label: l10n.translate(tab.key).toUpperCase(),

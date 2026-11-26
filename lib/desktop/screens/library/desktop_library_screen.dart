@@ -56,7 +56,7 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
   static final _logger = LoggingService.logger;
 
   /// The status key for the unfiltered "everything" view.
-  static const String allKey = 'all';
+  static const allKey = LibraryScreenConstants.allKey;
 
   late final LibraryService _libraryService;
   late final LibrarySession _session;
@@ -244,7 +244,7 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
               title: l10n.translate('library'),
               subtitle: helper == null
                   ? null
-                  : '$statusLabel · ${l10n.translate('series_count').replaceAll('{count}', NumberUtils.formatCount(helper.getByTabOrAll(_status).length))}',
+                  : '$statusLabel · ${l10n.translate('series_count').replaceAll('{count}', NumberUtils.formatCount(helper.getByTab(_status).length))}',
               actions: [
                 DesktopPillButton(
                   label: l10n.translate('import_list'),
@@ -355,7 +355,7 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
       );
     }
 
-    final items = helper.getByTabOrAll(_status);
+    final items = helper.getByTab(_status);
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: DesktopTokens.pagePadding - 12,
@@ -370,13 +370,6 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
       ),
     );
   }
-}
-
-extension on LibraryFilterHelper {
-  List<LibraryEntry> getByTabOrAll(String key) =>
-      key == DesktopLibraryScreenState.allKey
-      ? getFilteredAndSorted()
-      : getByTab(key);
 }
 
 /// The status list at the top of the library panel.
@@ -416,7 +409,7 @@ class _StatusList extends StatelessWidget {
           selected: selected == DesktopLibraryScreenState.allKey,
           onTap: () => onSelected(DesktopLibraryScreenState.allKey),
         ),
-        for (final tab in LibraryScreenConstants.tabs)
+        for (final tab in LibraryScreenConstants.statusTabs)
           _StatusRow(
             label: l10n.translate(tab.key),
             color: AppConstants.getColorForState(tab.key),

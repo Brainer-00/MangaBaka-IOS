@@ -222,30 +222,35 @@ class LibraryFilterHelper {
     }
 
     final byTab = <String, List<LibraryEntry>>{
-      for (final tab in LibraryScreenConstants.tabs) tab.key: <LibraryEntry>[],
+      for (final tab in LibraryScreenConstants.statusTabs)
+        tab.key: <LibraryEntry>[],
     };
-    final counts = <String, int>{};
     for (final entry in filtered) {
       var state = StateNormalizer.normalize(entry.state);
       if (!LibraryScreenConstants.knownStates.contains(state)) {
         state = 'reading';
       }
       byTab[state]?.add(entry);
-      counts[entry.state] = (counts[entry.state] ?? 0) + 1;
     }
 
+    final all = List<LibraryEntry>.unmodifiable(filtered);
+    final tabs = Map<String, List<LibraryEntry>>.unmodifiable({
+      LibraryScreenConstants.allKey: all,
+      for (final entry in byTab.entries)
+        entry.key: List<LibraryEntry>.unmodifiable(entry.value),
+    });
+
     return _cachedResult = LibraryFilterResult(
-      filtered: List<LibraryEntry>.unmodifiable(filtered),
-      byTab: {
-        for (final entry in byTab.entries)
-          entry.key: List<LibraryEntry>.unmodifiable(entry.value),
-      },
-      counts: Map<String, int>.unmodifiable(counts),
+      filtered: all,
+      byTab: tabs,
+      counts: Map<String, int>.unmodifiable({
+        for (final entry in tabs.entries) entry.key: entry.value.length,
+      }),
     );
   }
 
   List<LibraryEntry> getByTab(String tabKey) {
-    return _result.byTab[tabKey] ?? const [];
+    return _result.getByTab(tabKey);
   }
 }
 
@@ -253,6 +258,8 @@ class LibraryFilterResult {
   final List<LibraryEntry> filtered;
   final Map<String, List<LibraryEntry>> byTab;
   final Map<String, int> counts;
+
+  List<LibraryEntry> getByTab(String key) => byTab[key] ?? const [];
 
   const LibraryFilterResult({
     required this.filtered,

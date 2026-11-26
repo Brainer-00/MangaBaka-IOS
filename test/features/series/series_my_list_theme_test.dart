@@ -125,19 +125,15 @@ void main() {
             .first,
       );
       expect((card.decoration as BoxDecoration).color, colors.surface);
-      for (final label in ['LIBRARY', 'CHAPTERS', 'VOLUMES', 'RATING']) {
+      for (final label in ['LIBRARY', 'CHAPTERS', 'VOLUMES', '80']) {
         final text = tester.widget<Text>(find.text(label));
         expect(
           MbPalette.contrastRatio(text.style!.color!, colors.surface),
           greaterThanOrEqualTo(4.5),
         );
       }
-      expect(find.text('20%'), findsOneWidget);
-      final percentage = tester.widget<Text>(find.text('20%'));
-      expect(
-        MbPalette.contrastRatio(percentage.style!.color!, colors.surface),
-        greaterThanOrEqualTo(4.5),
-      );
+      expect(find.byIcon(Icons.star), findsOneWidget);
+      expect(find.text(' / 100', findRichText: true), findsNothing);
       final fills = tester
           .widgetList<FractionallySizedBox>(
             find.descendant(
@@ -147,7 +143,7 @@ void main() {
           )
           .map((widget) => widget.widthFactor)
           .toList();
-      expect(fills, [0.2, 0.25, 0.8]);
+      expect(fills, [0.2, 0.25]);
       final tracks = tester
           .widgetList<Container>(
             find.descendant(
@@ -161,7 +157,7 @@ void main() {
                 (widget.decoration! as BoxDecoration).color ==
                     colors.surfaceRaised,
           );
-      expect(tracks.length, greaterThanOrEqualTo(3));
+      expect(tracks.length, 2);
       final progressGradients = tester
           .widgetList<Container>(
             find.descendant(
@@ -174,7 +170,7 @@ void main() {
           .map((decoration) => decoration.gradient)
           .whereType<LinearGradient>()
           .toList();
-      expect(progressGradients, hasLength(3));
+      expect(progressGradients, hasLength(2));
       for (final gradient in progressGradients) {
         for (final color in gradient.colors) {
           expect(
@@ -185,7 +181,7 @@ void main() {
       }
       await tester.tap(find.text('CHAPTERS'));
       await tester.tap(find.text('VOLUMES'));
-      await tester.tap(find.text('RATING'));
+      await tester.tap(find.text('80'));
       expect([chapters, volumes, ratings], [1, 1, 1]);
       expect(tester.takeException(), isNull);
     });
@@ -378,6 +374,48 @@ void main() {
     await tester.tap(find.byType(DesktopDropdown<String>));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('desktop_dropdown_menu')), findsOneWidget);
+    expect(find.text('ALL'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'personal rating distinguishes a localized unset score from zero',
+    (tester) async {
+      final l10n = LocalizationService();
+      await tester.runAsync(() => l10n.setLanguage('fr'));
+      final series = Series.fromJson({'id': 's', 'title': 'Series'});
+      for (final rating in [null, 0]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SeriesMyListCard(
+                series: series,
+                entry: LibraryEntry(
+                  id: 's',
+                  state: 'reading',
+                  series: series,
+                  rating: rating,
+                ),
+                l10n: l10n,
+                onStateChanged: (_) {},
+                onUpdateChapter: () {},
+                onUpdateVolume: () {},
+                onUpdateRating: () {},
+              ),
+            ),
+          ),
+        );
+        expect(
+          find.byIcon(rating == null ? Icons.star_border : Icons.star),
+          findsOneWidget,
+        );
+        expect(
+          find.text(rating == null ? 'Aucune note pour le moment' : '0'),
+          findsOneWidget,
+        );
+        expect(find.byIcon(Icons.add), findsNothing);
+        expect(find.byType(FractionallySizedBox), findsNothing);
+      }
+    },
+  );
 }

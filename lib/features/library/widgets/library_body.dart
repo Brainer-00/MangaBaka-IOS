@@ -9,16 +9,15 @@ import 'package:mangabaka_app/features/library/widgets/library_grid_list.dart';
 import 'package:mangabaka_app/features/profile/widgets/login/mb_login_prompt.dart';
 import 'package:mangabaka_app/features/series/widgets/series_list_skeleton.dart';
 import 'package:mangabaka_app/features/series/models/series.dart' as api;
-import 'package:mangabaka_app/features/browse/models/search_filters.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/settings/settings_enums.dart';
 
 class LibraryBody extends StatelessWidget {
   final bool loggedIn;
-  final Stream<List<LibraryEntry>>? entriesStream;
-  final String query;
-  final SearchFilters filters;
+  final bool hasEntriesStream;
+  final AsyncSnapshot<List<LibraryEntry>> snapshot;
+  final LibraryFilterResult? result;
   final TabController tabController;
   final Map<String, ScrollController> scrollControllers;
   final RefreshCallback onRefresh;
@@ -28,9 +27,9 @@ class LibraryBody extends StatelessWidget {
   const LibraryBody({
     super.key,
     required this.loggedIn,
-    required this.entriesStream,
-    required this.query,
-    required this.filters,
+    required this.hasEntriesStream,
+    required this.snapshot,
+    required this.result,
     required this.tabController,
     required this.scrollControllers,
     required this.onRefresh,
@@ -123,7 +122,7 @@ class LibraryBody extends StatelessWidget {
       );
     }
 
-    if (entriesStream == null) {
+    if (!hasEntriesStream) {
       return RefreshIndicator(
         onRefresh: onRefresh,
         child: ListView(
@@ -133,45 +132,31 @@ class LibraryBody extends StatelessWidget {
       );
     }
 
-    return StreamBuilder<List<LibraryEntry>>(
-      key: ObjectKey(entriesStream),
-      stream: entriesStream,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData && !snapshot.hasError) {
-          final settings = SettingsManager();
-          final isGrid = settings.resolvedLibraryListStyle.isGrid;
-          return SeriesListSkeleton(isGrid: isGrid);
-        }
+    if (snapshot.hasError) {
+      return _buildErrorState(context, l10n, snapshot.error!);
+    }
+    if (!snapshot.hasData) {
+      return SeriesListSkeleton(
+        isGrid: SettingsManager().resolvedLibraryListStyle.isGrid,
+      );
+    }
+    if (snapshot.data!.isEmpty) {
+      return _buildEmptyLibraryState(context, l10n);
+    }
 
-        if (snapshot.hasError) {
-          return _buildErrorState(context, l10n, snapshot.error!);
-        }
-
-        if (snapshot.data!.isEmpty) {
-          return _buildEmptyLibraryState(context, l10n);
-        }
-
-        final filterHelper = LibraryFilterHelper(
-          allEntries: snapshot.data!,
-          query: query,
-          filters: filters,
-          contentPreferences: SettingsManager().contentPreferences,
-        );
-
-        return TabBarView(
-          controller: tabController,
-          children: LibraryScreenConstants.tabs.map((tab) {
-            final items = filterHelper.getByTab(tab.key);
-            return LibraryGridList(
-              items: items,
-              tabKey: tab.key,
-              scrollController: scrollControllers[tab.key]!,
-              onRefresh: onRefresh,
-              onItemTap: onItemTap,
-            );
-          }).toList(),
-        );
-      },
+    return TabBarView(
+      controller: tabController,
+      children: [
+        for (final tab in LibraryScreenConstants.tabs)
+          LibraryGridList(
+            key: PageStorageKey(tab.key),
+            items: result!.getByTab(tab.key),
+            tabKey: tab.key,
+            scrollController: scrollControllers[tab.key]!,
+            onRefresh: onRefresh,
+            onItemTap: onItemTap,
+          ),
+      ],
     );
   }
 }

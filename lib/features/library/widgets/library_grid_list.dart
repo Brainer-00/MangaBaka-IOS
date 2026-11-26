@@ -87,14 +87,14 @@ class LibraryGridList extends StatelessWidget {
         // Use a library-scoped hero tag so the cover does NOT share the
         // 'series_cover_<id>' tag with the detail screen. That match would
         // trigger a Hero flight on top of the slideUp transition; the two
-        // animations fight and drop frames (worst for top-of-list items,
-        // whose flight overlaps the heavy app-bar region the whole way).
+        // animations fight and drop frames. Include the tab key because All
+        // and a status page can mount the same entry during a swipe.
         // The slideUp already animates the cover into place on its own.
         child: EntryListItem(
           key: ValueKey('${activeStyle.name}_${entry.series.id}'),
           series: entry.series,
           isLibrary: true,
-          heroTagPrefix: 'library',
+          heroTagPrefix: 'library_$tabKey',
           listStyle: activeStyle,
         ),
       ),

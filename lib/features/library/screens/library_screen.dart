@@ -13,6 +13,7 @@ import 'package:mangabaka_app/features/browse/widgets/filters/filter_chips_row.d
 import 'package:mangabaka_app/features/library/constants/library_screen_constants.dart';
 import 'package:mangabaka_app/features/library/controllers/library_session.dart';
 import 'package:mangabaka_app/features/library/controllers/library_tab_coordinator.dart';
+import 'package:mangabaka_app/features/library/helpers/library_filter_helper.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/library/models/library_sync_status.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
@@ -203,39 +204,53 @@ class LibraryScreenState extends State<LibraryScreen>
             if (didPop) return;
             _exitSearch();
           },
-          child: Scaffold(
-            backgroundColor: context.colors.background,
-            appBar: _buildAppBar(context),
-            body: ValueListenableBuilder<LibrarySyncStatus>(
-              valueListenable: _libraryService.syncStatus,
-              builder: (context, status, _) => Actions(
-                actions: <Type, Action<Intent>>{
-                  SearchIntent: CallbackAction<SearchIntent>(
-                    onInvoke: (_) {
-                      enterSearchMode();
-                      return null;
+          child: StreamBuilder<List<LibraryEntry>>(
+            // A new account must never inherit the previous stream snapshot.
+            key: ObjectKey(_session.entriesStream),
+            stream: _session.entriesStream,
+            builder: (context, snapshot) {
+              final result = snapshot.hasData
+                  ? _tabs.filterFor(snapshot.data!).result
+                  : null;
+              return Scaffold(
+                backgroundColor: context.colors.background,
+                appBar: _buildAppBar(context, result),
+                body: ValueListenableBuilder<LibrarySyncStatus>(
+                  valueListenable: _libraryService.syncStatus,
+                  builder: (context, status, _) => Actions(
+                    actions: <Type, Action<Intent>>{
+                      SearchIntent: CallbackAction<SearchIntent>(
+                        onInvoke: (_) {
+                          enterSearchMode();
+                          return null;
+                        },
+                      ),
+                      RefreshIntent: CallbackAction<RefreshIntent>(
+                        onInvoke: (_) {
+                          _session.refresh();
+                          return null;
+                        },
+                      ),
                     },
+                    child: WidgetUtils.responsiveConstraint(
+                      _buildContent(status, snapshot, result),
+                      maxWidth: isGrid ? double.infinity : _maxListWidth,
+                    ),
                   ),
-                  RefreshIntent: CallbackAction<RefreshIntent>(
-                    onInvoke: (_) {
-                      _session.refresh();
-                      return null;
-                    },
-                  ),
-                },
-                child: WidgetUtils.responsiveConstraint(
-                  _buildContent(status),
-                  maxWidth: isGrid ? double.infinity : _maxListWidth,
                 ),
-              ),
-            ),
+              );
+            },
           ),
         );
       },
     );
   }
 
-  Widget _buildContent(LibrarySyncStatus status) {
+  Widget _buildContent(
+    LibrarySyncStatus status,
+    AsyncSnapshot<List<LibraryEntry>> snapshot,
+    LibraryFilterResult? result,
+  ) {
     return Column(
       children: [
         LibraryStatusBanners(
@@ -257,9 +272,9 @@ class LibraryScreenState extends State<LibraryScreen>
         Expanded(
           child: LibraryBody(
             loggedIn: _session.isLoggedIn,
-            entriesStream: _session.entriesStream,
-            query: _query,
-            filters: _filters,
+            hasEntriesStream: _session.entriesStream != null,
+            snapshot: snapshot,
+            result: result,
             tabController: _tabController,
             scrollControllers: _scrollControllers,
             onRefresh: _session.refresh,
@@ -273,7 +288,10 @@ class LibraryScreenState extends State<LibraryScreen>
 
   /// Null when the shared top nav bar is hosting the search field instead —
   /// two search fields on one screen would be a confusing duplicate.
-  PreferredSizeWidget? _buildAppBar(BuildContext context) {
+  PreferredSizeWidget? _buildAppBar(
+    BuildContext context,
+    LibraryFilterResult? result,
+  ) {
     if (MainScreen.showSearchBarInTopNavBar(context)) return null;
 
     return LibraryAppBar(
@@ -287,22 +305,10 @@ class LibraryScreenState extends State<LibraryScreen>
       onQueryChanged: updateQuery,
       onFiltersChanged: updateFilters,
       onResultSelected: handleResultSelected,
-      bottom: _buildTabBar(context),
-    );
-  }
-
-  PreferredSizeWidget _buildTabBar(BuildContext context) {
-    return PreferredSize(
-      preferredSize: const Size.fromHeight(48),
-      child: StreamBuilder<List<LibraryEntry>>(
-        key: ObjectKey(_session.entriesStream),
-        stream: _session.entriesStream,
-        builder: (context, snapshot) => LibraryTabBar(
-          controller: _tabController,
-          counts: _tabs.countsFor(snapshot.data ?? const []),
-          isLandscape:
-              MediaQuery.orientationOf(context) == Orientation.landscape,
-        ),
+      bottom: LibraryTabBar(
+        controller: _tabController,
+        counts: result?.counts ?? const {},
+        isLandscape: MediaQuery.orientationOf(context) == Orientation.landscape,
       ),
     );
   }

@@ -26,8 +26,7 @@ class NavItem {
 ///
 /// Phosphor rather than Material: the reference's nav is a thin, rounded,
 /// geometric family with a matched solid weight for the active state, which
-/// Material's icons do not provide. Compass and user match the reference
-/// directly; the bookmark stands in for the library. See [MbIcons].
+/// Material's icons do not provide. See [MbIcons].
 const List<NavItem> navItems = [
   NavItem(
     icon: MbIcons.house,
@@ -35,8 +34,8 @@ const List<NavItem> navItems = [
     labelKey: 'home',
   ),
   NavItem(
-    icon: MbIcons.bookmark,
-    selectedIcon: MbIcons.bookmarkFill,
+    icon: MbIcons.books,
+    selectedIcon: MbIcons.booksFill,
     labelKey: 'library',
   ),
   NavItem(
@@ -71,10 +70,10 @@ class NavTabs {
 /// [navItems] as the destinations the rail and bottom bar take, with labels
 /// resolved through [l10n].
 List<MbNavDestination> navDestinations(LocalizationService l10n) => [
-      for (final item in navItems)
-        MbNavDestination(
-          icon: item.icon,
-          selectedIcon: item.selectedIcon,
-          label: l10n.translate(item.labelKey),
-        ),
-    ];
+  for (final item in navItems)
+    MbNavDestination(
+      icon: item.icon,
+      selectedIcon: item.selectedIcon,
+      label: l10n.translate(item.labelKey),
+    ),
+];

@@ -16,7 +16,7 @@ import 'package:mangabaka_app/features/library/constants/library_screen_constant
 class LibraryTabBar extends StatelessWidget implements PreferredSizeWidget {
   final TabController controller;
 
-  /// Entry counts per status key. Missing keys read as zero.
+  /// Entry counts per tab key. Missing keys read as zero.
   final Map<String, int> counts;
 
   final bool isLandscape;
@@ -32,6 +32,10 @@ class LibraryTabBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => const Size.fromHeight(_height);
+
+  Color _sourceColor(String key) => key == LibraryScreenConstants.allKey
+      ? EirenYuPalette.crimsonMoon
+      : AppConstants.getColorForState(key);
 
   @override
   Widget build(BuildContext context) {
@@ -53,11 +57,11 @@ class LibraryTabBar extends StatelessWidget implements PreferredSizeWidget {
 
         final statusColor =
             Color.lerp(
-              AppConstants.getColorForState(tabs[lower].key),
-              AppConstants.getColorForState(tabs[upper].key),
+              _sourceColor(tabs[lower].key),
+              _sourceColor(tabs[upper].key),
               t,
             ) ??
-            AppConstants.getColorForState(tabs[lower].key);
+            _sourceColor(tabs[lower].key);
         // The original status colours remain the source for this interpolation.
         // Only the rendered indicator is adjusted when it would disappear into
         // the app bar, such as Completed white on a light palette.

@@ -1,10 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/features/library/constants/library_screen_constants.dart';
+import 'package:mangabaka_app/features/library/models/library_entry_edit.dart';
 import 'package:mangabaka_app/features/library/helpers/library_filter_helper.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/features/browse/models/search_filters.dart';
 
+import '../../support/library_identity.dart';
+
 void main() {
+  setUpAll(prepareWidgetLibraryIdentity);
   group('LibraryFilterHelper', () {
     final mockSeries = Series(
       id: '1',
@@ -114,9 +120,90 @@ void main() {
       expect(helper.result.filtered, hasLength(3));
       expect(helper.getByTab('reading'), hasLength(2));
       expect(helper.getByTab('completed'), hasLength(1));
-      expect(helper.counts, {'reading': 1, 'completed': 1, 'unknown': 1});
+      expect(helper.getByTab('all'), same(helper.result.filtered));
+      expect(helper.counts['all'], 3);
+      expect(helper.counts['reading'], 2);
+      expect(helper.counts['completed'], 1);
+      expect(helper.counts, isNot(contains('unknown')));
       expect(helper.getByTab('reading'), same(helper.getByTab('reading')));
     });
+
+    test('All combines the seven states with the same filters and sort', () {
+      const states = [
+        'reading',
+        'paused',
+        'completed',
+        'plan_to_read',
+        'dropped',
+        'rereading',
+        'considering',
+      ];
+      expect(LibraryScreenConstants.tabs.map((tab) => tab.key), [
+        'all',
+        ...states,
+      ]);
+      final entries = [
+        for (var i = 0; i < states.length; i++)
+          LibraryEntry(
+            id: '$i',
+            state: states[i],
+            series: Series.fromJson({
+              'id': '$i',
+              'title': 'Match $i',
+              'content_rating': 'safe',
+              'type': 'manga',
+              'status': 'ongoing',
+              'genres': ['Action'],
+              'tags': ['Adventure'],
+              'rating': '85',
+            }),
+          ),
+      ];
+      final restricted = LibraryEntry(
+        id: 'restricted',
+        state: 'on_hold',
+        series: Series.fromJson({
+          'id': 'restricted',
+          'title': 'Match restricted',
+          'content_rating': 'erotica',
+        }),
+      );
+      final helper = LibraryFilterHelper(
+        allEntries: [...entries, restricted],
+        query: 'Match',
+        contentPreferences: ['safe'],
+        filters: SearchFilters(
+          type: ['manga'],
+          status: ['ongoing'],
+          genre: ['action'],
+          tag: ['adventure'],
+          ratingLower: 80,
+          sortBy: 'name_desc',
+        ),
+      );
+      expect(helper.getByTab('all'), entries.reversed);
+      expect(helper.counts['all'], states.length);
+      for (var i = 0; i < states.length; i++) {
+        expect(helper.getByTab(states[i]), [entries[i]]);
+        expect(helper.counts[states[i]], 1);
+      }
+    });
+
+    test(
+      'All is absent from tracking states and rejected by the edit payload',
+      () {
+        expect(AppConstants.libraryStates, isNot(contains('all')));
+        expect(LibraryEntryDraft.states, isNot(contains('all')));
+        expect(
+          () => LibraryEntryDraft(
+            lease: testLibraryLease,
+            seriesId: '1',
+            state: const EntryField.set('all'),
+          ).toJson(),
+          throwsArgumentError,
+        );
+      },
+    );
 
     test('preserves every supported sort mode without changing membership', () {
       const sortModes = [

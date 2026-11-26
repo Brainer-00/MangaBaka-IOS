@@ -47,22 +47,11 @@ class LibraryTabCoordinator {
         filters: _filters,
       );
 
-  /// Entry counts per status, over the same filtered set the list shows.
-  Map<String, int> countsFor(List<LibraryEntry> entries) {
-    final counts = <String, int>{};
-    for (final entry in filterFor(entries).getFilteredAndSorted()) {
-      counts[entry.state] = (counts[entry.state] ?? 0) + 1;
-    }
-    return counts;
-  }
-
   /// Moves to the first tab that has matches when the current one has none.
   ///
   /// Searching within a single status is rarely what the user meant: a query
-  /// that matches nothing in "Reading" but three things in "Completed" should
-  /// show those, not an empty tab. Only applies while something is being
-  /// searched for — with no query and no filters, the user's chosen tab is the
-  /// one they want.
+  /// that matches nothing in Reading can still show results in All. With no
+  /// query and no filters, keep the user's chosen tab.
   void autoSwitch() {
     if (_query.isEmpty && _filters.isEmpty) return;
     // Mid-swipe the index is in flux; moving it again would fight the gesture.
@@ -78,7 +67,7 @@ class LibraryTabCoordinator {
     );
     for (var i = 0; i < tabs.length; i++) {
       if (helper.getByTab(tabs[i].key).isEmpty) continue;
-        _logger.info('Auto-switching library tab (index $i)');
+      _logger.info('Auto-switching library tab (index $i)');
       controller.animateTo(i);
       return;
     }

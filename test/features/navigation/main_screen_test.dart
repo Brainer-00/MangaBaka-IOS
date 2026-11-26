@@ -6,6 +6,8 @@ import 'package:mangabaka_app/core/settings/settings_enums.dart';
 import 'package:mangabaka_app/core/settings/settings_keys.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/widgets/design/mb_nav.dart';
+import 'package:mangabaka_app/core/widgets/design/mb_icons.dart';
+import 'package:mangabaka_app/features/navigation/models/nav_destinations.dart';
 import 'package:mangabaka_app/features/browse/screens/browse_screen.dart';
 import 'package:mangabaka_app/features/home/screens/home_screen.dart';
 import 'package:mangabaka_app/features/navigation/screens/main_screen.dart';
@@ -61,6 +63,34 @@ void main() {
 
     final navBar = tester.widget<MbBottomNav>(find.byType(MbBottomNav));
     expect(navBar.selectedIndex, 0);
+    expect(NavTabs.library, 1);
+    expect(navItems.map((item) => item.labelKey), [
+      'home',
+      'library',
+      'browse',
+      'news',
+      'profile',
+    ]);
+    expect(navBar.destinations.map((item) => item.icon), [
+      MbIcons.house,
+      MbIcons.books,
+      MbIcons.compass,
+      MbIcons.newspaper,
+      MbIcons.user,
+    ]);
+    expect(navBar.destinations.map((item) => item.selectedIcon), [
+      MbIcons.houseFill,
+      MbIcons.booksFill,
+      MbIcons.compassFill,
+      MbIcons.newspaperFill,
+      MbIcons.userFill,
+    ]);
+    expect(MbIcons.books.codePoint, 0xe758);
+    expect(MbIcons.booksFill.codePoint, 0xe758);
+    expect(find.byIcon(MbIcons.books), findsOneWidget);
+    await tester.tap(find.byIcon(MbIcons.books));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(MbIcons.booksFill), findsOneWidget);
   });
 
   testWidgets('MainScreen respects an explicitly saved start page', (

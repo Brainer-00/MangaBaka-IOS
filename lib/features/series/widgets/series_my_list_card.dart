@@ -9,10 +9,7 @@ import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/features/series/widgets/mb_card.dart';
 import 'package:mangabaka_app/features/series/widgets/state_selection_section.dart';
 
-/// The "My List" tracking card from the design: a full-width status selector,
-/// chapter/volume progress bars, and a 5-star score (mapped from the app's
-/// 0–100 scale). Mirrors the design's tracking widget while reusing the app's
-/// existing state/progress/rating plumbing.
+/// The reader’s personal Library tracking and editing controls.
 class SeriesMyListCard extends StatelessWidget {
   final Series series;
   final LibraryEntry entry;
@@ -50,40 +47,18 @@ class SeriesMyListCard extends StatelessWidget {
     final hasVolumes =
         series.finalVolume.isNotEmpty && series.finalVolume != 'null';
 
-    final pct = (chapterTotal != null && chapterTotal > 0)
-        ? ((entry.progressChapter ?? 0) / chapterTotal).clamp(0.0, 1.0)
-        : null;
-
     final statusColor = AppConstants.getColorForState(entry.state);
-    final progress = pct == null
-        ? null
-        : Text(
-            '${(pct * 100).round()}%',
-            style: AppTypography.sans(
-              color: MbPalette.ensureContrast(
-                statusColor,
-                colors.surface,
-                minimum: 4.5,
-              ),
-              fontSize: 10.5,
-              fontWeight: FontWeight.w600,
-            ),
-          );
+    final rating = entry.rating;
 
     return MbCard(
       label: l10n.translate('library'),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
       trailing: onEdit == null
-          ? progress
-          : Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ?progress,
-                IconButton(
-                  tooltip: l10n.translate('library_editor_edit'),
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                ),
-              ],
+          ? null
+          : IconButton(
+              tooltip: l10n.translate('library_editor_edit'),
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit_outlined, size: 18),
             ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,8 +67,7 @@ class SeriesMyListCard extends StatelessWidget {
             currentState: entry.state,
             onStateChanged: onStateChanged,
           ),
-          if (hasChapters) ...[
-            const SizedBox(height: 18),
+          if (hasChapters)
             _ProgressRow(
               label: l10n.translate('chapters'),
               value: entry.progressChapter ?? 0,
@@ -101,9 +75,7 @@ class SeriesMyListCard extends StatelessWidget {
               onTap: onUpdateChapter,
               statusColor: statusColor,
             ),
-          ],
-          if (hasVolumes) ...[
-            const SizedBox(height: 16),
+          if (hasVolumes)
             _ProgressRow(
               label: l10n.translate('volumes'),
               value: entry.progressVolume ?? 0,
@@ -111,13 +83,46 @@ class SeriesMyListCard extends StatelessWidget {
               onTap: onUpdateVolume,
               statusColor: statusColor,
             ),
-          ],
-          const SizedBox(height: 16),
-          _ScoreRow(
-            label: l10n.translate('rating'),
-            rating: entry.rating ?? 0,
-            onTap: onUpdateRating,
-            statusColor: statusColor,
+          const SizedBox(height: 2),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: colors.border)),
+            ),
+            child: Tooltip(
+              message: l10n.translate('rating'),
+              child: InkWell(
+                onTap: onUpdateRating,
+                borderRadius: BorderRadius.circular(8),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 44),
+                  child: Row(
+                    children: [
+                      Icon(
+                        rating == null ? Icons.star_border : Icons.star,
+                        size: 18,
+                        color: MbPalette.ensureContrast(
+                          rating == null ? colors.textMuted : statusColor,
+                          colors.surface,
+                          minimum: 4.5,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          rating?.toString() ?? l10n.translate('no_rating_yet'),
+                          style: AppTypography.sans(
+                            color: colors.text,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Icon(Icons.edit, size: 16, color: colors.textMuted),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -161,116 +166,10 @@ class _ProgressRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Text(
-                  label.toUpperCase(),
-                  style: AppTypography.monoLabel(
-                    color: colors.textMuted,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-              Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: '$value',
-                      style: AppTypography.sans(
-                        color: statusText,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    TextSpan(
-                      text: ' / $totalLabel',
-                      style: AppTypography.sans(
-                        color: colors.text,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(Icons.add, size: 16, color: colors.textMuted),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: Container(
-              height: 7,
-              decoration: BoxDecoration(
-                color: colors.surfaceRaised,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: colors.border, width: 1),
-              ),
-              child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: pct,
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(999),
-                    gradient: LinearGradient(
-                      colors: [
-                        statusIndicator,
-                        Color.lerp(statusIndicator, colors.text, 0.28)!,
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ScoreRow extends StatelessWidget {
-  final String label;
-  final int rating; // 0–100
-  final VoidCallback onTap;
-  final Color statusColor;
-
-  const _ScoreRow({
-    required this.label,
-    required this.rating,
-    required this.onTap,
-    required this.statusColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final pct = (rating / 100.0).clamp(0.0, 1.0);
-    final colors = context.colors;
-    final statusText = MbPalette.ensureContrast(
-      statusColor,
-      colors.surface,
-      minimum: 4.5,
-    );
-    final statusIndicator = MbPalette.ensureContrast(
-      statusColor,
-      colors.surfaceRaised,
-      minimum: 3.0,
-    );
-
-    return Container(
-      padding: const EdgeInsets.only(top: 16),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: colors.border, width: 1)),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -289,7 +188,7 @@ class _ScoreRow extends StatelessWidget {
                   TextSpan(
                     children: [
                       TextSpan(
-                        text: rating > 0 ? '$rating' : '–',
+                        text: '$value',
                         style: AppTypography.sans(
                           color: statusText,
                           fontSize: 14,
@@ -297,7 +196,7 @@ class _ScoreRow extends StatelessWidget {
                         ),
                       ),
                       TextSpan(
-                        text: ' / 100',
+                        text: ' / $totalLabel',
                         style: AppTypography.sans(
                           color: colors.text,
                           fontSize: 14,
@@ -307,14 +206,14 @@ class _ScoreRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(Icons.edit, size: 16, color: colors.textMuted),
+                Icon(Icons.add, size: 16, color: colors.textMuted),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 5),
             ClipRRect(
               borderRadius: BorderRadius.circular(999),
               child: Container(
-                height: 7,
+                height: 5,
                 decoration: BoxDecoration(
                   color: colors.surfaceRaised,
                   borderRadius: BorderRadius.circular(999),
