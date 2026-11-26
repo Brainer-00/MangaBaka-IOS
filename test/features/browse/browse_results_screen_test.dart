@@ -58,7 +58,7 @@ class MockProfileAuthService extends Fake with WidgetLibraryIdentity {
 
 class MockSeriesService extends Fake implements SeriesService {
   @override
-  Future<Series> fetchSeries(String id) async =>
+  Future<Series> fetchSeries(String id, {bool refresh = false}) async =>
       Series.fromJson({'id': id, 'title': 'Mock'});
 }
 

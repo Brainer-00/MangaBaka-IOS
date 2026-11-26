@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/theme/app_theme.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
@@ -153,13 +154,21 @@ void main() {
         );
       }
 
-      final ratingBadge = tester.widget<MiniBadge>(
-        find.ancestor(
-          of: find.text('80 / 100'),
-          matching: find.byType(MiniBadge),
-        ),
+      final ratingBadge = find.ancestor(
+        of: find.text('80 / 100'),
+        matching: find.byType(MiniBadge),
       );
-      expect(ratingBadge.color, colors.star);
+      expect(
+        tester
+            .widget<Icon>(
+              find.descendant(
+                of: ratingBadge,
+                matching: find.byIcon(Icons.star),
+              ),
+            )
+            .color,
+        AppConstants.starColor,
+      );
     });
   }
 

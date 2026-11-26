@@ -32,9 +32,9 @@ mixin SeriesFetchMixin {
     _store(series.id, series);
   }
 
-  Future<Series> fetchSeries(String id) async {
+  Future<Series> fetchSeries(String id, {bool refresh = false}) async {
     final cached = _cache[id];
-    if (cached != null) {
+    if (cached != null && !refresh) {
       // Preferences can change after a series was cached, so the gate is
       // re-applied on the way out rather than only at fetch time.
       _assertAllowedByContentRating(cached, evictOnBlock: id);

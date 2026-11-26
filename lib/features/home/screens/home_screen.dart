@@ -11,6 +11,7 @@ import 'package:mangabaka_app/features/browse/screens/browse_results_screen.dart
 import 'package:mangabaka_app/features/home/services/home_service.dart';
 import 'package:mangabaka_app/features/home/widgets/home_rail.dart';
 import 'package:mangabaka_app/features/home/widgets/home_trending_section.dart';
+import 'package:mangabaka_app/features/library/services/library_service.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/shared/transitions/app_transitions.dart';
@@ -87,6 +88,20 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onAuthChanged() {
     if (!mounted) return;
     _loadRails();
+  }
+
+  Future<void> _refresh() async {
+    final lease = _auth.libraryLease;
+    final rails = _loadRails(force: true);
+    await Future.wait([
+      rails,
+      if (lease != null)
+        getIt<LibraryService>().reconcileLibrary(lease).catchError((
+          Object error,
+        ) {
+          _logger.warning('Home Library refresh failed (${error.runtimeType})');
+        }),
+    ]);
   }
 
   String get _authContext =>
@@ -395,7 +410,7 @@ class _HomeScreenState extends State<HomeScreen> {
           body: RefreshIndicator(
             color: context.colors.accentForeground,
             backgroundColor: context.colors.surface,
-            onRefresh: () => _loadRails(force: true),
+            onRefresh: _refresh,
             child: WidgetUtils.responsiveConstraint(
               ListView(
                 padding: const EdgeInsets.only(top: 8, bottom: 24),

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
+import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/core/database/database.dart'
     show LibraryCacheLease;
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
@@ -23,52 +24,63 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
   LibraryService get libraryService;
   Series get series;
   LibraryCacheLease? _editorLease;
+  LibraryCacheLease? _ratingLease;
 
   bool get libraryEditorOpen =>
       _editorLease != null &&
       identical(_editorLease, getIt<ProfileAuthService>().libraryLease);
 
-  void showUpdateRatingDialog(LibraryEntry entry) {
+  Future<void> showUpdateRatingDialog(LibraryEntry entry) async {
     final auth = getIt<ProfileAuthService>();
     final lease = auth.libraryLease;
-    if (lease == null) return;
+    if (lease == null || identical(_ratingLease, lease)) return;
     bool current() => identical(lease, auth.libraryLease);
+    final id = series.id;
+    _ratingLease = lease;
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => ListenableBuilder(
-        listenable: auth,
-        builder: (context, _) => !current()
-            ? const SizedBox.shrink()
-            : Padding(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom,
-                ),
-                child: RatingSelectionDialog(
-                  initialRating: entry.rating ?? 0,
-                  onRatingChanged: (rating) async {
-                    if (!current()) return;
-                    try {
-                      await libraryService.updateLibraryEntryRating(
-                        series.id,
-                        rating,
-                      );
-                    } catch (e) {
-                      if (mounted) {
-                        AppSnackBar.show(
-                          this.context,
-                          LocalizationService().translate('failed_to_update'),
-                          isError: true,
-                        );
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        enableDrag: false,
+        useSafeArea: true,
+        constraints: const BoxConstraints(maxWidth: 540),
+        builder: (context) => ListenableBuilder(
+          listenable: auth,
+          builder: (context, _) => !current()
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom,
+                  ),
+                  child: RatingSelectionDialog(
+                    initialRating: entry.rating,
+                    onRatingChanged: (rating) async {
+                      final result = await libraryService
+                          .updateLibraryEntryRating(id, rating, lease: lease);
+                      if (!current()) {
+                        throw AuthException(message: 'Library session changed');
                       }
-                    }
-                  },
+                      return result.outcome;
+                    },
+                    onCheckEntry: (rating) async {
+                      final entry = await libraryService
+                          .fetchAuthoritativeLibraryEntry(id, lease: lease);
+                      if (!current()) {
+                        throw AuthException(message: 'Library session changed');
+                      }
+                      return entry == null
+                          ? null
+                          : entry.rating == (rating == 0 ? null : rating);
+                    },
+                  ),
                 ),
-              ),
-      ),
-    );
+        ),
+      );
+    } finally {
+      if (identical(_ratingLease, lease)) _ratingLease = null;
+    }
   }
 
   void showUpdateProgressDialog(LibraryEntry entry, {bool isChapter = true}) {

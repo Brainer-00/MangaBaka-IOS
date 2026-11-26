@@ -7,6 +7,7 @@ import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/theme_presets.dart';
 import 'package:mangabaka_app/desktop/widgets/desktop_dropdown.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
+import 'package:mangabaka_app/features/library/widgets/library_status_dropdown.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/features/series/widgets/mb_card.dart';
 import 'package:mangabaka_app/features/series/widgets/series_my_list_card.dart';
@@ -46,32 +47,38 @@ void main() {
               ),
             ),
           );
-          final selector = tester.widget<DesktopDropdown<String>>(
-            find.byType(DesktopDropdown<String>),
-          );
-          final statusColor = AppConstants.getColorForState(status);
-          expect(selector.backgroundColor, statusColor);
-          expect(
-            MbPalette.contrastRatio(selector.foregroundColor!, statusColor),
-            greaterThanOrEqualTo(4.5),
-          );
-          final border = selector.border! as Border;
-          expect(
-            MbPalette.contrastRatio(border.top.color, colors.surface),
-            greaterThanOrEqualTo(3),
-          );
-          final icon = tester.widget<Icon>(
+          final dropdown = find.byType(LibraryStatusDropdown);
+          final button = tester.widget<OutlinedButton>(
             find.descendant(
-              of: find.byType(DesktopDropdown<String>),
-              matching: find.byIcon(
-                selector.leading is Icon
-                    ? (selector.leading! as Icon).icon!
-                    : Icons.help_outline,
-              ),
+              of: dropdown,
+              matching: find.byType(OutlinedButton),
             ),
           );
+          final style = button.style!;
+          final statusColor = AppConstants.getColorForState(status);
+          expect(style.backgroundColor!.resolve({}), statusColor);
           expect(
-            MbPalette.contrastRatio(icon.color!, statusColor),
+            MbPalette.contrastRatio(
+              style.foregroundColor!.resolve({})!,
+              statusColor,
+            ),
+            greaterThanOrEqualTo(4.5),
+          );
+          expect(
+            MbPalette.contrastRatio(
+              style.side!.resolve({})!.color,
+              colors.surface,
+            ),
+            greaterThanOrEqualTo(3),
+          );
+          final icon = find
+              .descendant(of: dropdown, matching: find.byType(Icon))
+              .first;
+          expect(
+            MbPalette.contrastRatio(
+              IconTheme.of(tester.element(icon)).color!,
+              statusColor,
+            ),
             greaterThanOrEqualTo(4.5),
           );
         }
@@ -187,6 +194,70 @@ void main() {
     });
   }
 
+  testWidgets(
+    'Light paused progress keeps canonical yellow on a readable track',
+    (tester) async {
+      final palette = EirenYuPalette.light;
+      final series = Series.fromJson({
+        'id': 'paused-series',
+        'title': 'Paused series',
+        'total_chapters': '10',
+        'final_volume': '4',
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.build(showTooltips: true, palette: palette),
+          home: Scaffold(
+            body: SeriesMyListCard(
+              series: series,
+              entry: LibraryEntry(
+                id: 'paused-entry',
+                state: 'paused',
+                series: series,
+                progressChapter: 2,
+                progressVolume: 1,
+              ),
+              l10n: LocalizationService(),
+              onStateChanged: (_) {},
+              onUpdateChapter: () {},
+              onUpdateVolume: () {},
+              onUpdateRating: () {},
+            ),
+          ),
+        ),
+      );
+      final indicators = find.byType(FractionallySizedBox);
+      expect(indicators, findsNWidgets(2));
+      for (final indicator in indicators.evaluate()) {
+        final element = find.byWidget(indicator.widget);
+        final fill =
+            tester
+                    .widget<Container>(
+                      find.descendant(
+                        of: element,
+                        matching: find.byType(Container),
+                      ),
+                    )
+                    .decoration!
+                as BoxDecoration;
+        BoxDecoration? track;
+        indicator.visitAncestorElements((parent) {
+          final widget = parent.widget;
+          if (widget is! Container || widget.decoration is! BoxDecoration) {
+            return true;
+          }
+          track = widget.decoration! as BoxDecoration;
+          return false;
+        });
+        expect(fill.color, AppConstants.warningColor);
+        expect(
+          MbPalette.contrastRatio(fill.color!, track!.color!),
+          greaterThanOrEqualTo(3),
+        );
+      }
+    },
+  );
+
   testWidgets('open status menu recolors on theme change and selects once', (
     tester,
   ) async {
@@ -207,40 +278,38 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.byType(DesktopDropdown<String>));
+    await tester.tap(find.byType(LibraryStatusDropdown));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('desktop_dropdown_menu')), findsOneWidget);
+    final menuRows = find.byType(MenuItemButton);
+    expect(menuRows, findsNWidgets(7));
     expect(selected, isEmpty);
     palette.value = EirenYuPalette.light;
     await tester.pumpAndSettle();
-    final menu = tester.widget<Container>(
-      find.byKey(const Key('desktop_dropdown_menu')),
-    );
+    final anchor = tester.widget<MenuAnchor>(find.byType(MenuAnchor));
     expect(
-      (menu.decoration as BoxDecoration).color,
+      anchor.style!.backgroundColor!.resolve({}),
       EirenYuPalette.light.surface,
     );
-    expect(find.text('COMPLETED'), findsOneWidget);
-    final selectedRow = tester.widget<Text>(
-      find.descendant(
-        of: find.byKey(const Key('desktop_dropdown_menu')),
-        matching: find.text('READING'),
-      ),
+    final selectedLabel = find.descendant(
+      of: menuRows,
+      matching: find.text('READING'),
+    );
+    final selectedRow = tester.widget<MenuItemButton>(
+      find.ancestor(of: selectedLabel, matching: menuRows),
     );
     final tintedSurface = Color.alphaBlend(
       AppConstants.getColorForState('reading').withValues(alpha: 0.14),
       EirenYuPalette.light.surface,
     );
+    expect(selectedRow.style!.backgroundColor!.resolve({}), tintedSurface);
     expect(
-      MbPalette.contrastRatio(selectedRow.style!.color!, tintedSurface),
+      MbPalette.contrastRatio(
+        tester.widget<Text>(selectedLabel).style!.color!,
+        tintedSurface,
+      ),
       greaterThanOrEqualTo(4.5),
     );
-    final check = tester.widget<Icon>(
-      find.descendant(
-        of: find.byKey(const Key('desktop_dropdown_menu')),
-        matching: find.byIcon(Icons.check_rounded),
-      ),
-    );
+    final check = tester.widget<Icon>(find.byIcon(Icons.check_rounded));
     expect(
       MbPalette.contrastRatio(check.color!, tintedSurface),
       greaterThanOrEqualTo(4.5),
@@ -248,11 +317,11 @@ void main() {
     await tester.tap(find.text('COMPLETED'));
     await tester.pumpAndSettle();
     expect(selected, ['completed']);
-    expect(find.byKey(const Key('desktop_dropdown_menu')), findsNothing);
+    expect(menuRows, findsNothing);
     expect(
       tester
-          .widget<DesktopDropdown<String>>(find.byType(DesktopDropdown<String>))
-          .selected,
+          .widget<LibraryStatusDropdown>(find.byType(LibraryStatusDropdown))
+          .value,
       'completed',
     );
   });
@@ -323,11 +392,12 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.byType(DesktopDropdown<String>));
+    await tester.tap(find.byType(LibraryStatusDropdown));
     await tester.pumpAndSettle();
-    final menu = find.byKey(const Key('desktop_dropdown_menu'));
-    expect(menu, findsOneWidget);
-    expect(tester.getBottomLeft(menu).dy, lessThan(250));
+    final rows = find.byType(MenuItemButton).hitTestable();
+    expect(rows, findsWidgets);
+    expect(tester.getCenter(rows.first).dy, lessThan(250));
+    expect(tester.getCenter(rows.last).dy, lessThan(250));
     expect(tester.takeException(), isNull);
   });
 
@@ -371,9 +441,9 @@ void main() {
       ),
     );
     expect(tester.takeException(), isNull);
-    await tester.tap(find.byType(DesktopDropdown<String>));
+    await tester.tap(find.byType(LibraryStatusDropdown));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('desktop_dropdown_menu')), findsOneWidget);
+    expect(find.byType(MenuItemButton), findsNWidgets(7));
     expect(find.text('ALL'), findsNothing);
     expect(tester.takeException(), isNull);
   });

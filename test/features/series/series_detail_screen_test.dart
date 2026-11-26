@@ -43,16 +43,21 @@ class MockSeriesService extends Fake implements SeriesService {
   Object? error;
   bool fetchSeriesCalled = false;
   int fetchSeriesCalls = 0;
+  int refreshedSeriesCalls = 0;
   bool fetchCoversCalled = false;
   bool delayFetch = false;
 
   @override
-  Future<List<SeriesLink>> fetchSeriesLinks(String id) async => [];
+  Future<List<SeriesLink>> fetchSeriesLinks(
+    String id, {
+    bool refresh = false,
+  }) async => [];
 
   @override
-  Future<Series> fetchSeries(String id) async {
+  Future<Series> fetchSeries(String id, {bool refresh = false}) async {
     fetchSeriesCalled = true;
     fetchSeriesCalls++;
+    if (refresh) refreshedSeriesCalls++;
     if (delayFetch) await Future.delayed(const Duration(milliseconds: 100));
     if (error != null) throw error!;
     return seriesResponse ??
@@ -67,19 +72,32 @@ class MockSeriesService extends Fake implements SeriesService {
   get logger => LoggingService.logger;
 
   @override
-  Future<List<SeriesCover>> fetchSeriesCovers(String id) async {
+  Future<List<SeriesCover>> fetchSeriesCovers(
+    String id, {
+    bool refresh = false,
+  }) async {
     fetchCoversCalled = true;
     return [];
   }
 
   @override
-  Future<List<Series>> fetchSeriesRelated(String id) async => [];
+  Future<List<Series>> fetchSeriesRelated(
+    String id, {
+    bool refresh = false,
+  }) async => [];
   @override
-  Future<List<News>> fetchSeriesNews(String id) async => [];
+  Future<List<News>> fetchSeriesNews(String id, {bool refresh = false}) async =>
+      [];
   @override
-  Future<List<SeriesCollection>> fetchSeriesCollections(String id) async => [];
+  Future<List<SeriesCollection>> fetchSeriesCollections(
+    String id, {
+    bool refresh = false,
+  }) async => [];
   @override
-  Future<List<SeriesWork>> fetchSeriesWorks(String id) async => [];
+  Future<List<SeriesWork>> fetchSeriesWorks(
+    String id, {
+    bool refresh = false,
+  }) async => [];
 }
 
 class MockLibraryService extends Fake implements LibraryService {
@@ -90,6 +108,8 @@ class MockLibraryService extends Fake implements LibraryService {
   bool deleteCalled = false;
   int? lastProgressChapter;
   bool failProgress = false;
+  final authoritativeLeases = <LibraryCacheLease?>[];
+  Future<LibraryEntry?> Function()? onAuthoritativeRead;
 
   @override
   Stream<LibraryEntry?> watchEntryFromDb(String id) {
@@ -104,7 +124,15 @@ class MockLibraryService extends Fake implements LibraryService {
   Future<LibraryEntry?> fetchAuthoritativeLibraryEntry(
     String seriesId, {
     LibraryCacheLease? lease,
-  }) async => authoritativeEntry ?? currentEntry;
+  }) async {
+    authoritativeLeases.add(lease);
+    final read = onAuthoritativeRead;
+    if (read == null) return authoritativeEntry ?? currentEntry;
+    final entry = await read();
+    currentEntry = entry;
+    _controller.add(entry);
+    return entry;
+  }
 
   @override
   Future<List<AccountLibraryList>> fetchAccountLibraryLists(
@@ -239,6 +267,58 @@ void main() {
     await tester.pumpWidget(createWidgetUnderTest());
     await tester.pumpAndSettle();
     expect(find.text('Fetched Title'), findsAtLeast(1));
+  });
+
+  testWidgets('detail refresh retains content until confirmed deletion', (
+    tester,
+  ) async {
+    mockAuthService.isLoggedIn = true;
+    mockLibraryService.currentEntry = LibraryEntry(
+      id: 'entry-123',
+      state: 'reading',
+      series: testSeries,
+    );
+    final pending = Completer<LibraryEntry?>();
+    mockLibraryService.onAuthoritativeRead = () => pending.future;
+    await tester.pumpWidget(createWidgetUnderTest());
+    await tester.pumpAndSettle();
+    expect(find.byType(SeriesMyListCard), findsOneWidget);
+    final refresh = tester
+        .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+        .onRefresh;
+    final active = refresh();
+    expect(refresh(), same(active));
+    await tester.pump();
+    expect(find.byType(SeriesMyListCard), findsOneWidget);
+    expect(mockLibraryService.authoritativeLeases, [testLibraryLease]);
+    expect(mockSeriesService.refreshedSeriesCalls, 1);
+    pending.complete(null);
+    await active;
+    await tester.pumpAndSettle();
+    expect(find.byType(SeriesMyListCard), findsNothing);
+    expect(
+      find.byKey(const Key('add_to_library_fab')).hitTestable(),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('signed-out pull refresh works on short landscape content', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(740, 390);
+    addTearDown(() => tester.view.reset());
+    await tester.pumpWidget(createWidgetUnderTest());
+    await tester.pumpAndSettle();
+    await tester.fling(
+      find.byType(CustomScrollView).first,
+      const Offset(0, 285),
+      1000,
+    );
+    await tester.pumpAndSettle();
+    expect(mockSeriesService.refreshedSeriesCalls, 1);
+    expect(mockLibraryService.authoritativeLeases, isEmpty);
+    expect(tester.takeException(), isNull);
   });
 
   for (final paletteCase in <String, MbPalette>{

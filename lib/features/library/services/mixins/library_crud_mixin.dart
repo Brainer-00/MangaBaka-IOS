@@ -205,6 +205,13 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     originalLease: lease,
   );
 
+  // The snapshot owns the transaction and run fence for these reads.
+  @override
+  Future<bool> confirmLibraryEntryExists(
+    LibraryCacheLease lease,
+    String id,
+  ) async => await _readEntry(lease, id, reconcile: false) != null;
+
   Future<LibraryEntry?> _readEntry(
     LibraryCacheLease lease,
     String seriesId, {
@@ -508,33 +515,41 @@ mixin LibraryCrudMixin on LibraryServiceBase {
           failureCode: 'UPDATE_STATE_FAILED',
           body: {'state': state},
         );
-        await owned.updateQuickFields(
-          lease,
-          seriesId,
-          state: Value(state),
-          beforeCommit: () => checkLease(lease),
-        );
+        final resume = pauseSyncForReconciliation(lease);
+        try {
+          await owned.updateQuickFields(
+            lease,
+            seriesId,
+            state: Value(state),
+            beforeCommit: () => checkLease(lease),
+          );
+        } finally {
+          resume();
+        }
         checkLease(lease);
       });
 
-  Future<void> updateLibraryEntryRating(String seriesId, int rating) =>
-      _enqueue([seriesId], (lease) async {
-        await _send(
-          lease,
-          seriesId,
-          method: 'PUT',
-          success: {200},
-          failureCode: 'UPDATE_RATING_FAILED',
-          body: {'rating': rating},
-        );
-        await owned.updateQuickFields(
-          lease,
-          seriesId,
-          rating: Value(rating == 0 ? null : rating),
-          beforeCommit: () => checkLease(lease),
-        );
-        checkLease(lease);
-      });
+  Future<LibrarySaveResult> updateLibraryEntryRating(
+    String seriesId,
+    int rating, {
+    LibraryCacheLease? lease,
+  }) async {
+    final result = await updateCompleteLibraryEntry(
+      LibraryEntryDraft(
+        lease: lease ?? requireLease(),
+        seriesId: seriesId,
+        rating: EntryField.set(rating),
+      ),
+    );
+    if (result.outcome == LibrarySaveOutcome.saved &&
+        result.entry?.rating != (rating == 0 ? null : rating)) {
+      return LibrarySaveResult(
+        LibrarySaveOutcome.refreshPending,
+        entry: result.entry,
+      );
+    }
+    return result;
+  }
 
   Future<void> updateLibraryEntryProgress(
     String seriesId, {
@@ -562,18 +577,23 @@ mixin LibraryCrudMixin on LibraryServiceBase {
         'state': ?nextState,
       },
     );
-    await owned.updateQuickFields(
-      lease,
-      seriesId,
-      progressChapter: progressChapter == null
-          ? const Value.absent()
-          : Value(progressChapter == 0 ? null : progressChapter),
-      progressVolume: progressVolume == null
-          ? const Value.absent()
-          : Value(progressVolume == 0 ? null : progressVolume),
-      state: nextState == null ? const Value.absent() : Value(nextState),
-      beforeCommit: () => checkLease(lease),
-    );
+    final resume = pauseSyncForReconciliation(lease);
+    try {
+      await owned.updateQuickFields(
+        lease,
+        seriesId,
+        progressChapter: progressChapter == null
+            ? const Value.absent()
+            : Value(progressChapter == 0 ? null : progressChapter),
+        progressVolume: progressVolume == null
+            ? const Value.absent()
+            : Value(progressVolume == 0 ? null : progressVolume),
+        state: nextState == null ? const Value.absent() : Value(nextState),
+        beforeCommit: () => checkLease(lease),
+      );
+    } finally {
+      resume();
+    }
     checkLease(lease);
   });
 
@@ -646,11 +666,16 @@ mixin LibraryCrudMixin on LibraryServiceBase {
           success: {200, 404},
           failureCode: 'DELETE_ENTRY_FAILED',
         );
-        await owned.deleteEntry(
-          lease,
-          seriesId,
-          beforeCommit: () => checkLease(lease),
-        );
+        final resume = pauseSyncForReconciliation(lease);
+        try {
+          await owned.deleteEntry(
+            lease,
+            seriesId,
+            beforeCommit: () => checkLease(lease),
+          );
+        } finally {
+          resume();
+        }
         checkLease(lease);
       });
 }

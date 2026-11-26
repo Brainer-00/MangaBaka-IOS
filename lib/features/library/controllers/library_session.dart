@@ -149,7 +149,7 @@ class LibrarySession extends ChangeNotifier {
       return;
     }
     try {
-      await _library.syncLibrary();
+      await _library.reconcileLibrary(lease);
     } catch (e) {
       _logger.severe('Manual refresh failed (${e.runtimeType})');
     } finally {

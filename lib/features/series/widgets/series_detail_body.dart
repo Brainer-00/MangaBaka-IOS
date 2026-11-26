@@ -29,7 +29,7 @@ class SeriesDetailBody extends StatelessWidget {
   final SettingsManager settings;
   final LocalizationService l10n;
 
-  final VoidCallback onRetry;
+  final Future<void> Function() onRetry;
   final ValueChanged<String> onTabChanged;
   final ValueChanged<String> onAuthorTap;
   final ValueChanged<String> onPublisherTap;
@@ -94,51 +94,57 @@ class SeriesDetailBody extends StatelessWidget {
         stream: entryStream,
         builder: (context, snapshot) {
           return RepaintBoundary(
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              slivers: [
-                SeriesDetailAppBar(
-                  series: series,
-                  title: series.getDisplayTitle(settings.defaultTitleLanguage),
-                  entry: snapshot.data,
-                  isWide: isWide || isTablet,
-                  horizontalPadding: isWide ? 40.0 : 16.0,
-                  onBack: () => Navigator.pop(context),
-                  onShare: state.shareLink,
-                  onDelete: () {
-                    if (isTrackingSessionCurrent()) {
-                      state.showDeleteConfirmationDialog();
-                    }
-                  },
-                  onCopy: state.copyToClipboard,
-                  heroTagPrefix: state.widget.heroTagPrefix,
+            child: RefreshIndicator(
+              onRefresh: onRetry,
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
                 ),
-                if (state.fetchError) SeriesDetailErrorBanner(onRetry: onRetry),
-                SliverToBoxAdapter(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: _maxContentWidth,
-                      ),
-                      child: _layout(
-                        series: series,
-                        entry: snapshot.data,
-                        isLoaded: isLoaded,
-                        isWide: isWide,
-                        canAdd:
-                            isTrackingSessionCurrent() &&
-                            snapshot.connectionState ==
-                                ConnectionState.active &&
-                            !snapshot.hasError,
+                slivers: [
+                  SeriesDetailAppBar(
+                    series: series,
+                    title: series.getDisplayTitle(
+                      settings.defaultTitleLanguage,
+                    ),
+                    entry: snapshot.data,
+                    isWide: isWide || isTablet,
+                    horizontalPadding: isWide ? 40.0 : 16.0,
+                    onBack: () => Navigator.pop(context),
+                    onShare: state.shareLink,
+                    onDelete: () {
+                      if (isTrackingSessionCurrent()) {
+                        state.showDeleteConfirmationDialog();
+                      }
+                    },
+                    onCopy: state.copyToClipboard,
+                    heroTagPrefix: state.widget.heroTagPrefix,
+                  ),
+                  if (state.fetchError)
+                    SeriesDetailErrorBanner(onRetry: onRetry),
+                  SliverToBoxAdapter(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: _maxContentWidth,
+                        ),
+                        child: _layout(
+                          series: series,
+                          entry: snapshot.data,
+                          isLoaded: isLoaded,
+                          isWide: isWide,
+                          canAdd:
+                              isTrackingSessionCurrent() &&
+                              snapshot.connectionState ==
+                                  ConnectionState.active &&
+                              !snapshot.hasError,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                // Clears the floating action button.
-                const SliverToBoxAdapter(child: SizedBox(height: 80)),
-              ],
+                  // Clears the floating action button.
+                  const SliverToBoxAdapter(child: SizedBox(height: 80)),
+                ],
+              ),
             ),
           );
         },
@@ -160,12 +166,6 @@ class SeriesDetailBody extends StatelessWidget {
     void setState(String value) {
       if (isTrackingSessionCurrent()) {
         library.updateLibraryEntryState(id, value);
-      }
-    }
-
-    void setRating(int rating) {
-      if (isTrackingSessionCurrent()) {
-        library.updateLibraryEntryRating(id, rating);
       }
     }
 
@@ -229,7 +229,6 @@ class SeriesDetailBody extends StatelessWidget {
         onPublisherTap: onPublisherTap,
         onTabChanged: onTabChanged,
         onStateChanged: setState,
-        onRatingChanged: setRating,
         editorOpen: state.libraryEditorOpen,
         canAdd: canAdd,
         onAdd: () {
@@ -258,7 +257,6 @@ class SeriesDetailBody extends StatelessWidget {
       selectedTab: state.selectedTab,
       onTabChanged: onTabChanged,
       onStateChanged: setState,
-      onRatingChanged: setRating,
       onUpdateChapter: updateChapter,
       onUpdateVolume: updateVolume,
       onUpdateRating: updateRating,

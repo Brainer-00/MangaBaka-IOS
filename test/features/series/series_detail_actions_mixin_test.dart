@@ -59,7 +59,11 @@ class _FakeLibraryService extends Fake implements LibraryService {
   }
 
   @override
-  Future<void> updateLibraryEntryRating(String seriesId, int rating) async {}
+  Future<LibrarySaveResult> updateLibraryEntryRating(
+    String seriesId,
+    int rating, {
+    LibraryCacheLease? lease,
+  }) async => const LibrarySaveResult(LibrarySaveOutcome.saved);
 
   @override
   Future<void> updateLibraryEntryProgress(

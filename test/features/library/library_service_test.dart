@@ -167,6 +167,241 @@ void main() {
   }
 
   group('LibraryService', () {
+    test('quick rating uses PATCH and reconciles a confirmed rating', () async {
+      await seedEntry(state: 'reading', chapter: 21);
+      final methods = <String>[];
+      await runWithServiceClient(
+        () => service.updateLibraryEntryRating('1', 78),
+        () => MockClient((request) async {
+          methods.add(request.method);
+          if (request.method == 'PUT') return http.Response('', 405);
+          if (request.method == 'PATCH') {
+            expect(jsonDecode(request.body), {'rating': 78});
+            return http.Response('{"status":200,"data":true}', 200);
+          }
+          return http.Response(
+            '{"status":200,"data":{"id":1,"series_id":1,"user_id":"account-a",'
+            '"state":"reading","rating":78,"progress_chapter":21}}',
+            200,
+          );
+        }),
+      );
+      expect(methods, ['PATCH', 'GET']);
+      expect((await storedEntry()).rating, 78);
+      expect((await storedEntry()).progressChapter, 21);
+    });
+
+    test(
+      'explicit sync removes an entry from a complete empty snapshot',
+      () async {
+        await seedEntry(state: 'reading');
+        await runWithServiceClient(
+          () => service.reconcileLibrary(mockAuth.libraryLease!),
+          () => MockClient((request) async {
+            if (request.url.path.endsWith('/1')) {
+              return http.Response('{"status":404,"message":"Not Found"}', 404);
+            }
+            return http.Response(
+              '{"status":200,"data":[],"pagination":{"next":null,"count":0}}',
+              200,
+            );
+          }),
+        );
+        expect(
+          await getIt<AppDatabase>()
+              .select(getIt<AppDatabase>().ownedLibraryEntries)
+              .get(),
+          isEmpty,
+        );
+      },
+    );
+
+    test(
+      'startup and manual reconciliation share an equal-count replacement',
+      () async {
+        await seedEntry(state: 'reading');
+        final lease = mockAuth.libraryLease!;
+        final request = Completer<http.Response>();
+        final started = Completer<void>();
+        var calls = 0;
+        service = LibraryService(
+          auth: mockAuth,
+          httpClient: MockClient((_) {
+            calls++;
+            if (!started.isCompleted) started.complete();
+            return request.future;
+          }),
+        );
+        final startup = service.performInitialSyncIfNeeded();
+        await started.future;
+        final manual = service.reconcileLibrary(lease);
+        final home = service.reconcileLibrary(lease);
+        expect(home, same(manual));
+        request.complete(
+          http.Response(
+            '{"status":200,"data":[{"id":2,"state":"paused","Series":{"id":2,"title":"Replacement"}}],'
+            '"pagination":{"next":null,"count":1}}',
+            200,
+          ),
+        );
+        await Future.wait([startup, manual, home]);
+        final entries = await getIt<AppDatabase>().ownedLibraryDao.listEntries(
+          lease.owner,
+        );
+        expect(entries.map((row) => row.entry.seriesId), ['2']);
+        expect(calls, 1);
+      },
+    );
+
+    for (final confirmedMissing in [false, true]) {
+      test(
+        'multi-page absence is confirmed before deleting ($confirmedMissing)',
+        () async {
+          await seedEntry(state: 'reading', chapter: 3);
+          final lease = mockAuth.libraryLease!;
+          final requests = <String>[];
+          await runWithServiceClient(
+            () async {
+              final refresh = service.reconcileLibrary(lease);
+              if (confirmedMissing) {
+                await refresh;
+              } else {
+                await expectLater(refresh, throwsA(isA<FormatException>()));
+              }
+            },
+            () => MockClient((request) async {
+              final page = request.url.queryParameters['page'];
+              requests.add(page ?? request.url.path);
+              if (page == null) {
+                return http.Response(
+                  confirmedMissing
+                      ? '{"status":404,"message":"Not Found"}'
+                      : '{}',
+                  404,
+                );
+              }
+              final seriesId = page == '1' ? 2 : 3;
+              return http.Response(
+                jsonEncode({
+                  'status': 200,
+                  'data': [
+                    {
+                      'id': seriesId,
+                      'state': 'reading',
+                      'Series': {'id': seriesId, 'title': 'Remote'},
+                    },
+                  ],
+                  'pagination': {
+                    'next': page == '1' ? '?page=2' : null,
+                    'count': 2,
+                  },
+                }),
+                200,
+              );
+            }),
+          );
+          final owned = getIt<AppDatabase>().ownedLibraryDao;
+          expect(
+            await owned.findEntry(lease.owner, '1'),
+            confirmedMissing ? isNull : isNotNull,
+          );
+          expect(requests, ['1', '2', '/v1/my/library/1']);
+        },
+      );
+    }
+
+    test(
+      'rating rejection envelope preserves the cache and skips readback',
+      () async {
+        await seedEntry(state: 'reading', chapter: 21);
+        final methods = <String>[];
+        await runWithServiceClient(
+          () => expectLater(
+            service.updateLibraryEntryRating('1', 78),
+            throwsA(
+              isA<ApiException>().having(
+                (error) => error.code,
+                'code',
+                'WRITE_DECLINED',
+              ),
+            ),
+          ),
+          () => MockClient((request) async {
+            methods.add(request.method);
+            return http.Response('{"status":200,"data":false}', 200);
+          }),
+        );
+        expect(methods, ['PATCH']);
+        expect((await storedEntry()).rating, isNull);
+      },
+    );
+
+    for (final scenario in ['timeout', 'malformed', 'failed readback']) {
+      test(
+        'quick rating handles $scenario without reissuing the write',
+        () async {
+          await seedEntry(state: 'reading', chapter: 21);
+          final methods = <String>[];
+          late LibrarySaveResult result;
+          await runWithServiceClient(
+            () async {
+              result = await service.updateLibraryEntryRating('1', 71);
+            },
+            () => MockClient((request) async {
+              methods.add(request.method);
+              if (request.method == 'GET') return http.Response('{}', 503);
+              if (scenario == 'timeout') {
+                throw TimeoutException('mock rating time limit');
+              }
+              return http.Response(
+                scenario == 'malformed' ? '{}' : '{"status":200,"data":true}',
+                200,
+              );
+            }),
+          );
+          expect(methods, ['PATCH', 'GET']);
+          expect(
+            result.outcome,
+            scenario == 'failed readback'
+                ? LibrarySaveOutcome.refreshPending
+                : LibrarySaveOutcome.uncertain,
+          );
+          expect((await storedEntry()).rating, isNull);
+          expect((await storedEntry()).progressChapter, 21);
+        },
+      );
+    }
+
+    test('quick rating cannot read back under a replacement account', () async {
+      await seedEntry();
+      final before = mockAuth.libraryLease!;
+      final response = Completer<http.Response>();
+      final started = Completer<void>();
+      final methods = <String>[];
+      service = LibraryService(
+        auth: mockAuth,
+        httpClient: MockClient((request) {
+          methods.add(request.method);
+          if (!started.isCompleted) started.complete();
+          return response.future;
+        }),
+      );
+      final update = service.updateLibraryEntryRating('1', 41, lease: before);
+      await started.future;
+      final owned = getIt<AppDatabase>().ownedLibraryDao;
+      final next = await owned.activate(
+        VerifiedLibraryOwner.fromVerifiedAccountId(
+          'rating-after-account-switch',
+        ),
+      );
+      mockAuth.useLease(next);
+      response.complete(http.Response('{"status":200,"data":true}', 200));
+      expect((await update).outcome, LibrarySaveOutcome.refreshPending);
+      expect(methods, ['PATCH']);
+      expect(await owned.listEntries(next.owner), isEmpty);
+      expect((await owned.findEntry(before.owner, '1'))!.entry.rating, isNull);
+    });
+
     group('complete entry editor API', () {
       http.Response syncPage({int? chapter, String? timestamp}) =>
           http.Response(
@@ -1203,7 +1438,7 @@ void main() {
         );
         await oldResult;
         await service.performInitialSyncIfNeeded();
-        expect((await dao.readState(b.owner))!.watermark, 'b-watermark');
+        expect((await dao.readState(b.owner))!.watermark, isNull);
         expect(await dao.listEntries(b.owner), isEmpty);
         expect(service.syncStatus.value.isSyncing, isFalse);
         expect(session.isIncomplete, isFalse);
@@ -1866,7 +2101,7 @@ void main() {
 
     final mutationOperations = <String, Future<void> Function()>{
       'PUT state': () => service.updateLibraryEntryState('1', 'reading'),
-      'PUT rating': () => service.updateLibraryEntryRating('1', 8),
+      'PATCH rating': () => service.updateLibraryEntryRating('1', 8),
       'PUT progress': () =>
           service.updateLibraryEntryProgress('1', progressChapter: 4),
       'POST create': () => service.createLibraryEntry('1', 'reading'),
@@ -1911,8 +2146,9 @@ void main() {
       }, () => client);
 
       // The batch create also performs its documented sync GET. Every
-      // mutation itself still contributes exactly one request.
-      expect(calls, 8);
+      // mutation itself still contributes exactly one request, and the rating
+      // change also makes its authoritative readback.
+      expect(calls, 9);
       expect(batchRequests, 1);
     });
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
+import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/desktop/desktop_layout.dart';
 import 'package:mangabaka_app/desktop/screens/home/desktop_trending_board.dart';
@@ -12,6 +13,7 @@ import 'package:mangabaka_app/desktop/widgets/desktop_cover_card.dart';
 import 'package:mangabaka_app/desktop/widgets/desktop_surfaces.dart';
 import 'package:mangabaka_app/features/browse/screens/browse_results_screen.dart';
 import 'package:mangabaka_app/features/home/services/home_service.dart';
+import 'package:mangabaka_app/features/library/services/library_service.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/shared/transitions/app_transitions.dart';
@@ -55,7 +57,7 @@ class DesktopHomeScreenState extends State<DesktopHomeScreen>
     _home = HomeService();
     _auth = getIt<ProfileAuthService>();
     _auth.addListener(_onAuthChanged);
-    refresh();
+    _loadRails();
   }
 
   @override
@@ -65,11 +67,26 @@ class DesktopHomeScreenState extends State<DesktopHomeScreen>
   }
 
   void _onAuthChanged() {
-    if (mounted) refresh();
+    if (mounted) _loadRails();
   }
 
   @override
   Future<void> refresh() async {
+    final lease = _auth.libraryLease;
+    await Future.wait([
+      _loadRails(),
+      if (lease != null)
+        getIt<LibraryService>().reconcileLibrary(lease).catchError((
+          Object error,
+        ) {
+          LoggingService.logger.warning(
+            'Home Library refresh failed (${error.runtimeType})',
+          );
+        }),
+    ]);
+  }
+
+  Future<void> _loadRails() async {
     setState(() {
       _loadingRails = true;
       _loadingTrending = true;

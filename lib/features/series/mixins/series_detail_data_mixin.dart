@@ -31,103 +31,115 @@ mixin SeriesDetailDataMixin<T extends StatefulWidget> on State<T> {
   @protected
   Future<void> whenReadyToApplyData() async {}
 
-  Future<void> fetchTabData(String tab) async {
-    if (!mounted) return;
-    final id = series.id;
+  final _tabLoads = <String, Future<bool>>{};
+  int _metadataGeneration = 0;
 
-    try {
-      switch (tab) {
-        case 'Covers':
-          if (covers == null) {
-            final data = await seriesService.fetchSeriesCovers(id);
-            if (mounted) setState(() => covers = data);
-          }
-          break;
-        case 'Related':
-          if (related == null) {
-            final data = await seriesService.fetchSeriesRelated(id);
-            if (mounted) setState(() => related = data);
-          }
-          break;
-        case 'News':
-          if (news == null) {
-            final data = await seriesService.fetchSeriesNews(id);
-            if (mounted) setState(() => news = data);
-          }
-          break;
-        case 'Collections':
-          if (collections == null) {
-            final data = await seriesService.fetchSeriesCollections(id);
-            if (mounted) setState(() => collections = data);
-          }
-          break;
-        case 'Works':
-          if (works == null) {
-            final data = await seriesService.fetchSeriesWorks(id);
-            if (mounted) setState(() => works = data);
-          }
-          break;
-        case 'Similar':
-          // The two lists are independent requests: readers-also-like is a
-          // separate (beta) endpoint and must never hold up, or take down,
-          // the tag-based list that has always been here.
-          if (readersAlsoLike == null) {
-            seriesService.fetchSeriesReadersAlsoLike(id).then((data) {
-              if (mounted) setState(() => readersAlsoLike = data);
-            }).catchError((Object e) {
-              seriesService.logger
-                  .warning(
-                    'Error fetching readers-also-like (${e.runtimeType})',
-                  );
-              if (mounted) setState(() => readersAlsoLike = const []);
-            });
-          }
-          if (similar == null) {
-            final data = await seriesService.fetchSeriesSimilar(id);
-            if (mounted) setState(() => similar = data);
-          }
-          break;
+  Future<bool> fetchTabData(String tab, {bool refresh = false}) {
+    final active = _tabLoads[tab];
+    if (!refresh && active != null) return active;
+    late final Future<bool> request;
+    request = Future<bool>.microtask(() async {
+      bool current() => mounted && identical(_tabLoads[tab], request);
+      Future<void> load<Item>(
+        List<Item>? cached,
+        Future<List<Item>> Function(String, {bool refresh}) fetch,
+        void Function(List<Item>) apply,
+      ) async {
+        if (!refresh && cached != null) return;
+        final data = await fetch(series.id, refresh: refresh);
+        if (current()) setState(() => apply(data));
       }
-    } catch (e) {
-      seriesService.logger.warning(
-        'Error fetching tab "$tab" data (${e.runtimeType})',
-      );
-      if (mounted) setState(() => fetchError = true);
-    }
+
+      try {
+        switch (tab) {
+          case 'Covers':
+            await load(
+              covers,
+              seriesService.fetchSeriesCovers,
+              (data) => covers = data,
+            );
+          case 'Related':
+            await load(
+              related,
+              seriesService.fetchSeriesRelated,
+              (data) => related = data,
+            );
+          case 'News':
+            await load(
+              news,
+              seriesService.fetchSeriesNews,
+              (data) => news = data,
+            );
+          case 'Collections':
+            await load(
+              collections,
+              seriesService.fetchSeriesCollections,
+              (data) => collections = data,
+            );
+          case 'Works':
+            await load(
+              works,
+              seriesService.fetchSeriesWorks,
+              (data) => works = data,
+            );
+          case 'Similar':
+            await Future.wait([
+              load(
+                readersAlsoLike,
+                seriesService.fetchSeriesReadersAlsoLike,
+                (data) => readersAlsoLike = data,
+              ),
+              load(
+                similar,
+                seriesService.fetchSeriesSimilar,
+                (data) => similar = data,
+              ),
+            ]);
+        }
+        return true;
+      } catch (e) {
+        seriesService.logger.warning(
+          'Error fetching tab "$tab" data (${e.runtimeType})',
+        );
+        if (current() && !refresh) setState(() => fetchError = true);
+        return false;
+      } finally {
+        if (current()) _tabLoads.remove(tab);
+      }
+    });
+    return _tabLoads[tab] = request;
   }
 
-  Future<void> fetchFullData() async {
+  Future<void> fetchFullData({bool refresh = false}) async {
+    final generation = ++_metadataGeneration;
+    final tab = fetchTabData(selectedTab, refresh: refresh);
+    var metadataFailed = false;
     try {
-      final results = await Future.wait([
-        seriesService.fetchSeriesLinks(series.id),
-        seriesService.fetchSeries(series.id),
-      ]);
-      
-      if (selectedTab != 'Info') {
-        fetchTabData(selectedTab);
-      }
-
+      final results = await (
+        seriesService.fetchSeriesLinks(series.id, refresh: refresh),
+        seriesService.fetchSeries(series.id, refresh: refresh),
+      ).wait;
       await whenReadyToApplyData();
-
-      if (mounted) {
+      if (mounted && generation == _metadataGeneration) {
         setState(() {
-          enrichedLinks = results[0] as List<SeriesLink>?;
-          fullSeries = results[1] as Series?;
+          enrichedLinks = results.$1;
+          fullSeries = results.$2;
           isDataLoaded = true;
-          fetchError = false;
         });
       }
     } catch (e) {
+      metadataFailed = true;
       seriesService.logger.warning(
         'Error fetching full data (${e.runtimeType})',
       );
-      await whenReadyToApplyData();
-      if (mounted) {
-        setState(() {
-          isDataLoaded = true;
-          fetchError = true;
-        });
-      }
+    }
+    final tabFailed = !await tab;
+    await whenReadyToApplyData();
+    if (mounted && generation == _metadataGeneration) {
+      setState(() {
+        isDataLoaded = true;
+        fetchError = metadataFailed || tabFailed;
+      });
     }
   }
 }

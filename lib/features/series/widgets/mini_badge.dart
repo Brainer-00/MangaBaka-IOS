@@ -7,6 +7,7 @@ import 'package:mangabaka_app/core/theme/theme_context.dart';
 class MiniBadge extends StatelessWidget {
   final String text;
   final IconData? icon;
+  final Widget? iconWidget;
   final Color? color;
   final Color? backgroundColor;
 
@@ -24,6 +25,7 @@ class MiniBadge extends StatelessWidget {
     super.key,
     required this.text,
     this.icon,
+    this.iconWidget,
     this.color,
     this.backgroundColor,
     this.hoverColor,
@@ -53,8 +55,8 @@ class MiniBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[
-            Icon(icon, size: 18, color: effectiveIconColor),
+          if (icon != null || iconWidget != null) ...[
+            iconWidget ?? Icon(icon, size: 18, color: effectiveIconColor),
             const SizedBox(width: 8),
           ],
           Text(

@@ -21,7 +21,6 @@ class SeriesDetailMobileLayout extends StatelessWidget {
   final String selectedTab;
   final ValueChanged<String> onTabChanged;
   final Function(String) onStateChanged;
-  final Function(int) onRatingChanged;
   final VoidCallback onUpdateChapter;
   final VoidCallback onUpdateVolume;
   final VoidCallback onUpdateRating;
@@ -40,7 +39,6 @@ class SeriesDetailMobileLayout extends StatelessWidget {
     required this.selectedTab,
     required this.onTabChanged,
     required this.onStateChanged,
-    required this.onRatingChanged,
     required this.onUpdateChapter,
     required this.onUpdateVolume,
     required this.onUpdateRating,

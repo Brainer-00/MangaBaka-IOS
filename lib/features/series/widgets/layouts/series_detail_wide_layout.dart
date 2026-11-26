@@ -22,7 +22,6 @@ class SeriesDetailWideLayout extends StatelessWidget {
   final String selectedTab;
   final ValueChanged<String> onTabChanged;
   final Function(String) onStateChanged;
-  final Function(int) onRatingChanged;
   final bool editorOpen;
   final bool canAdd;
   final VoidCallback onAdd;
@@ -49,7 +48,6 @@ class SeriesDetailWideLayout extends StatelessWidget {
     required this.selectedTab,
     required this.onTabChanged,
     required this.onStateChanged,
-    required this.onRatingChanged,
     required this.editorOpen,
     this.canAdd = false,
     required this.onAdd,

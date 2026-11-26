@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/widgets/design/rating_star.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/series/widgets/mini_badge.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
@@ -21,16 +23,15 @@ class RatingChip extends StatelessWidget {
     // The badge is only present when the user has personally rated the series
     if (userRating == null) return const SizedBox.shrink();
 
+    final background = Color.alphaBlend(
+      AppConstants.starColor.withValues(alpha: 0.12),
+      colors.surfaceRaised,
+    );
     return MiniBadge(
       text: '$userRating / 100',
-      icon: Icons.star,
-      color: colors.star,
-      backgroundColor: Color.alphaBlend(
-        colors.star.withValues(alpha: 0.12),
-        colors.surfaceRaised,
-      ),
-      hoverColor: colors.star.withValues(alpha: 0.15),
-      ensureColorContrast: true,
+      iconWidget: RatingStar(surface: background, icon: Icons.star),
+      backgroundColor: background,
+      hoverColor: AppConstants.starColor.withValues(alpha: 0.15),
       onTap: onTap,
       tooltip: onTap != null
           ? LocalizationService().translate('show_rating')

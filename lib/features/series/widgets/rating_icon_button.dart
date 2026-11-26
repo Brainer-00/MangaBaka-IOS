@@ -1,12 +1,14 @@
 import 'package:mangabaka_app/features/series/widgets/rating_selection_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
-import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'dart:async';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
+import 'package:mangabaka_app/features/library/models/library_entry_edit.dart';
+import 'package:mangabaka_app/core/widgets/design/rating_star.dart';
 
 class RatingIconButton extends StatelessWidget {
   final int? currentRating;
-  final Function(int) onRatingChanged;
+  final FutureOr<void> Function(int) onRatingChanged;
 
   const RatingIconButton({
     super.key,
@@ -16,8 +18,7 @@ class RatingIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rating = currentRating ?? 0;
-    final hasRating = rating > 0;
+    final hasRating = currentRating != null;
     final colors = context.colors;
 
     return Container(
@@ -28,15 +29,9 @@ class RatingIconButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppConstants.cardRadius),
       ),
       child: IconButton(
-        icon: Icon(
-          hasRating ? Icons.star : Icons.star_border,
-          color: hasRating
-              ? MbPalette.ensureContrast(
-                  colors.star,
-                  colors.surface,
-                  minimum: 3.0,
-                )
-              : colors.text,
+        icon: RatingStar(
+          icon: hasRating ? Icons.star : Icons.star_border,
+          surface: colors.surface,
           size: 24,
         ),
         onPressed: () {
@@ -44,13 +39,19 @@ class RatingIconButton extends StatelessWidget {
             context: context,
             backgroundColor: Colors.transparent,
             isScrollControlled: true,
+            enableDrag: false,
+            useSafeArea: true,
+            constraints: const BoxConstraints(maxWidth: 540),
             builder: (ctx) => Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(ctx).viewInsets.bottom,
               ),
               child: RatingSelectionDialog(
-                initialRating: rating,
-                onRatingChanged: onRatingChanged,
+                initialRating: currentRating,
+                onRatingChanged: (rating) async {
+                  await onRatingChanged(rating);
+                  return LibrarySaveOutcome.saved;
+                },
               ),
             ),
           );

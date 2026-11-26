@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
@@ -12,7 +13,7 @@ class SeriesActionBar extends StatelessWidget {
   final Series series;
   final LibraryEntry? entry;
   final Function(String) onStateChanged;
-  final Function(int) onRatingChanged;
+  final FutureOr<void> Function(int) onRatingChanged;
   final VoidCallback onUpdateChapter;
   final VoidCallback onUpdateVolume;
   final LocalizationService l10n;

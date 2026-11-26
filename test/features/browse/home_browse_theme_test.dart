@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/theme/app_theme.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/theme_presets.dart';
@@ -116,7 +117,7 @@ void main() {
         );
         expect(
           tester.widget<Icon>(find.byIcon(Icons.star_rounded)).color,
-          colors.star,
+          AppConstants.starColor,
         );
         expect(
           tester.widget<Text>(find.text('DISCOVER')).style!.color,

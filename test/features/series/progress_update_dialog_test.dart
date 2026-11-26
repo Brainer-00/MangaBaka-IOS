@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
+import 'package:mangabaka_app/core/constants/app_constants.dart';
+import 'package:mangabaka_app/core/widgets/design/rating_star.dart';
+import 'package:mangabaka_app/features/library/models/library_entry_edit.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/theme/app_theme.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
@@ -217,32 +220,32 @@ void main() {
       expect((ratingButton.decoration as BoxDecoration).color, palette.surface);
       await tester.tap(find.byType(IconButton));
       await tester.pumpAndSettle();
-      final ratingSheet = tester.widget<Container>(
-        find
-            .descendant(
-              of: find.byType(RatingSelectionDialog),
-              matching: find.byType(Container),
-            )
-            .first,
+      final dialog = find.byType(RatingSelectionDialog);
+      final ratingSheet = tester.widget<Material>(
+        find.descendant(of: dialog, matching: find.byType(Material)).first,
       );
-      expect((ratingSheet.decoration as BoxDecoration).color, palette.surface);
-      final star = tester.widget<Icon>(find.byIcon(Icons.star_rounded));
-      final starBackground = Color.alphaBlend(
-        palette.star.withValues(alpha: 0.1),
-        palette.surface,
+      expect(ratingSheet.color, palette.surface);
+      final starFinder = find.byIcon(Icons.star_rounded);
+      final star = tester.widget<Icon>(starFinder);
+      expect(star.color, AppConstants.starColor);
+      final starWidget = tester.widget<RatingStar>(
+        find.ancestor(of: starFinder, matching: find.byType(RatingStar)),
       );
+      final hasBacking =
+          MbPalette.contrastRatio(star.color!, starWidget.surface) < 3;
+      if (hasBacking) {
+        final decorations = find
+            .ancestor(of: starFinder, matching: find.byType(DecoratedBox))
+            .evaluate()
+            .map((element) => element.widget as DecoratedBox);
+        expect(
+          decorations.map((box) => (box.decoration as BoxDecoration).color),
+          contains(AppConstants.primaryBackground),
+        );
+      }
+      final slider = tester.widget<Slider>(find.byType(Slider));
       expect(
-        MbPalette.contrastRatio(star.color!, starBackground),
-        greaterThanOrEqualTo(3),
-      );
-      final sliderTheme = tester.widget<SliderTheme>(
-        find.byType(SliderTheme).last,
-      );
-      expect(
-        MbPalette.contrastRatio(
-          sliderTheme.data.activeTrackColor!,
-          palette.surface,
-        ),
+        MbPalette.contrastRatio(slider.activeColor!, palette.surface),
         greaterThanOrEqualTo(3),
       );
       expect(tester.takeException(), isNull);
@@ -383,6 +386,66 @@ void main() {
     expect(calls, 1);
     expect(saved, 80);
   });
+
+  testWidgets(
+    'quick rating awaits one write and checks uncertain results read-only',
+    (tester) async {
+      final pending = Completer<LibrarySaveOutcome>();
+      final writes = <int>[];
+      final checks = <int>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showModalBottomSheet<void>(
+                  context: context,
+                  enableDrag: false,
+                  isScrollControlled: true,
+                  builder: (context) => RatingSelectionDialog(
+                    initialRating: 45,
+                    onRatingChanged: (rating) {
+                      writes.add(rating);
+                      return pending.future;
+                    },
+                    onCheckEntry: (rating) async {
+                      checks.add(rating);
+                      return true;
+                    },
+                  ),
+                ),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      tester.widget<Slider>(find.byType(Slider)).onChanged!(0);
+      await tester.pump();
+      await tester.tap(find.text('Update'));
+      await tester.tap(find.text('Update'));
+      await tester.pump();
+      await tester.binding.handlePopRoute();
+      await tester.tapAt(const Offset(3, 3));
+      await tester.pump();
+      expect(find.byType(RatingSelectionDialog), findsOneWidget);
+      expect(writes, [0]);
+      pending.complete(LibrarySaveOutcome.uncertain);
+      await tester.pumpAndSettle();
+      expect(find.text('Update'), findsNothing);
+      await tester.tap(
+        find.text(
+          LocalizationService().translate('library_editor_check_entry'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(checks, [0]);
+      expect(writes, [0]);
+      expect(find.byType(RatingSelectionDialog), findsOneWidget);
+    },
+  );
 
   for (final size in [const Size(320, 640), const Size(640, 320)]) {
     testWidgets('tracking sheets fit $size without overflow', (tester) async {

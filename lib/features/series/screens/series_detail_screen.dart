@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/database/database.dart'
+    show LibraryCacheLease;
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
@@ -62,6 +64,8 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen>
 
   Stream<LibraryEntry?>? _entryStream;
   String _selectedTab = 'Info';
+  Future<void>? _refreshing;
+  LibraryCacheLease? _refreshLease;
 
   /// Completes once the route push transition has settled. The body renders
   /// straight away from the [Series] we were handed, but work the user cannot
@@ -230,12 +234,43 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen>
     );
   }
 
-  void _retryFetch() {
-    setState(() {
-      isDataLoaded = false;
-      fetchError = false;
-    });
-    fetchFullData();
+  Future<void> _retryFetch() {
+    final auth = getIt<ProfileAuthService>();
+    final lease = auth.libraryLease;
+    final running = _refreshing;
+    if (running != null && identical(_refreshLease, lease)) return running;
+    _refreshLease = lease;
+    late final Future<void> request;
+    request =
+        (
+              fetchFullData(refresh: true),
+              lease == null ? Future.value(true) : _refreshEntry(lease),
+            ).wait
+            .then((results) {
+              if (mounted &&
+                  identical(request, _refreshing) &&
+                  identical(lease, auth.libraryLease) &&
+                  !results.$2) {
+                setState(() => fetchError = true);
+              }
+            })
+            .whenComplete(() {
+              if (identical(request, _refreshing)) _refreshing = null;
+            });
+    return _refreshing = request;
+  }
+
+  Future<bool> _refreshEntry(LibraryCacheLease lease) async {
+    try {
+      await _libraryService.fetchAuthoritativeLibraryEntry(
+        widget.series.id,
+        lease: lease,
+      );
+      return true;
+    } catch (error) {
+      _logger.warning('Series Library refresh failed (${error.runtimeType})');
+      return false;
+    }
   }
 
   void _onTabChanged(String tab) {

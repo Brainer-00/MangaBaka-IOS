@@ -12,22 +12,35 @@ class _FakeSeriesService extends SeriesService {
   bool throwOnCovers = false;
   final List<SeriesCover> coversResult;
 
-  _FakeSeriesService({this.coversResult = const [], this.throwOnCovers = false});
+  _FakeSeriesService({
+    this.coversResult = const [],
+    this.throwOnCovers = false,
+  });
 
   @override
-  Future<List<SeriesCover>> fetchSeriesCovers(String id) async {
+  Future<List<SeriesCover>> fetchSeriesCovers(
+    String id, {
+    bool refresh = false,
+  }) async {
     if (throwOnCovers) throw Exception('covers error');
     return coversResult;
   }
 
   @override
-  Future<List<Series>> fetchSeriesRelated(String id) async => [];
+  Future<List<Series>> fetchSeriesRelated(
+    String id, {
+    bool refresh = false,
+  }) async => [];
 
   @override
-  Future<Series> fetchSeries(String id) async => mockSeries222;
+  Future<Series> fetchSeries(String id, {bool refresh = false}) async =>
+      mockSeries222;
 
   @override
-  Future<List<SeriesLink>> fetchSeriesLinks(String id) async => [];
+  Future<List<SeriesLink>> fetchSeriesLinks(
+    String id, {
+    bool refresh = false,
+  }) async => [];
 }
 
 class _TestWidget extends StatefulWidget {
@@ -62,15 +75,19 @@ void main() {
   group('SeriesDetailDataMixin.fetchTabData', () {
     testWidgets('populates covers on Covers tab', (tester) async {
       final svc = _FakeSeriesService(
-        coversResult: [SeriesCover(url: 'https://example.com/c.jpg', index: '1')],
+        coversResult: [
+          SeriesCover(url: 'https://example.com/c.jpg', index: '1'),
+        ],
       );
       late _TestWidgetState state;
 
       await tester.pumpWidget(
         MaterialApp(
-          home: Builder(builder: (ctx) {
-            return _TestWidget(svc: svc, tab: 'Covers');
-          }),
+          home: Builder(
+            builder: (ctx) {
+              return _TestWidget(svc: svc, tab: 'Covers');
+            },
+          ),
         ),
       );
 
@@ -85,7 +102,9 @@ void main() {
     testWidgets('sets fetchError on covers fetch failure', (tester) async {
       final svc = _FakeSeriesService(throwOnCovers: true);
       await tester.pumpWidget(
-        MaterialApp(home: _TestWidget(svc: svc, tab: 'Covers')),
+        MaterialApp(
+          home: _TestWidget(svc: svc, tab: 'Covers'),
+        ),
       );
 
       final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
@@ -99,7 +118,9 @@ void main() {
       final svc = _FakeSeriesService();
 
       await tester.pumpWidget(
-        MaterialApp(home: _TestWidget(svc: svc, tab: 'Covers')),
+        MaterialApp(
+          home: _TestWidget(svc: svc, tab: 'Covers'),
+        ),
       );
       final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
 
@@ -113,7 +134,9 @@ void main() {
     testWidgets('unknown tab does not set fetchError', (tester) async {
       final svc = _FakeSeriesService();
       await tester.pumpWidget(
-        MaterialApp(home: _TestWidget(svc: svc, tab: 'Unknown')),
+        MaterialApp(
+          home: _TestWidget(svc: svc, tab: 'Unknown'),
+        ),
       );
       final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
       await state.fetchTabData('NonExistentTab');

@@ -71,6 +71,7 @@ abstract class LibraryServiceBase {
   });
   void cancelSync();
   void Function() pauseSyncForReconciliation(db.LibraryCacheLease lease);
+  Future<bool> confirmLibraryEntryExists(db.LibraryCacheLease lease, String id);
   Future<FetchPageResult> fetchPage(
     db.LibraryCacheLease lease,
     int page, {
@@ -358,6 +359,10 @@ class LibraryService extends LibraryServiceBase
           final continuation = uri.resolve(next);
           if (continuation.origin != uri.origin ||
               continuation.path != uri.path ||
+              continuation.hasFragment ||
+              continuation.userInfo.isNotEmpty ||
+              (continuation.queryParameters.containsKey('state') &&
+                  continuation.queryParameters['state'] != state) ||
               continuation.queryParameters['page'] != '${page + 1}') {
             throw const FormatException('Unexpected Library pagination link');
           }
@@ -422,6 +427,9 @@ class FetchPageResult {
 
 FetchPageResult _parseLibraryPage(String responseBody) {
   final body = jsonDecode(responseBody) as Map<String, dynamic>;
+  if (body.containsKey('status') && body['status'] != 200) {
+    throw const FormatException('Invalid Library page status');
+  }
   final data = body['data'];
   if (data is! List) throw const FormatException('Invalid Library page');
   final pagination = body['pagination'];

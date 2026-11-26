@@ -1,5 +1,6 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/widgets/design/rating_star.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
@@ -62,15 +63,7 @@ class ExternalRatingsSection extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.stars_rounded,
-                size: 18,
-                color: MbPalette.ensureContrast(
-                  colors.star,
-                  colors.background,
-                  minimum: 3,
-                ),
-              ),
+              RatingStar(icon: Icons.stars_rounded, surface: colors.background),
               const SizedBox(width: 8),
               Text(
                 avg.toStringAsFixed(1),
@@ -245,14 +238,10 @@ class ExternalRatingsSection extends StatelessWidget {
   Widget _getFavicon(BuildContext context, String key) {
     final domain = _getDomain(key);
     final colors = context.colors;
-    final starColor = MbPalette.ensureContrast(
-      colors.star,
-      colors.background,
-      minimum: 3,
-    );
+    final star = RatingStar(size: 16, surface: colors.background);
 
     if (domain.isEmpty) {
-      return Icon(Icons.star_rounded, size: 16, color: starColor);
+      return star;
     }
 
     return ClipRRect(
@@ -261,7 +250,7 @@ class ExternalRatingsSection extends StatelessWidget {
         url: 'https://www.google.com/s2/favicons?sz=64&domain=$domain',
         width: 18,
         height: 18,
-        errorWidget: Icon(Icons.star_rounded, size: 16, color: starColor),
+        errorWidget: star,
       ),
     );
   }

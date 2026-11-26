@@ -28,53 +28,78 @@ mixin SeriesMetadataMixin {
   ApiClient get metadataApi => _defaultApi;
   static final ApiClient _defaultApi = ApiClient(healthContext: 'series-meta');
 
-  Future<List<SeriesLink>> fetchSeriesLinks(String id) =>
-      _fetchList(id, 'links', SeriesLink.fromJson);
+  Future<List<SeriesLink>> fetchSeriesLinks(
+    String id, {
+    bool refresh = false,
+  }) => _fetchList(id, 'links', SeriesLink.fromJson, refresh: refresh);
 
-  Future<List<SeriesCover>> fetchSeriesCovers(String id) =>
-      _fetchList(id, 'images', SeriesCover.fromJson, params: {'limit': 50});
+  Future<List<SeriesCover>> fetchSeriesCovers(
+    String id, {
+    bool refresh = false,
+  }) => _fetchList(
+    id,
+    'images',
+    SeriesCover.fromJson,
+    params: {'limit': 50},
+    refresh: refresh,
+  );
 
-  Future<List<News>> fetchSeriesNews(String id) =>
-      _fetchList(id, 'news', News.fromJson);
+  Future<List<News>> fetchSeriesNews(String id, {bool refresh = false}) =>
+      _fetchList(id, 'news', News.fromJson, refresh: refresh);
 
-  Future<List<SeriesCollection>> fetchSeriesCollections(String id) =>
-      _fetchList(id, 'collections', SeriesCollection.fromJson);
+  Future<List<SeriesCollection>> fetchSeriesCollections(
+    String id, {
+    bool refresh = false,
+  }) => _fetchList(
+    id,
+    'collections',
+    SeriesCollection.fromJson,
+    refresh: refresh,
+  );
 
-  Future<List<SeriesWork>> fetchSeriesWorks(String id) =>
-      _fetchList(id, 'works', SeriesWork.fromJson);
+  Future<List<SeriesWork>> fetchSeriesWorks(
+    String id, {
+    bool refresh = false,
+  }) => _fetchList(id, 'works', SeriesWork.fromJson, refresh: refresh);
 
   /// Uses `/relationships`: the older `/related` is deprecated and answers
   /// with an object of relation buckets rather than a `data` array, which
   /// [_fetchList] would read as empty. Each item wraps the series.
-  Future<List<Series>> fetchSeriesRelated(String id) async =>
-      _allowedByContentRating(
-        await _fetchList(
-          id,
-          'relationships',
-          (item) {
-            final nested = item['series'];
-            if (nested is! Map) return null;
-            return Series.fromJson(nested.cast<String, dynamic>());
-          },
-          params: {'limit': 50},
-        ),
-      );
+  Future<List<Series>> fetchSeriesRelated(
+    String id, {
+    bool refresh = false,
+  }) async => _allowedByContentRating(
+    await _fetchList(
+      id,
+      'relationships',
+      (item) {
+        final nested = item['series'];
+        if (nested is! Map) return null;
+        return Series.fromJson(nested.cast<String, dynamic>());
+      },
+      params: {'limit': 50},
+      refresh: refresh,
+    ),
+  );
 
   /// Similar titles come back wrapped (`{series: {...}, score: …}`) and in the
   /// lean v2 shape, hence the different unwrap and constructor.
-  Future<List<Series>> fetchSeriesSimilar(String id) async =>
-      _allowedByContentRating(
-        await _fetchList(
-          id,
-          'similar',
-          (item) {
-            final nested = item['series'];
-            if (nested is! Map) return null;
-            return Series.fromSimilarJson(nested.cast<String, dynamic>());
-          },
-          params: {'limit': 20},
-        ),
-      );
+  Future<List<Series>> fetchSeriesSimilar(
+    String id, {
+    bool refresh = false,
+  }) async => _allowedByContentRating(
+    await _fetchList(
+      id,
+      'similar',
+      (item) {
+        final nested = item['series'];
+        if (nested is! Map) return null;
+        return Series.fromSimilarJson(nested.cast<String, dynamic>());
+      },
+      params: {'limit': 20},
+      refresh: refresh,
+    ),
+  );
 
   /// Collaborative-filtering recommendations: titles that readers of this one
   /// also have in their libraries.
@@ -84,7 +109,10 @@ mixin SeriesMetadataMixin {
   /// titles. v2-only; the lean shape (titles as an array) is the one
   /// [Series.fromSimilarJson] already normalises. Ordered best-first by the
   /// server.
-  Future<List<Series>> fetchSeriesReadersAlsoLike(String id) async {
+  Future<List<Series>> fetchSeriesReadersAlsoLike(
+    String id, {
+    bool refresh = false,
+  }) async {
     final prefs = SettingsManager().contentPreferences;
     return _allowedByContentRating(
       await _fetchList(
@@ -97,6 +125,7 @@ mixin SeriesMetadataMixin {
         },
         params: {'limit': 24, 'content_rating': prefs},
         base: AppConstants.baseApiUrlV2,
+        refresh: refresh,
       ),
     );
   }
@@ -109,6 +138,7 @@ mixin SeriesMetadataMixin {
     T? Function(Map<String, dynamic> item) fromJson, {
     Map<String, dynamic>? params,
     String base = AppConstants.baseApiUrl,
+    bool refresh = false,
   }) async {
     try {
       return await metadataApi.getJson(
@@ -118,15 +148,14 @@ mixin SeriesMetadataMixin {
           try {
             return fromJson(item);
           } catch (e) {
-            _logger.fine(
-              'Skipping malformed $path item (${e.runtimeType})',
-            );
+            _logger.fine('Skipping malformed $path item (${e.runtimeType})');
             return null;
           }
         }),
       );
     } catch (e) {
       _logger.warning('Error fetching $path (${e.runtimeType})');
+      if (refresh) rethrow;
       return const [];
     }
   }

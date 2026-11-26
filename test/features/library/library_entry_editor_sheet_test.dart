@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mangabaka_app/core/database/database.dart';
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
@@ -10,10 +12,12 @@ import 'package:mangabaka_app/core/theme/app_theme.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/theme/theme_presets.dart';
+import 'package:mangabaka_app/desktop/desktop_layout.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/library/models/library_entry_edit.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
 import 'package:mangabaka_app/features/library/widgets/library_entry_editor_sheet.dart';
+import 'package:mangabaka_app/features/library/widgets/library_status_dropdown.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -107,7 +111,11 @@ void main() {
     'total_chapters': 12,
   });
 
-  LibraryEntry existing({List<int>? ids, int? rating = 86}) => LibraryEntry(
+  LibraryEntry existing({
+    List<int>? ids,
+    int? rating = 86,
+    String note = 'A private note\nAnother line',
+  }) => LibraryEntry(
     id: '48',
     series: series,
     state: 'reading',
@@ -121,7 +129,7 @@ void main() {
     readLink: 'https://example.test/private',
     listIds: ids,
     rating: rating,
-    note: 'A private note\nAnother line',
+    note: note,
   );
 
   setUpAll(() async {
@@ -210,7 +218,126 @@ void main() {
   }
 
   String textOf(WidgetTester tester, String key) =>
-      tester.widget<TextFormField>(field(key)).controller!.text;
+      (key == 'library_editor_notes'
+              ? tester.widget<TextField>(field(key)).controller
+              : tester.widget<TextFormField>(field(key)).controller)!
+          .text;
+
+  TextEditingController notes(WidgetTester tester) =>
+      tester.widget<TextField>(field('library_editor_notes')).controller!;
+
+  Future<void> formatNote(WidgetTester tester, String key) async {
+    final button = find.byTooltip(tr(key));
+    await tester.ensureVisible(button);
+    await tester.tap(button);
+    await tester.pump();
+  }
+
+  testWidgets('Markdown toolbar preserves selection and native undo', (
+    tester,
+  ) async {
+    library.read = () async => existing();
+    await show(tester, edit: true);
+    const original = 'A private note\nAnother line';
+    expect(notes(tester).text, original);
+    const noteKey = 'library_editor_notes';
+    await tester.ensureVisible(field(noteKey));
+    await tester.showKeyboard(field(noteKey));
+    final controller = notes(tester);
+    controller.selection = const TextSelection(baseOffset: 9, extentOffset: 2);
+    await tester.pump(const Duration(milliseconds: 550));
+    await formatNote(tester, 'notes_bold');
+    expect(controller.text, 'A **private** note\nAnother line');
+    expect(
+      controller.selection,
+      const TextSelection(baseOffset: 11, extentOffset: 4),
+    );
+    await tester.pump(const Duration(milliseconds: 550));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(controller.text, original);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(controller.text, 'A **private** note\nAnother line');
+    controller.selection = TextSelection.collapsed(
+      offset: controller.text.length,
+    );
+    await formatNote(tester, 'notes_spoiler');
+    expect(controller.text, 'A **private** note\nAnother line||||');
+    expect(controller.selection.baseOffset, controller.text.length - 2);
+    await tap(tester, 'cancel');
+    expect(library.updates, isEmpty);
+  });
+
+  testWidgets(
+    'Markdown preview conceals spoilers and saves only the raw note',
+    (tester) async {
+      library.read = () async => existing();
+      await show(tester, edit: true);
+      const raw =
+          '# Title\n\n**Strong** and ~~old~~\n\n||Secret||\n\n'
+          '![Remote](https://example.invalid/image.png)';
+      await enter(tester, 'library_editor_notes', raw);
+      await tap(tester, 'notes_preview');
+      expect(find.byType(MarkdownBody), findsOneWidget);
+      expect(find.text('Strong and old', findRichText: true), findsOneWidget);
+      expect(find.textContaining('Secret', findRichText: true), findsNothing);
+      expect(find.byType(Image), findsNothing);
+      final reveal = label('notes_reveal_spoiler');
+      await tester.ensureVisible(reveal);
+      await tester.tap(reveal);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Secret', findRichText: true), findsOneWidget);
+      await tap(tester, 'notes_write');
+      expect(notes(tester).text, raw);
+      await tap(tester, 'notes_preview');
+      await tap(tester, 'save');
+      expect(library.updates.single.toJson(), {'note': raw});
+    },
+  );
+
+  testWidgets('Markdown lines and overflow tools preserve multiline input', (
+    tester,
+  ) async {
+    await show(tester);
+    await enter(tester, 'library_editor_notes', 'Alpha\nBeta');
+    final controller = notes(tester);
+    controller.selection = const TextSelection(baseOffset: 0, extentOffset: 10);
+    await formatNote(tester, 'notes_ordered');
+    expect(controller.text, '1. Alpha\n2. Beta');
+    controller.selection = TextSelection.collapsed(
+      offset: controller.text.length,
+    );
+    await formatNote(tester, 'notes_more');
+    await tester.pumpAndSettle();
+    await tester.tap(label('notes_rule'));
+    await tester.pumpAndSettle();
+    expect(controller.text, '1. Alpha\n2. Beta\n\n---\n\n');
+    await tap(tester, 'cancel');
+    expect(library.creates, isEmpty);
+  });
+
+  testWidgets(
+    'An existing Markdown note stays omitted when only priority changes',
+    (tester) async {
+      const raw = '  **Saved**  \n\n||Spoiler||  ';
+      library.entry = existing(note: raw);
+      await show(tester, edit: true);
+      await tap(tester, 'notes_preview');
+      expect(find.textContaining('Saved', findRichText: true), findsOneWidget);
+      await tap(tester, 'notes_write');
+      expect(notes(tester).text, raw);
+      await enter(tester, 'library_editor_priority', '26');
+      await tap(tester, 'save');
+      expect(library.updates.single.toJson(), {'priority': 26});
+    },
+  );
 
   testWidgets('Add waits for confirmed absence and Cancel sends no write', (
     tester,
@@ -226,7 +353,7 @@ void main() {
     pending.complete(null);
     await tester.pumpAndSettle();
     expect(action('add_to_library'), findsOneWidget);
-    expect(action('considering'), findsOneWidget);
+    expect(find.text(tr('considering').toUpperCase()), findsOneWidget);
     expect(library.listReads, [testLibraryLease]);
     await tap(tester, 'cancel');
     expect(editor(), findsNothing);
@@ -283,21 +410,12 @@ void main() {
     final pending = Completer<LibrarySaveResult>();
     library.save = () => pending.future;
     await show(tester);
-    final status = find.byType(DropdownButtonFormField<String>);
-    expect(
-      tester
-          .widget<DropdownButton<String>>(
-            find.descendant(
-              of: status,
-              matching: find.byType(DropdownButton<String>),
-            ),
-          )
-          .items,
-      hasLength(7),
-    );
+    final status = find.byType(LibraryStatusDropdown);
     await tester.tap(status);
     await tester.pumpAndSettle();
-    await tester.tap(label('rereading').last);
+    expect(find.byType(MenuItemButton), findsNWidgets(7));
+    await tester.ensureVisible(find.text(tr('rereading').toUpperCase()));
+    await tester.tap(find.text(tr('rereading').toUpperCase()));
     await tester.pumpAndSettle();
     await enter(tester, 'library_editor_priority', '21,5');
     await enter(tester, 'library_editor_start_date', '2024-02-29');
@@ -372,7 +490,7 @@ void main() {
     (tester) async {
       library.entry = existing(ids: [11, 22]);
       await show(tester, edit: true);
-      expect(action('reading'), findsOneWidget);
+      expect(find.text(tr('reading').toUpperCase()), findsOneWidget);
       for (final (key, expected) in [
         ('library_editor_priority', '21.5'),
         ('library_editor_start_date', '2024-01-02'),
@@ -479,8 +597,20 @@ void main() {
       expect(label('library_editor_series_total'), findsNothing);
       expect(find.text('Series total 12'), findsOneWidget);
       expect(
-        find.byType(TextFormField).evaluate().last,
-        same(tester.element(field('library_editor_notes'))),
+        find
+            .byWidgetPredicate((widget) => widget is FormField<String>)
+            .evaluate()
+            .last,
+        same(
+          tester.element(
+            find
+                .ancestor(
+                  of: field('library_editor_notes'),
+                  matching: find.byType(FormField<String>),
+                )
+                .first,
+          ),
+        ),
       );
       for (final (key, invalid) in [
         ('library_editor_priority', '31'),
@@ -689,6 +819,123 @@ void main() {
     expect(find.byType(TextFormField), findsNothing);
     expect(library.updates, isEmpty);
   });
+
+  testWidgets('Downward form drag scrolls first and dismisses at the top', (
+    tester,
+  ) async {
+    await show(tester);
+    final scroll = find
+        .descendant(of: editor(), matching: find.byType(SingleChildScrollView))
+        .first;
+    final controller = tester.widget<SingleChildScrollView>(scroll).controller!;
+    final sheet = tester
+        .widget<DraggableScrollableSheet>(find.byType(DraggableScrollableSheet))
+        .controller!;
+    controller.jumpTo(300);
+    await tester.pump();
+    final extent = sheet.size;
+    final start = tester.getTopLeft(scroll) + const Offset(150, 35);
+    await tester.timedDragFrom(
+      start,
+      const Offset(0, 100),
+      const Duration(milliseconds: 500),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.offset, lessThan(300));
+    expect(sheet.size, extent);
+    controller.jumpTo(0);
+    await tester.pump();
+    await tester.dragFrom(start, const Offset(0, 390));
+    await tester.pumpAndSettle();
+    expect(editor(), findsNothing);
+    expect(library.creates, isEmpty);
+  });
+
+  testWidgets('Save protects the sheet from drag, barrier, back and Cancel', (
+    tester,
+  ) async {
+    final pending = Completer<LibrarySaveResult>();
+    library.save = () => pending.future;
+    await show(tester);
+    await tester.tap(action('save'));
+    await tester.tap(action('cancel'));
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(library.creates, hasLength(1));
+    final handle = find.byKey(const ValueKey('library_editor_drag_handle'));
+    await tester.drag(handle, const Offset(0, 400), warnIfMissed: false);
+    await tester.tapAt(const Offset(4, 4));
+    await tester.binding.handlePopRoute();
+    await tester.tap(action('cancel'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(editor(), findsOneWidget);
+    expect(library.creates, hasLength(1));
+    pending.complete(const LibrarySaveResult(LibrarySaveOutcome.saved));
+    await tester.pumpAndSettle();
+    expect(editor(), findsNothing);
+  });
+
+  testWidgets('Status options stay above the compact phone keyboard', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 640);
+    addTearDown(() => tester.view.reset());
+    await show(tester, textScale: 1.65);
+    await tester.showKeyboard(field('library_editor_priority'));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 275);
+    await tester.pumpAndSettle();
+    final status = find.byType(LibraryStatusDropdown);
+    await tester.ensureVisible(status);
+    await tester.tap(status);
+    await tester.pumpAndSettle();
+    final visibleOptions = find.byType(MenuItemButton).hitTestable();
+    expect(visibleOptions, findsWidgets);
+    for (final element in visibleOptions.evaluate()) {
+      expect(tester.getCenter(find.byWidget(element.widget)).dy, lessThan(365));
+    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(MenuItemButton), findsNothing);
+    expect(library.creates, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final width in [390.0, 430.0, 768.0, 1100.0]) {
+    testWidgets('Markdown toolbar, status and preview fit width $width', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = Size(width, 810);
+      DesktopLayout.debugOverride = width >= 1000;
+      addTearDown(() {
+        tester.view.reset();
+        DesktopLayout.debugOverride = null;
+      });
+      await show(
+        tester,
+        textScale: 1.8,
+        palette: width == 430 ? EirenYuPalette.light : EirenYuPalette.dark,
+      );
+      expect(
+        find.byType(Dialog),
+        width >= 1000 ? findsOneWidget : findsNothing,
+      );
+      final status = find.byType(LibraryStatusDropdown);
+      await tester.ensureVisible(status);
+      await tester.tap(status);
+      await tester.pumpAndSettle();
+      final paused = find.text(tr('paused').toUpperCase());
+      await tester.ensureVisible(paused);
+      await tester.tap(paused);
+      await tester.pumpAndSettle();
+      await enter(tester, 'library_editor_notes', '**Responsive**');
+      await tap(tester, 'notes_preview');
+      expect(find.text('Responsive', findRichText: true), findsOneWidget);
+      expect(action('save').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   for (final palette in [
     EirenYuPalette.light,

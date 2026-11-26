@@ -9,10 +9,13 @@ import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
+import 'package:mangabaka_app/core/widgets/route_dismiss_guard.dart';
 import 'package:mangabaka_app/desktop/desktop_layout.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/library/models/library_entry_edit.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
+import 'package:mangabaka_app/features/library/widgets/library_notes_editor.dart';
+import 'package:mangabaka_app/features/library/widgets/library_status_dropdown.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 
@@ -57,6 +60,7 @@ class LibraryEntryEditorSheet extends StatefulWidget {
     required this.title,
     required this.defaultState,
     required this.edit,
+    required this.mobile,
   });
 
   final LibraryService library;
@@ -66,6 +70,7 @@ class LibraryEntryEditorSheet extends StatefulWidget {
   final String title;
   final String defaultState;
   final bool edit;
+  final bool mobile;
 
   static Future<void> show(
     BuildContext context, {
@@ -77,6 +82,7 @@ class LibraryEntryEditorSheet extends StatefulWidget {
     required String defaultState,
     required bool edit,
   }) {
+    final desktop = DesktopLayout.isActive(context);
     final editor = LibraryEntryEditorSheet._(
       library: library,
       auth: auth,
@@ -85,8 +91,9 @@ class LibraryEntryEditorSheet extends StatefulWidget {
       title: title,
       defaultState: defaultState,
       edit: edit,
+      mobile: !desktop,
     );
-    if (DesktopLayout.isActive(context)) {
+    if (desktop) {
       return showDialog<void>(
         context: context,
         useRootNavigator: false,
@@ -101,13 +108,13 @@ class LibraryEntryEditorSheet extends StatefulWidget {
       useSafeArea: true,
       isScrollControlled: true,
       enableDrag: false,
-      showDragHandle: false,
+      backgroundColor: Colors.transparent,
       constraints: const BoxConstraints(maxWidth: 640),
       builder: (context) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.viewInsetsOf(context).bottom,
         ),
-        child: FractionallySizedBox(heightFactor: 0.92, child: editor),
+        child: editor,
       ),
     );
   }
@@ -117,13 +124,18 @@ class LibraryEntryEditorSheet extends StatefulWidget {
       _LibraryEntryEditorSheetState();
 }
 
-class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet> {
+class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
+    with RouteDismissGuard<LibraryEntryEditorSheet> {
   static final _firstDate = DateTime(1679);
   static final _lastDate = DateTime(2262, 12, 31);
   static const _maxLists = 30;
+  static const _openExtent = .92;
+  static const _dismissExtent = .48;
 
   final _form = GlobalKey<FormState>();
-  final _scroll = ScrollController();
+  final _dialogScroll = ScrollController();
+  final _sheet = DraggableScrollableController();
+  ScrollController? _sheetScroll;
   final _controllers = {
     for (final field in _Field.values) field: TextEditingController(),
   };
@@ -170,7 +182,8 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet> {
   @override
   void dispose() {
     widget.auth.removeListener(_sessionChanged);
-    _scroll.dispose();
+    _dialogScroll.dispose();
+    _sheet.dispose();
     for (final controller in _controllers.values) {
       controller.dispose();
     }
@@ -182,6 +195,7 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet> {
       return;
     }
     FocusScope.of(context).unfocus();
+    canPopNotifier.value = true;
     setState(() {
       _phase = _Phase.sessionChanged;
       _original = null;
@@ -227,7 +241,11 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet> {
           ..addAll(_originalLists ?? const <int>{});
         _lists = null;
         for (final field in _Field.values) {
-          _controllers[field]!.text = _initial(field)?.toString() ?? '';
+          final text = _initial(field)?.toString() ?? '';
+          _controllers[field]!.value = TextEditingValue(
+            text: text,
+            selection: TextSelection.collapsed(offset: text.length),
+          );
         }
         _feedback = null;
         _phase = _Phase.editing;
@@ -383,6 +401,7 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet> {
     }
 
     FocusScope.of(context).unfocus();
+    canPopNotifier.value = false;
     setState(() {
       _phase = _Phase.saving;
       _feedback = null;
@@ -418,7 +437,18 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet> {
       if (_live) _rejected('library_editor_invalid_fields');
     } catch (_) {
       if (_live) setState(() => _phase = _Phase.uncertain);
+    } finally {
+      if (mounted) canPopNotifier.value = true;
     }
+  }
+
+  @override
+  void onPopInvokedWithResult(bool didPop, Object? result) {
+    if (didPop) _closed = true;
+  }
+
+  void _cancel() {
+    if (canPopNotifier.value) _close();
   }
 
   void _close() {
@@ -438,9 +468,10 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet> {
       _phase = _Phase.editing;
       _feedback = message;
     });
-    if (_scroll.hasClients) {
+    final scroll = widget.mobile ? _sheetScroll : _dialogScroll;
+    if (scroll != null && scroll.hasClients) {
       unawaited(
-        _scroll.animateTo(
+        scroll.animateTo(
           0,
           duration: AppConstants.shortAnimationDuration,
           curve: Curves.easeOut,
@@ -448,6 +479,77 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet> {
       );
     }
   }
+
+  bool get _canDragDismiss => mounted && !_closed && _phase != _Phase.saving;
+
+  bool _onSheetExtent(DraggableScrollableNotification notification) {
+    if (notification.depth == 0 &&
+        _canDragDismiss &&
+        notification.extent <= _dismissExtent) {
+      // Extent notifications can be dispatched during layout.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_canDragDismiss &&
+            _sheet.isAttached &&
+            _sheet.size <= _dismissExtent) {
+          _close();
+        }
+      });
+    }
+    return false;
+  }
+
+  void _finishHandleDrag([DragEndDetails? details]) {
+    if (!_canDragDismiss || !_sheet.isAttached) return;
+    if (_sheet.size < .75 || (details?.primaryVelocity ?? 0) > 700) {
+      _close();
+    } else {
+      unawaited(
+        _sheet.animateTo(
+          _openExtent,
+          duration: AppConstants.shortAnimationDuration,
+          curve: Curves.easeOut,
+        ),
+      );
+    }
+  }
+
+  Widget _dragHandle(BuildContext context, bool saving) => Semantics(
+    label: _t('library_editor_drag_handle'),
+    onDismiss: saving
+        ? null
+        : () {
+            if (_canDragDismiss) _close();
+          },
+    child: GestureDetector(
+      key: const ValueKey('library_editor_drag_handle'),
+      behavior: HitTestBehavior.opaque,
+      onVerticalDragUpdate: saving
+          ? null
+          : (details) {
+              if (!_canDragDismiss || !_sheet.isAttached) return;
+              _sheet.jumpTo(
+                (_sheet.size - _sheet.pixelsToSize(details.delta.dy)).clamp(
+                  _dismissExtent,
+                  _openExtent,
+                ),
+              );
+            },
+      onVerticalDragEnd: saving ? null : _finishHandleDrag,
+      onVerticalDragCancel: saving ? null : _finishHandleDrag,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: context.colors.textMuted,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const SizedBox(width: 36, height: 4),
+          ),
+        ),
+      ),
+    ),
+  );
 
   Future<void> _checkEntry() async {
     if (!_live || _checking) return;
@@ -567,7 +669,7 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet> {
           overflowSpacing: 4,
           children: [
             TextButton(
-              onPressed: saving && !invalidated ? null : _close,
+              onPressed: saving && !invalidated ? null : _cancel,
               child: Text(
                 _t(showForm || _phase == _Phase.loading ? 'cancel' : 'close'),
               ),
@@ -580,31 +682,56 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet> {
           ],
         ),
       );
-      return PopScope<void>(
-        canPop: !saving || invalidated,
-        onPopInvokedWithResult: (didPop, _) {
-          if (didPop) _closed = true;
-        },
-        child: SafeArea(
-          top: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
+      Widget frame(ScrollController scroll) => SafeArea(
+        top: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (widget.mobile && MediaQuery.viewInsetsOf(context).bottom == 0)
+              _dragHandle(context, saving),
+            Expanded(
+              child: IgnorePointer(
+                ignoring: saving,
                 child: SingleChildScrollView(
-                  controller: _scroll,
+                  controller: scroll,
+                  physics: const AlwaysScrollableScrollPhysics(),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [header, content],
                   ),
                 ),
               ),
-              Divider(color: colors.border, height: 1),
-              footer,
-            ],
-          ),
+            ),
+            Divider(color: colors.border, height: 1),
+            footer,
+          ],
         ),
       );
+      return widget.mobile
+          ? NotificationListener<DraggableScrollableNotification>(
+              onNotification: _onSheetExtent,
+              child: DraggableScrollableSheet(
+                controller: _sheet,
+                expand: false,
+                initialChildSize: _openExtent,
+                maxChildSize: _openExtent,
+                minChildSize: _dismissExtent,
+                shouldCloseOnMinExtent: false,
+                snap: true,
+                builder: (context, scroll) {
+                  _sheetScroll = scroll;
+                  return Material(
+                    color: colors.surface,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: frame(scroll),
+                  );
+                },
+              ),
+            )
+          : frame(_dialogScroll);
     },
   );
 
@@ -684,30 +811,10 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             spacing: 12,
             children: [
-              DropdownButtonFormField<String>(
-                initialValue: _state,
-                isExpanded: true,
-                decoration: _decoration(_t('status')),
-                items: [
-                  for (final state in AppConstants.libraryStates)
-                    DropdownMenuItem(
-                      value: state,
-                      child: Text(
-                        _t(state),
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: MbPalette.ensureContrast(
-                            AppConstants.getColorForState(state),
-                            colors.surfaceRaised,
-                            minimum: 4.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-                dropdownColor: colors.surfaceRaised,
+              LibraryStatusDropdown(
+                value: _state,
                 onChanged: enabled
-                    ? (value) => setState(() => _state = value!)
+                    ? (value) => setState(() => _state = value)
                     : null,
               ),
               _input(_Field.priority, helper: '10–30'),
@@ -740,7 +847,12 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet> {
                 hint: _t('library_editor_unset'),
                 helper: _t('library_editor_rating_hint'),
               ),
-              _input(_Field.note),
+              LibraryNotesEditor(
+                controller: _controllers[_Field.note]!,
+                decoration: _decoration(_t(_Field.note.label)),
+                validator: (value) => _validate(_Field.note, value ?? ''),
+                enabled: enabled,
+              ),
             ],
           );
         },
@@ -775,7 +887,6 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet> {
   );
 
   Widget _input(_Field field, {String? hint, String? helper, Widget? suffix}) {
-    final notes = field == _Field.note;
     return TextFormField(
       key: ValueKey(field.label),
       controller: _controllers[field],
@@ -783,14 +894,11 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet> {
       keyboardType: switch (field) {
         _Field.readLink => TextInputType.url,
         _Field.startDate || _Field.finishDate => TextInputType.datetime,
-        _Field.note => TextInputType.multiline,
         _ => TextInputType.numberWithOptions(decimal: field == _Field.priority),
       },
-      minLines: notes ? 3 : 1,
-      maxLines: notes ? 6 : 1,
-      textInputAction: notes ? TextInputAction.newline : TextInputAction.next,
+      textInputAction: TextInputAction.next,
       enableIMEPersonalizedLearning: false,
-      autocorrect: notes,
+      autocorrect: false,
       style: TextStyle(color: context.colors.text),
       decoration: _decoration(_t(field.label)).copyWith(
         hintText: hint,

@@ -7,6 +7,7 @@ import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/features/series/widgets/mb_card.dart';
+import 'package:mangabaka_app/core/widgets/design/rating_star.dart';
 import 'package:mangabaka_app/features/series/widgets/state_selection_section.dart';
 
 /// The reader’s personal Library tracking and editing controls.
@@ -97,14 +98,9 @@ class SeriesMyListCard extends StatelessWidget {
                   constraints: const BoxConstraints(minHeight: 44),
                   child: Row(
                     children: [
-                      Icon(
-                        rating == null ? Icons.star_border : Icons.star,
-                        size: 18,
-                        color: MbPalette.ensureContrast(
-                          rating == null ? colors.textMuted : statusColor,
-                          colors.surface,
-                          minimum: 4.5,
-                        ),
+                      RatingStar(
+                        icon: rating == null ? Icons.star_border : Icons.star,
+                        surface: colors.surface,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -148,16 +144,29 @@ class _ProgressRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final paused = statusColor == AppConstants.warningColor;
     final statusText = MbPalette.ensureContrast(
-      statusColor,
+      paused && MbPalette.contrastRatio(statusColor, colors.surface) < 4.5
+          ? colors.text
+          : statusColor,
       colors.surface,
       minimum: 4.5,
     );
-    final statusIndicator = MbPalette.ensureContrast(
-      statusColor,
-      colors.surfaceRaised,
-      minimum: 3.0,
-    );
+    final statusIndicator = paused
+        ? statusColor
+        : MbPalette.ensureContrast(
+            statusColor,
+            colors.surfaceRaised,
+            minimum: 3.0,
+          );
+    final track =
+        paused && MbPalette.contrastRatio(statusColor, colors.surfaceRaised) < 3
+        ? MbPalette.ensureContrast(
+            colors.surfaceRaised,
+            statusColor,
+            minimum: 3,
+          )
+        : colors.surfaceRaised;
     final pct = (total != null && total! > 0)
         ? (value / total!).clamp(0.0, 1.0)
         : 0.0;
@@ -215,7 +224,7 @@ class _ProgressRow extends StatelessWidget {
               child: Container(
                 height: 5,
                 decoration: BoxDecoration(
-                  color: colors.surfaceRaised,
+                  color: track,
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(color: colors.border, width: 1),
                 ),
@@ -225,12 +234,15 @@ class _ProgressRow extends StatelessWidget {
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(999),
-                      gradient: LinearGradient(
-                        colors: [
-                          statusIndicator,
-                          Color.lerp(statusIndicator, colors.text, 0.28)!,
-                        ],
-                      ),
+                      color: paused ? statusIndicator : null,
+                      gradient: paused
+                          ? null
+                          : LinearGradient(
+                              colors: [
+                                statusIndicator,
+                                Color.lerp(statusIndicator, colors.text, 0.28)!,
+                              ],
+                            ),
                     ),
                   ),
                 ),

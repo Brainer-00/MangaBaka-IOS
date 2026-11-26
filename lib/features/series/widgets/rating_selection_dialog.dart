@@ -1,274 +1,269 @@
-import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
-import 'package:mangabaka_app/core/settings/settings_enums.dart';
+import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
+import 'package:mangabaka_app/core/settings/settings_enums.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
-import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
+import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
+import 'package:mangabaka_app/features/library/models/library_entry_edit.dart';
+import 'package:mangabaka_app/core/widgets/design/rating_star.dart';
+import 'package:mangabaka_app/core/widgets/route_dismiss_guard.dart';
 
 class RatingSelectionDialog extends StatefulWidget {
-  final int initialRating;
-  final Function(int) onRatingChanged;
+  final int? initialRating;
+  final Future<LibrarySaveOutcome> Function(int) onRatingChanged;
+  final Future<bool?> Function(int)? onCheckEntry;
 
   const RatingSelectionDialog({
     super.key,
     required this.initialRating,
     required this.onRatingChanged,
+    this.onCheckEntry,
   });
 
   @override
   State<RatingSelectionDialog> createState() => _RatingSelectionDialogState();
 }
 
-class _RatingSelectionDialogState extends State<RatingSelectionDialog> {
-  late double _currentRating;
+class _RatingSelectionDialogState extends State<RatingSelectionDialog>
+    with RouteDismissGuard<RatingSelectionDialog> {
+  late int _rating = widget.initialRating ?? 0;
+  bool _busy = false;
+  LibrarySaveOutcome? _outcome;
+  String? _feedback;
 
-  @override
-  void initState() {
-    super.initState();
-    _currentRating = widget.initialRating.toDouble();
+  Future<void> _submit() async {
+    if (_busy || _outcome != null) return;
+    if (_rating == (widget.initialRating ?? 0)) {
+      Navigator.of(context).pop();
+      return;
+    }
+    canPopNotifier.value = false;
+    setState(() {
+      _busy = true;
+      _feedback = null;
+    });
+    try {
+      final outcome = await widget.onRatingChanged(_rating);
+      if (!mounted) return;
+      if (outcome == LibrarySaveOutcome.saved) {
+        Navigator.of(context).pop();
+      } else {
+        setState(() => _outcome = outcome);
+      }
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      if ((error.statusCode >= 400 && error.statusCode < 500) ||
+          error.code == 'WRITE_DECLINED') {
+        setState(() => _feedback = 'library_editor_rejected');
+      } else {
+        setState(() => _outcome = LibrarySaveOutcome.uncertain);
+      }
+    } on AuthException {
+      if (mounted) setState(() => _feedback = 'library_editor_auth_retry');
+    } catch (_) {
+      if (mounted) setState(() => _outcome = LibrarySaveOutcome.uncertain);
+    } finally {
+      if (mounted) {
+        canPopNotifier.value = true;
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  Future<void> _check() async {
+    if (_busy || widget.onCheckEntry == null) return;
+    canPopNotifier.value = false;
+    setState(() {
+      _busy = true;
+      _feedback = null;
+    });
+    try {
+      final matches = await widget.onCheckEntry!(_rating);
+      if (!mounted) return;
+      if (matches == true && _outcome == LibrarySaveOutcome.refreshPending) {
+        Navigator.of(context).pop();
+      } else {
+        setState(
+          () => _feedback = switch (matches) {
+            true => 'library_editor_found',
+            false => 'rating_not_reflected',
+            null => 'library_editor_not_found',
+          },
+        );
+      }
+    } catch (_) {
+      if (mounted) setState(() => _feedback = 'library_editor_check_failed');
+    } finally {
+      if (mounted) {
+        canPopNotifier.value = true;
+        setState(() => _busy = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = LocalizationService();
+    final t = LocalizationService().translate;
     final colors = context.colors;
-    final starOnSurface = MbPalette.ensureContrast(
-      colors.star,
-      Color.alphaBlend(colors.star.withValues(alpha: 0.1), colors.surface),
-      minimum: 3.0,
+    final outcome = _outcome;
+    final hasRating = _rating > 0 || widget.initialRating == 0;
+    final badge = Color.alphaBlend(
+      AppConstants.starColor.withValues(alpha: 0.1),
+      colors.surface,
     );
-    return Container(
-      decoration: BoxDecoration(
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 540),
+      child: Material(
         color: colors.surface,
-        borderRadius: BorderRadius.vertical(
+        borderRadius: const BorderRadius.vertical(
           top: Radius.circular(AppConstants.largeRadius),
         ),
-      ),
-      padding: EdgeInsets.fromLTRB(
-        24,
-        12,
-        24,
-        24 + MediaQuery.of(context).padding.bottom,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 32,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
+        child: SafeArea(
+          top: false,
+          minimum: const EdgeInsets.all(20),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 16,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: colors.star.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.star_rounded,
-                    color: starOnSurface,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    l10n.translate('rating_dialog_title').toUpperCase(),
-                    style: AppTypography.display(
-                      color: colors.text,
-                      fontSize: 18,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.background,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: colors.border),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                Row(
+                  spacing: 12,
                   children: [
-                    Icon(
-                      _currentRating.toInt() == 0
-                          ? Icons.star_outline
-                          : Icons.star,
-                      color: _currentRating.toInt() == 0
-                          ? colors.textMuted
-                          : MbPalette.ensureContrast(
-                              colors.star,
-                              colors.background,
-                              minimum: 3.0,
-                            ),
-                      size: 28,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      _currentRating.toInt() == 0
-                          ? l10n.translate('rating_unrated')
-                          : _currentRating.toInt().toString(),
-                      style: AppTypography.display(
-                        color: colors.text,
-                        fontSize: 26,
-                        letterSpacing: -0.5,
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: badge,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: RatingStar(surface: badge, size: 24),
                       ),
                     ),
-                    if (_currentRating.toInt() > 0)
-                      Text(
-                        ' / 100',
-                        style: AppTypography.sans(
-                          color: colors.textMuted,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
+                    Expanded(
+                      child: Text(
+                        t('rating_dialog_title').toUpperCase(),
+                        style: AppTypography.display(
+                          color: colors.text,
+                          fontSize: 18,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Center(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colors.background,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: colors.border),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      child: Wrap(
+                        spacing: 10,
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          RatingStar(
+                            surface: colors.background,
+                            icon: hasRating ? Icons.star : Icons.star_outline,
+                            size: 28,
+                          ),
+                          Text(
+                            hasRating ? '$_rating / 100' : t('rating_unrated'),
+                            style: AppTypography.display(
+                              color: colors.text,
+                              fontSize: 22,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Slider(
+                  value: _rating.toDouble(),
+                  max: 100,
+                  divisions: switch (SettingsManager().ratingSliderStep) {
+                    RatingSliderStep.step5 => 20,
+                    RatingSliderStep.step10 => 10,
+                    RatingSliderStep.step20 => 5,
+                    RatingSliderStep.step25 => 4,
+                    RatingSliderStep.step1 => 100,
+                  },
+                  activeColor: colors.accentOn(colors.surface, minimum: 3),
+                  inactiveColor: colors.border,
+                  onChanged: _busy || outcome != null
+                      ? null
+                      : (value) => setState(() => _rating = value.toInt()),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    for (final value in const ['0', '50', '100'])
+                      Flexible(
+                        child: Text(
+                          value,
+                          style: AppTypography.sans(
+                            color: colors.textMuted,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                   ],
                 ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                activeTrackColor: colors.accentOn(colors.surface, minimum: 3.0),
-                inactiveTrackColor: colors.border,
-                thumbColor: colors.accentOn(colors.surface, minimum: 3.0),
-                overlayColor: colors.accent.withValues(alpha: 0.2),
-                trackHeight: 6,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-                tickMarkShape: const RoundSliderTickMarkShape(
-                  tickMarkRadius: 2,
-                ),
-              ),
-              child: Slider(
-                value: _currentRating,
-                min: 0,
-                max: 100,
-                divisions: _getDivisions(),
-                onChanged: (double value) {
-                  setState(() {
-                    _currentRating = value;
-                  });
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '0',
-                    style: AppTypography.sans(
-                      color: colors.textMuted,
-                      fontSize: 12,
-                    ),
-                  ),
-                  Text(
-                    '50',
-                    style: AppTypography.sans(
-                      color: colors.textMuted,
-                      fontSize: 12,
-                    ),
-                  ),
-                  Text(
-                    '100',
-                    style: AppTypography.sans(
-                      color: colors.textMuted,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                  ),
-                  child: Text(
-                    l10n.translate('cancel'),
-                    style: AppTypography.sans(
-                      color: colors.textMuted,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: () {
-                    final newRating = _currentRating.toInt();
-                    if (newRating != widget.initialRating) {
-                      widget.onRatingChanged(newRating);
-                    }
-                    Navigator.of(context).pop();
-                  },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: colors.accent,
-                    foregroundColor: colors.onAccent,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        AppConstants.pillRadius,
+                if (_busy) const LinearProgressIndicator(),
+                if (outcome != null || _feedback != null)
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      t(
+                        _feedback ??
+                            (outcome == LibrarySaveOutcome.refreshPending
+                                ? 'library_editor_refresh_pending'
+                                : 'library_editor_uncertain'),
                       ),
                     ),
-                    elevation: 0,
                   ),
-                  child: Text(
-                    l10n.translate('update'),
-                    style: AppTypography.sans(fontWeight: FontWeight.bold),
-                  ),
+                OverflowBar(
+                  alignment: MainAxisAlignment.end,
+                  overflowAlignment: OverflowBarAlignment.end,
+                  spacing: 8,
+                  overflowSpacing: 8,
+                  children: [
+                    TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () {
+                              if (!_busy) Navigator.of(context).pop();
+                            },
+                      child: Text(t(outcome == null ? 'cancel' : 'close')),
+                    ),
+                    if (outcome == null)
+                      FilledButton(
+                        onPressed: _busy ? null : _submit,
+                        child: Text(
+                          t(_busy ? 'library_editor_saving' : 'update'),
+                        ),
+                      )
+                    else if (widget.onCheckEntry != null)
+                      OutlinedButton(
+                        onPressed: _busy ? null : _check,
+                        child: Text(t('library_editor_check_entry')),
+                      ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
-  }
-
-  int _getDivisions() {
-    final step = SettingsManager().ratingSliderStep;
-    switch (step) {
-      case RatingSliderStep.step5:
-        return 20;
-      case RatingSliderStep.step10:
-        return 10;
-      case RatingSliderStep.step20:
-        return 5;
-      case RatingSliderStep.step25:
-        return 4;
-      case RatingSliderStep.step1:
-        return 100;
-    }
   }
 }

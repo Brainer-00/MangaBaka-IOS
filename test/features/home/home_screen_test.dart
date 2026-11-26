@@ -7,14 +7,20 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
+import 'package:mangabaka_app/core/database/database.dart'
+    show LibraryCacheLease;
 import 'package:mangabaka_app/features/home/screens/home_screen.dart';
 import 'package:mangabaka_app/features/home/services/home_service.dart';
 import 'package:mangabaka_app/features/home/widgets/home_trending_section.dart';
+import 'package:mangabaka_app/features/library/services/library_service.dart';
 import 'package:mangabaka_app/features/profile/models/mb_profile.dart';
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
+import '../../support/library_identity.dart';
 
 class MockProfileAuthService extends Fake implements ProfileAuthService {
+  @override
+  LibraryCacheLease? get libraryLease => null;
   @override
   bool get isLoggedIn => false;
   @override
@@ -26,6 +32,8 @@ class MockProfileAuthService extends Fake implements ProfileAuthService {
 }
 
 class _MutableAuthService extends Fake implements ProfileAuthService {
+  @override
+  LibraryCacheLease? libraryLease;
   final List<VoidCallback> _listeners = [];
   bool loggedIn = true;
   String? userId = 'user-a';
@@ -63,6 +71,17 @@ class _MutableAuthService extends Fake implements ProfileAuthService {
     for (final listener in List<VoidCallback>.of(_listeners)) {
       listener();
     }
+  }
+}
+
+class _HomeLibraryRefresh extends Fake implements LibraryService {
+  final leases = <LibraryCacheLease>[];
+  final completion = Completer<void>();
+
+  @override
+  Future<void> reconcileLibrary(LibraryCacheLease lease) {
+    leases.add(lease);
+    return completion.future;
   }
 }
 
@@ -256,6 +275,7 @@ const _ready = ForYouReadiness(
 );
 
 void main() {
+  setUpAll(prepareWidgetLibraryIdentity);
   setUp(() async {
     await resetServiceLocator();
     setupServiceLocator();
@@ -737,6 +757,36 @@ void main() {
       expect(home.topInGenreRequests, hasLength(1));
       expect(_homeText('Fast Hidden Gem'), findsOneWidget);
     });
+
+    testWidgets(
+      'Home refresh reconciles the captured Library alongside its rails',
+      (tester) async {
+        final library = _HomeLibraryRefresh();
+        await getIt.unregister<LibraryService>();
+        getIt.registerSingleton<LibraryService>(library);
+        auth.libraryLease = testLibraryLease;
+        home.immediateRising = [_series('Before')];
+        await tester.pumpWidget(
+          MaterialApp(home: HomeScreen(homeService: home)),
+        );
+        home.readinessRequests.single.complete(null);
+        await tester.pumpAndSettle();
+        home.immediateRising = [_series('After')];
+        var completed = false;
+        final refresh = tester
+            .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+            .onRefresh()
+            .then((_) => completed = true);
+        expect(library.leases, [testLibraryLease]);
+        home.readinessRequests[1].complete(null);
+        await tester.pumpAndSettle();
+        expect(find.text('After'), findsOneWidget);
+        expect(completed, isFalse);
+        library.completion.complete();
+        await refresh;
+        expect(completed, isTrue);
+      },
+    );
 
     testWidgets('refresh keeps existing rail content while replacement loads', (
       tester,
