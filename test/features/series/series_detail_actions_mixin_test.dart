@@ -1,5 +1,7 @@
 import '../../support/library_identity.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
+import 'package:mangabaka_app/core/database/database.dart'
+    show LibraryCacheLease;
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mangabaka_app/core/constants/mock_series_data.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
+import 'package:mangabaka_app/features/library/models/library_entry.dart';
+import 'package:mangabaka_app/features/library/models/library_entry_edit.dart';
 import 'package:mangabaka_app/features/series/mixins/series_detail_actions_mixin.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/core/theme/app_theme.dart';
@@ -17,16 +21,34 @@ import 'package:mangabaka_app/core/theme/theme_presets.dart';
 // ─── Fake ────────────────────────────────────────────────────────────────────
 
 class _FakeLibraryService extends Fake implements LibraryService {
-  bool throwOnCreate = false;
   bool throwOnDelete = false;
-  String? lastCreatedId;
+  int reads = 0;
+  bool failRead = false;
+  LibraryEntryDraft? createdDraft;
   String? lastDeletedId;
   int deleteCalls = 0;
 
   @override
-  Future<void> createLibraryEntry(String seriesId, String state) async {
-    if (throwOnCreate) throw Exception('create failed');
-    lastCreatedId = seriesId;
+  Future<LibraryEntry?> fetchAuthoritativeLibraryEntry(
+    String seriesId, {
+    LibraryCacheLease? lease,
+  }) async {
+    reads++;
+    if (failRead) throw const FormatException();
+    return null;
+  }
+
+  @override
+  Future<List<AccountLibraryList>> fetchAccountLibraryLists(
+    LibraryCacheLease lease,
+  ) async => [];
+
+  @override
+  Future<LibrarySaveResult> createCompleteLibraryEntry(
+    LibraryEntryDraft draft,
+  ) async {
+    createdDraft = draft;
+    return const LibrarySaveResult(LibrarySaveOutcome.saved);
   }
 
   @override
@@ -65,9 +87,6 @@ class _TestWidgetState extends State<_TestWidget>
 
   @override
   Series get series => widget.seriesOverride ?? mockSeries222;
-
-  @override
-  bool isAdding = false;
 
   @override
   Widget build(BuildContext context) => Scaffold(body: Container());
@@ -115,45 +134,62 @@ void main() {
   };
 
   group('SeriesDetailActionsMixin.addSeriesToLibrary', () {
-    testWidgets('is a no-op when isAdding is already true', (tester) async {
-      final svc = _FakeLibraryService();
-      await tester.pumpWidget(buildWidget(svc));
-      final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
-
-      state.isAdding = true;
-      await state.addSeriesToLibrary();
-      await tester.pump();
-
-      expect(svc.lastCreatedId, isNull);
-    });
-
-    testWidgets('calls createLibraryEntry with series id and resets isAdding', (
+    testWidgets('is a no-op when a Library editor is already open', (
       tester,
     ) async {
       final svc = _FakeLibraryService();
       await tester.pumpWidget(buildWidget(svc));
       final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
 
+      final editor = state.addSeriesToLibrary();
       await state.addSeriesToLibrary();
-      await tester.pump();
+      await tester.pumpAndSettle();
 
-      expect(svc.lastCreatedId, '222');
-      expect(state.isAdding, isFalse);
+      expect(svc.reads, 1);
+      expect(svc.createdDraft, isNull);
+      await tester.tap(find.text('cancel'));
+      await tester.pumpAndSettle();
+      await editor;
     });
 
-    testWidgets('shows error snackbar and resets isAdding on failure', (
+    testWidgets('opens first, then saves with the original series and lease', (
       tester,
     ) async {
-      final svc = _FakeLibraryService()..throwOnCreate = true;
+      final svc = _FakeLibraryService();
       await tester.pumpWidget(buildWidget(svc));
       final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
 
-      await state.addSeriesToLibrary();
-      await tester.pump();
-
-      expect(find.byType(SnackBar), findsOneWidget);
-      expect(state.isAdding, isFalse);
+      final editor = state.addSeriesToLibrary();
+      await tester.pumpAndSettle();
+      expect(svc.reads, 1);
+      expect(svc.createdDraft, isNull);
+      expect(state.libraryEditorOpen, isTrue);
+      await tester.tap(find.text('save'));
+      await tester.pumpAndSettle();
+      await editor;
+      expect(svc.createdDraft?.seriesId, '222');
+      expect(svc.createdDraft?.lease, same(testLibraryLease));
+      expect(state.libraryEditorOpen, isFalse);
     });
+
+    testWidgets(
+      'a failed read offers retry and allows closing without a write',
+      (tester) async {
+        final svc = _FakeLibraryService()..failRead = true;
+        await tester.pumpWidget(buildWidget(svc));
+        final state = tester.state<_TestWidgetState>(find.byType(_TestWidget));
+
+        final editor = state.addSeriesToLibrary();
+        await tester.pumpAndSettle();
+        expect(find.text('library_editor_load_failed'), findsOneWidget);
+        expect(find.text('save'), findsNothing);
+        await tester.tap(find.text('close'));
+        await tester.pumpAndSettle();
+        await editor;
+        expect(svc.createdDraft, isNull);
+        expect(state.libraryEditorOpen, isFalse);
+      },
+    );
   });
 
   group('SeriesDetailActionsMixin.shareLink', () {

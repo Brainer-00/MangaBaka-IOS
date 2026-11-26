@@ -23,12 +23,13 @@ class SeriesDetailWideLayout extends StatelessWidget {
   final ValueChanged<String> onTabChanged;
   final Function(String) onStateChanged;
   final Function(int) onRatingChanged;
-  final bool isAdding;
+  final bool editorOpen;
   final bool canAdd;
   final VoidCallback onAdd;
   final VoidCallback onUpdateChapter;
   final VoidCallback onUpdateVolume;
   final VoidCallback onUpdateRating;
+  final VoidCallback? onEditEntry;
   final Function(String)? onAuthorTap;
   final Function(String)? onPublisherTap;
   final Widget Function(
@@ -49,12 +50,13 @@ class SeriesDetailWideLayout extends StatelessWidget {
     required this.onTabChanged,
     required this.onStateChanged,
     required this.onRatingChanged,
-    required this.isAdding,
+    required this.editorOpen,
     this.canAdd = false,
     required this.onAdd,
     required this.onUpdateChapter,
     required this.onUpdateVolume,
     required this.onUpdateRating,
+    this.onEditEntry,
     this.onAuthorTap,
     this.onPublisherTap,
     required this.buildTabContent,
@@ -105,6 +107,7 @@ class SeriesDetailWideLayout extends StatelessWidget {
                     onUpdateChapter: onUpdateChapter,
                     onUpdateVolume: onUpdateVolume,
                     onUpdateRating: onUpdateRating,
+                    onEdit: onEditEntry,
                   ),
                   const SizedBox(height: 18),
                 ],
@@ -118,7 +121,10 @@ class SeriesDetailWideLayout extends StatelessWidget {
                 // their library — the same gate the phone's FAB applies.
                 if (entry == null && canAdd) ...[
                   const SizedBox(height: 18),
-                  SeriesAddToLibraryButton(isAdding: isAdding, onAdd: onAdd),
+                  SeriesAddToLibraryButton(
+                    editorOpen: editorOpen,
+                    onAdd: onAdd,
+                  ),
                 ],
               ],
             ),

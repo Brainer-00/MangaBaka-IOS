@@ -4,12 +4,15 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
+import 'package:mangabaka_app/core/database/database.dart'
+    show LibraryCacheLease;
 import 'package:mangabaka_app/features/profile/services/profile_auth_service.dart';
 import 'package:mangabaka_app/core/widgets/app_snack_bar.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
+import 'package:mangabaka_app/features/library/widgets/library_entry_editor_sheet.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
 import 'package:mangabaka_app/core/theme/eirenyu_palette.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
@@ -19,8 +22,11 @@ import 'package:mangabaka_app/features/series/widgets/rating_selection_dialog.da
 mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
   LibraryService get libraryService;
   Series get series;
-  bool get isAdding;
-  set isAdding(bool value);
+  LibraryCacheLease? _editorLease;
+
+  bool get libraryEditorOpen =>
+      _editorLease != null &&
+      identical(_editorLease, getIt<ProfileAuthService>().libraryLease);
 
   void showUpdateRatingDialog(LibraryEntry entry) {
     final auth = getIt<ProfileAuthService>();
@@ -401,27 +407,32 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
     );
   }
 
-  Future<void> addSeriesToLibrary() async {
+  Future<void> addSeriesToLibrary() => _openLibraryEditor(edit: false);
+
+  Future<void> editSeriesLibraryEntry() => _openLibraryEditor(edit: true);
+
+  Future<void> _openLibraryEditor({required bool edit}) async {
     final auth = getIt<ProfileAuthService>();
     final lease = auth.libraryLease;
-    if (lease == null || isAdding) return;
-    bool current() => identical(lease, auth.libraryLease);
-    setState(() => isAdding = true);
+    if (lease == null || identical(_editorLease, lease)) return;
+    final requestedSeries = series;
+    final settings = SettingsManager();
+    setState(() => _editorLease = lease);
     try {
-      await libraryService.createLibraryEntry(
-        series.id,
-        SettingsManager().addLibraryDefaultTab,
+      await LibraryEntryEditorSheet.show(
+        context,
+        library: libraryService,
+        auth: auth,
+        lease: lease,
+        series: requestedSeries,
+        title: requestedSeries.getDisplayTitle(settings.defaultTitleLanguage),
+        defaultState: settings.addLibraryDefaultTab,
+        edit: edit,
       );
-    } catch (e) {
-      if (mounted && current()) {
-        AppSnackBar.show(
-          context,
-          LocalizationService().translate('failed_to_add'),
-          isError: true,
-        );
-      }
     } finally {
-      if (mounted && current()) setState(() => isAdding = false);
+      if (mounted && identical(_editorLease, lease)) {
+        setState(() => _editorLease = null);
+      }
     }
   }
 }

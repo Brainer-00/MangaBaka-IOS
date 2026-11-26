@@ -15,12 +15,12 @@ import 'package:mangabaka_app/core/theme/theme_context.dart';
 /// Shows only for a signed-in user whose series is not yet in the library,
 /// like the FAB; the caller decides where it goes.
 class SeriesAddToLibraryButton extends StatelessWidget {
-  final bool isAdding;
+  final bool editorOpen;
   final VoidCallback onAdd;
 
   const SeriesAddToLibraryButton({
     super.key,
-    required this.isAdding,
+    required this.editorOpen,
     required this.onAdd,
   });
 
@@ -31,21 +31,12 @@ class SeriesAddToLibraryButton extends StatelessWidget {
       width: double.infinity,
       child: ElevatedButton.icon(
         key: const Key('add_to_library_button'),
-        onPressed: isAdding ? null : onAdd,
+        onPressed: editorOpen ? null : onAdd,
         style: ElevatedButton.styleFrom(
           disabledBackgroundColor: colors.surfaceRaised,
           disabledForegroundColor: colors.text,
         ),
-        icon: isAdding
-            ? SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: colors.text,
-                ),
-              )
-            : const Icon(Icons.add_rounded, size: 18),
+        icon: const Icon(Icons.add_rounded, size: 18),
         label: Text(
           LocalizationService().translate('add_to_library').toUpperCase(),
         ),
@@ -56,13 +47,13 @@ class SeriesAddToLibraryButton extends StatelessWidget {
 
 class SeriesDetailFAB extends StatelessWidget {
   final Stream<LibraryEntry?>? entryStream;
-  final bool isAdding;
+  final bool editorOpen;
   final VoidCallback onAdd;
 
   const SeriesDetailFAB({
     super.key,
     required this.entryStream,
-    required this.isAdding,
+    required this.editorOpen,
     required this.onAdd,
   });
 
@@ -82,29 +73,22 @@ class SeriesDetailFAB extends StatelessWidget {
             message: LocalizationService().translate('add_to_library'),
             child: FloatingActionButton.extended(
               key: const Key('add_to_library_fab'),
-              onPressed: isAdding ? null : onAdd,
-              backgroundColor: isAdding ? colors.surfaceRaised : colors.accent,
-              foregroundColor: isAdding ? colors.text : colors.onAccent,
+              onPressed: editorOpen ? null : onAdd,
+              backgroundColor: editorOpen
+                  ? colors.surfaceRaised
+                  : colors.accent,
+              foregroundColor: editorOpen ? colors.text : colors.onAccent,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppConstants.pillRadius),
               ),
               label: Text(
                 LocalizationService().translate('add_to_library').toUpperCase(),
                 style: AppTypography.display(
-                  color: isAdding ? colors.text : colors.onAccent,
+                  color: editorOpen ? colors.text : colors.onAccent,
                   fontSize: 15,
                 ),
               ),
-              icon: isAdding
-                  ? SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(colors.text),
-                      ),
-                    )
-                  : const Icon(Icons.add_rounded, size: 18),
+              icon: const Icon(Icons.add_rounded, size: 18),
             ),
           );
         }

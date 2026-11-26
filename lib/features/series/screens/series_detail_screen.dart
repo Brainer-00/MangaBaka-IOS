@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/theme/theme_context.dart';
-import 'package:mangabaka_app/core/database/database.dart'
-    show LibraryCacheLease;
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
@@ -63,7 +61,6 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen>
   late final SeriesFilterDrawerController _filterDrawer;
 
   Stream<LibraryEntry?>? _entryStream;
-  LibraryCacheLease? _addingLease;
   String _selectedTab = 'Info';
 
   /// Completes once the route push transition has settled. The body renders
@@ -93,15 +90,6 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen>
 
   @override
   Series get series => fullSeries ?? widget.series;
-
-  @override
-  bool get isAdding =>
-      _addingLease != null &&
-      identical(_addingLease, getIt<ProfileAuthService>().libraryLease);
-
-  @override
-  set isAdding(bool value) =>
-      _addingLease = value ? getIt<ProfileAuthService>().libraryLease : null;
 
   @override
   String get selectedTab => _selectedTab;
@@ -319,7 +307,7 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen>
                     : SeriesDetailFAB(
                         key: ObjectKey(lease),
                         entryStream: _entryStream,
-                        isAdding: isAdding,
+                        editorOpen: libraryEditorOpen,
                         onAdd: () {
                           if (isCurrent()) addSeriesToLibrary();
                         },

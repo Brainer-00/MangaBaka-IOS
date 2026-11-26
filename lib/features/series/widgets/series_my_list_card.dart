@@ -21,6 +21,7 @@ class SeriesMyListCard extends StatelessWidget {
   final VoidCallback onUpdateChapter;
   final VoidCallback onUpdateVolume;
   final VoidCallback onUpdateRating;
+  final VoidCallback? onEdit;
 
   const SeriesMyListCard({
     super.key,
@@ -31,6 +32,7 @@ class SeriesMyListCard extends StatelessWidget {
     required this.onUpdateChapter,
     required this.onUpdateVolume,
     required this.onUpdateRating,
+    this.onEdit,
   });
 
   int? _parseTotal(String raw) {
@@ -53,23 +55,36 @@ class SeriesMyListCard extends StatelessWidget {
         : null;
 
     final statusColor = AppConstants.getColorForState(entry.state);
+    final progress = pct == null
+        ? null
+        : Text(
+            '${(pct * 100).round()}%',
+            style: AppTypography.sans(
+              color: MbPalette.ensureContrast(
+                statusColor,
+                colors.surface,
+                minimum: 4.5,
+              ),
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+            ),
+          );
 
     return MbCard(
       label: l10n.translate('library'),
-      trailing: pct != null
-          ? Text(
-              '${(pct * 100).round()}%',
-              style: AppTypography.sans(
-                color: MbPalette.ensureContrast(
-                  statusColor,
-                  colors.surface,
-                  minimum: 4.5,
+      trailing: onEdit == null
+          ? progress
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ?progress,
+                IconButton(
+                  tooltip: l10n.translate('library_editor_edit'),
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined, size: 18),
                 ),
-                fontSize: 10.5,
-                fontWeight: FontWeight.w600,
-              ),
-            )
-          : null,
+              ],
+            ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

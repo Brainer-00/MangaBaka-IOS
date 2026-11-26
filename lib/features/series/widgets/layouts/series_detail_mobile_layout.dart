@@ -25,6 +25,7 @@ class SeriesDetailMobileLayout extends StatelessWidget {
   final VoidCallback onUpdateChapter;
   final VoidCallback onUpdateVolume;
   final VoidCallback onUpdateRating;
+  final VoidCallback? onEditEntry;
   final Function(String)? onAuthorTap;
   final Function(String)? onPublisherTap;
   final Widget Function(double hPadding) buildTabContent;
@@ -43,6 +44,7 @@ class SeriesDetailMobileLayout extends StatelessWidget {
     required this.onUpdateChapter,
     required this.onUpdateVolume,
     required this.onUpdateRating,
+    this.onEditEntry,
     this.onAuthorTap,
     this.onPublisherTap,
     required this.buildTabContent,
@@ -86,6 +88,7 @@ class SeriesDetailMobileLayout extends StatelessWidget {
                             onUpdateChapter: onUpdateChapter,
                             onUpdateVolume: onUpdateVolume,
                             onUpdateRating: onUpdateRating,
+                            onEdit: onEditEntry,
                           ),
                           const SizedBox(height: 22),
                         ],

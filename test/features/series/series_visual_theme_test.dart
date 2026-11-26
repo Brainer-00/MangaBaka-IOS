@@ -192,7 +192,7 @@ void main() {
                 onTabChanged: (_) {},
                 onStateChanged: (_) {},
                 onRatingChanged: (_) {},
-                isAdding: false,
+                editorOpen: false,
                 onAdd: () {},
                 onUpdateChapter: () {},
                 onUpdateVolume: () {},

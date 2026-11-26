@@ -20,6 +20,8 @@ import 'package:mangabaka_app/features/series/widgets/series_quick_action_button
 import 'package:mangabaka_app/features/series/widgets/chip.dart';
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
+import 'package:mangabaka_app/features/library/models/library_entry_edit.dart';
+import 'package:mangabaka_app/features/library/widgets/library_entry_editor_sheet.dart';
 import 'package:mangabaka_app/features/series/services/series_service.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
@@ -83,7 +85,8 @@ class MockSeriesService extends Fake implements SeriesService {
 class MockLibraryService extends Fake implements LibraryService {
   final _controller = StreamController<LibraryEntry?>.broadcast(sync: true);
   LibraryEntry? currentEntry;
-  bool createCalled = false;
+  LibraryEntry? authoritativeEntry;
+  LibraryEntryDraft? createdDraft;
   bool deleteCalled = false;
   int? lastProgressChapter;
   bool failProgress = false;
@@ -98,14 +101,29 @@ class MockLibraryService extends Fake implements LibraryService {
   }
 
   @override
-  Future<void> createLibraryEntry(String id, String status) async {
-    createCalled = true;
+  Future<LibraryEntry?> fetchAuthoritativeLibraryEntry(
+    String seriesId, {
+    LibraryCacheLease? lease,
+  }) async => authoritativeEntry ?? currentEntry;
+
+  @override
+  Future<List<AccountLibraryList>> fetchAccountLibraryLists(
+    LibraryCacheLease lease,
+  ) async => [];
+
+  @override
+  Future<LibrarySaveResult> createCompleteLibraryEntry(
+    LibraryEntryDraft draft,
+  ) async {
+    createdDraft = draft;
+    final id = draft.seriesId;
     currentEntry = LibraryEntry(
       id: id,
-      state: status,
+      state: draft.state.value!,
       series: Series.fromJson({'id': id, 'title': 'Test Manga'}),
     );
     _controller.add(currentEntry);
+    return LibrarySaveResult(LibrarySaveOutcome.saved, entry: currentEntry);
   }
 
   @override
@@ -396,6 +414,7 @@ void main() {
     'SeriesDetailScreen allows adding to library when logged in (wide: sidebar button, no FAB)',
     (WidgetTester tester) async {
       mockAuthService.isLoggedIn = true;
+      await SettingsManager().setAddLibraryDefaultTab('paused');
 
       // Set a large viewport for widget tests
       tester.view.physicalSize = const Size(1200, 1600);
@@ -415,7 +434,14 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(mockLibraryService.createCalled, isTrue);
+      expect(find.byType(LibraryEntryEditorSheet), findsOneWidget);
+      expect(find.byType(Dialog), findsOneWidget);
+      expect(mockLibraryService.createdDraft, isNull);
+      await tester.tap(find.text(LocalizationService().translate('save')));
+      await tester.pumpAndSettle();
+      expect(mockLibraryService.createdDraft?.seriesId, testSeries.id);
+      expect(mockLibraryService.createdDraft?.toJson(), {'state': 'paused'});
+      expect(find.byType(SeriesMyListCard), findsOneWidget);
     },
   );
 
@@ -445,9 +471,49 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(mockLibraryService.createCalled, isTrue);
+      expect(find.byType(LibraryEntryEditorSheet), findsOneWidget);
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(mockLibraryService.createdDraft, isNull);
+      await tester.tap(find.text(LocalizationService().translate('cancel')));
+      await tester.pumpAndSettle();
+      expect(find.byType(LibraryEntryEditorSheet), findsNothing);
+      expect(mockLibraryService.createdDraft, isNull);
     },
   );
+
+  for (final width in [500.0, 1200.0]) {
+    testWidgets('tracking-card pencil opens the editor at width $width', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() => tester.view.reset());
+      mockAuthService.isLoggedIn = true;
+      mockLibraryService.currentEntry = LibraryEntry(
+        id: '7',
+        state: 'reading',
+        progressChapter: 3,
+        series: testSeries,
+      );
+      mockLibraryService.authoritativeEntry = LibraryEntry(
+        id: '7',
+        state: 'reading',
+        progressChapter: 48,
+        series: testSeries,
+      );
+      await tester.pumpWidget(createWidgetUnderTest());
+      await tester.pumpAndSettle();
+      final pencil = find.byTooltip(
+        LocalizationService().translate('library_editor_edit'),
+      );
+      await tester.ensureVisible(pencil);
+      await tester.tap(pencil);
+      await tester.pumpAndSettle();
+      expect(find.byType(LibraryEntryEditorSheet), findsOneWidget);
+      expect(find.text('48'), findsOneWidget);
+      expect(mockLibraryService.createdDraft, isNull);
+    });
+  }
 
   testWidgets('SeriesDetailScreen fetches tab data when switching tabs', (
     WidgetTester tester,
@@ -716,12 +782,12 @@ void main() {
                   l10n: LocalizationService(),
                 ),
                 SeriesQuickActionButton(series: series, entry: libraryEntry),
-                const SeriesAddToLibraryButton(isAdding: true, onAdd: _noop),
+                const SeriesAddToLibraryButton(editorOpen: true, onAdd: _noop),
               ],
             ),
             floatingActionButton: SeriesDetailFAB(
               entryStream: Stream.value(null),
-              isAdding: false,
+              editorOpen: false,
               onAdd: _noop,
             ),
           ),
@@ -751,14 +817,15 @@ void main() {
         MbPalette.contrastRatio(fab.foregroundColor!, fab.backgroundColor!),
         greaterThanOrEqualTo(4.5),
       );
-      final wideSpinner = tester.widget<CircularProgressIndicator>(
-        find.descendant(
-          of: find.byKey(const Key('add_to_library_button')),
-          matching: find.byType(CircularProgressIndicator),
-        ),
+      final wideButton = tester.widget<ElevatedButton>(
+        find.byKey(const Key('add_to_library_button')),
       );
+      expect(wideButton.onPressed, isNull);
       expect(
-        MbPalette.contrastRatio(wideSpinner.color!, colors.surfaceRaised),
+        MbPalette.contrastRatio(
+          wideButton.style!.foregroundColor!.resolve({WidgetState.disabled})!,
+          wideButton.style!.backgroundColor!.resolve({WidgetState.disabled})!,
+        ),
         greaterThanOrEqualTo(4.5),
       );
       await tester.pumpWidget(
@@ -767,28 +834,22 @@ void main() {
           home: Scaffold(
             floatingActionButton: SeriesDetailFAB(
               entryStream: Stream.value(null),
-              isAdding: true,
+              editorOpen: true,
               onAdd: _noop,
             ),
           ),
         ),
       );
       await tester.pump();
-      final loadingFab = tester.widget<FloatingActionButton>(
+      final disabledFab = tester.widget<FloatingActionButton>(
         find.byKey(const Key('add_to_library_fab')),
       );
-      expect(loadingFab.onPressed, isNull);
-      expect(loadingFab.backgroundColor, colors.surfaceRaised);
-      final fabSpinner = tester.widget<CircularProgressIndicator>(
-        find.descendant(
-          of: find.byKey(const Key('add_to_library_fab')),
-          matching: find.byType(CircularProgressIndicator),
-        ),
-      );
+      expect(disabledFab.onPressed, isNull);
+      expect(disabledFab.backgroundColor, colors.surfaceRaised);
       expect(
         MbPalette.contrastRatio(
-          fabSpinner.valueColor!.value!,
-          colors.surfaceRaised,
+          disabledFab.foregroundColor!,
+          disabledFab.backgroundColor!,
         ),
         greaterThanOrEqualTo(4.5),
       );

@@ -189,6 +189,12 @@ class SeriesDetailBody extends StatelessWidget {
       }
     }
 
+    void editEntry() {
+      if (entry != null && isTrackingSessionCurrent()) {
+        state.editSeriesLibraryEntry();
+      }
+    }
+
     SeriesDetailTabContent tabContent({
       required double hPadding,
       bool isWide = false,
@@ -224,7 +230,7 @@ class SeriesDetailBody extends StatelessWidget {
         onTabChanged: onTabChanged,
         onStateChanged: setState,
         onRatingChanged: setRating,
-        isAdding: state.isAdding,
+        editorOpen: state.libraryEditorOpen,
         canAdd: canAdd,
         onAdd: () {
           if (isTrackingSessionCurrent()) state.addSeriesToLibrary();
@@ -232,6 +238,7 @@ class SeriesDetailBody extends StatelessWidget {
         onUpdateChapter: updateChapter,
         onUpdateVolume: updateVolume,
         onUpdateRating: updateRating,
+        onEditEntry: editEntry,
         buildTabContent:
             (hPadding, {isWide = false, wideRightPaddingOnly = false}) =>
                 tabContent(
@@ -255,6 +262,7 @@ class SeriesDetailBody extends StatelessWidget {
       onUpdateChapter: updateChapter,
       onUpdateVolume: updateVolume,
       onUpdateRating: updateRating,
+      onEditEntry: editEntry,
       onAuthorTap: onAuthorTap,
       onPublisherTap: onPublisherTap,
       buildTabContent: (hPadding) => tabContent(hPadding: hPadding),
