@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/widgets/app_keyboard.dart';
 import 'package:flutter/services.dart';
 import 'package:mangabaka_app/core/app_bootstrap.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
@@ -131,6 +132,8 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
     });
   }
 
+  final _keyboardRoutes = KeyboardRouteObserver();
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -152,6 +155,8 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
           // warning that has no fix at the widget level.
           excluding: Platform.isWindows,
           child: MaterialApp(
+            navigatorObservers: [_keyboardRoutes],
+            scrollBehavior: const KeyboardScrollBehavior(),
             navigatorKey: AppConstants.navigatorKey,
             title: AppConstants.appName,
             debugShowCheckedModeBanner: false,
@@ -160,7 +165,11 @@ class _MangaBakaAppState extends State<MangaBakaApp> {
             themeMode: _themes.materialThemeMode,
             builder: (context, child) {
               final content = DesktopWindowFrame(
-                child: BrowserSignInPrompt(child: AppShortcuts(child: child!)),
+                child: AppKeyboard(
+                  child: BrowserSignInPrompt(
+                    child: AppShortcuts(child: child!),
+                  ),
+                ),
               );
               return LogoColorScope(
                 color: _themes.currentLogoColor,

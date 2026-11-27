@@ -272,6 +272,9 @@ class EntryProgressOverlay extends StatelessWidget {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      enableDrag: false,
+      useSafeArea: true,
+      constraints: const BoxConstraints(maxWidth: 540),
       builder: (sheetContext) => ListenableBuilder(
         listenable: auth,
         builder: (sheetContext, _) => !current()
@@ -282,6 +285,7 @@ class EntryProgressOverlay extends StatelessWidget {
                   bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
                 ),
                 child: ProgressUpdateDialog(
+                  mobileSheet: true,
                   initialValue: _progress,
                   title: l10n.translate(
                     _isChapter ? 'update_chapters' : 'update_volumes',

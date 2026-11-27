@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/widgets/guarded_draggable_sheet.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/exceptions/app_exceptions.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
@@ -11,6 +12,7 @@ import 'package:mangabaka_app/core/widgets/design/rating_star.dart';
 import 'package:mangabaka_app/core/widgets/route_dismiss_guard.dart';
 
 class RatingSelectionDialog extends StatefulWidget {
+  final bool mobileSheet;
   final int? initialRating;
   final Future<LibrarySaveOutcome> Function(int) onRatingChanged;
   final Future<bool?> Function(int)? onCheckEntry;
@@ -20,6 +22,7 @@ class RatingSelectionDialog extends StatefulWidget {
     required this.initialRating,
     required this.onRatingChanged,
     this.onCheckEntry,
+    this.mobileSheet = false,
   });
 
   @override
@@ -27,7 +30,15 @@ class RatingSelectionDialog extends StatefulWidget {
 }
 
 class _RatingSelectionDialogState extends State<RatingSelectionDialog>
-    with RouteDismissGuard<RatingSelectionDialog> {
+    with
+        RouteDismissGuard<RatingSelectionDialog>,
+        EditorDismissal<RatingSelectionDialog> {
+  @override
+  bool get exitLocked => _busy;
+
+  @override
+  bool get hasPendingEdits =>
+      _outcome == null && _rating != (widget.initialRating ?? 0);
   late int _rating = widget.initialRating ?? 0;
   bool _busy = false;
   LibrarySaveOutcome? _outcome;
@@ -113,7 +124,7 @@ class _RatingSelectionDialogState extends State<RatingSelectionDialog>
       AppConstants.starColor.withValues(alpha: 0.1),
       colors.surface,
     );
-    return ConstrainedBox(
+    Widget content([ScrollController? scroll]) => ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 540),
       child: Material(
         color: colors.surface,
@@ -124,6 +135,8 @@ class _RatingSelectionDialogState extends State<RatingSelectionDialog>
           top: false,
           minimum: const EdgeInsets.all(20),
           child: SingleChildScrollView(
+            controller: scroll,
+            physics: const AlwaysScrollableScrollPhysics(),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -241,6 +254,8 @@ class _RatingSelectionDialogState extends State<RatingSelectionDialog>
                     TextButton(
                       onPressed: _busy
                           ? null
+                          : widget.mobileSheet
+                          ? requestEditorDismissal
                           : () {
                               if (!_busy) Navigator.of(context).pop();
                             },
@@ -263,6 +278,21 @@ class _RatingSelectionDialogState extends State<RatingSelectionDialog>
               ],
             ),
           ),
+        ),
+      ),
+    );
+    if (!widget.mobileSheet) return content();
+    return guardEditorDismissal(
+      GuardedDraggableSheet(
+        openExtent: .60,
+        dismissExtent: .30,
+        canDrag: () => !exitLocked,
+        onDismiss: requestEditorDismissal,
+        builder: (_, scroll, handle) => Column(
+          children: [
+            ?handle,
+            Expanded(child: content(scroll)),
+          ],
         ),
       ),
     );

@@ -65,6 +65,7 @@ class _SearchSuggestionsPanelState extends State<SearchSuggestionsPanel> {
       ),
       clipBehavior: Clip.antiAlias,
       child: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: List.generate(widget.results.length, (index) {

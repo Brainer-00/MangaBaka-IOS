@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/widgets/guarded_draggable_sheet.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/database/database.dart'
     show LibraryCacheLease;
@@ -126,7 +127,9 @@ class LibraryEntryEditorSheet extends StatefulWidget {
 }
 
 class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
-    with RouteDismissGuard<LibraryEntryEditorSheet> {
+    with
+        RouteDismissGuard<LibraryEntryEditorSheet>,
+        EditorDismissal<LibraryEntryEditorSheet> {
   static final _firstDate = DateTime(1679);
   static final _lastDate = DateTime(2262, 12, 31);
   static const _maxLists = 30;
@@ -135,7 +138,6 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
 
   final _form = GlobalKey<FormState>();
   final _dialogScroll = ScrollController();
-  final _sheet = DraggableScrollableController();
   ScrollController? _sheetScroll;
   final _controllers = {
     for (final field in _Field.values) field: TextEditingController(),
@@ -188,7 +190,6 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
       _collectionOptionsChanged,
     );
     _dialogScroll.dispose();
-    _sheet.dispose();
     for (final controller in _controllers.values) {
       controller.dispose();
     }
@@ -234,11 +235,7 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
       }
       setState(() {
         _original = entry;
-        _state =
-            entry?.state ??
-            (LibraryEntryDraft.states.contains(widget.defaultState)
-                ? widget.defaultState
-                : 'plan_to_read');
+        _state = entry?.state ?? _defaultEntryState;
         _private = entry?.isPrivate;
         _originalLists = entry == null ? <int>{} : entry.listIds?.toSet();
         _selectedLists
@@ -461,9 +458,26 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
     if (didPop) _closed = true;
   }
 
-  void _cancel() {
-    if (canPopNotifier.value) _close();
-  }
+  @override
+  bool get exitLocked => _current && !canPopNotifier.value;
+
+  @override
+  bool get hasPendingEdits =>
+      _editable &&
+      (_state != (_original?.state ?? _defaultEntryState) ||
+          (_private ?? false) != (_original?.isPrivate ?? false) ||
+          !setEquals(_originalLists ?? const <int>{}, _selectedLists) ||
+          _controllers.entries.any(
+            (field) =>
+                field.value.text != (_initial(field.key)?.toString() ?? ''),
+          ));
+
+  String get _defaultEntryState =>
+      LibraryEntryDraft.states.contains(widget.defaultState)
+      ? widget.defaultState
+      : 'plan_to_read';
+
+  void _cancel() => unawaited(requestEditorDismissal());
 
   void _close() {
     final route = ModalRoute.of(context);
@@ -471,6 +485,7 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
     if (route == null || navigator == null || !route.isActive) return;
     _closed = true;
     if (route.isCurrent) {
+      FocusScope.of(context).unfocus();
       navigator.pop();
     } else {
       navigator.removeRoute(route);
@@ -493,77 +508,6 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
       );
     }
   }
-
-  bool get _canDragDismiss => mounted && !_closed && _phase != _Phase.saving;
-
-  bool _onSheetExtent(DraggableScrollableNotification notification) {
-    if (notification.depth == 0 &&
-        _canDragDismiss &&
-        notification.extent <= _dismissExtent) {
-      // Extent notifications can be dispatched during layout.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_canDragDismiss &&
-            _sheet.isAttached &&
-            _sheet.size <= _dismissExtent) {
-          _close();
-        }
-      });
-    }
-    return false;
-  }
-
-  void _finishHandleDrag([DragEndDetails? details]) {
-    if (!_canDragDismiss || !_sheet.isAttached) return;
-    if (_sheet.size < .75 || (details?.primaryVelocity ?? 0) > 700) {
-      _close();
-    } else {
-      unawaited(
-        _sheet.animateTo(
-          _openExtent,
-          duration: AppConstants.shortAnimationDuration,
-          curve: Curves.easeOut,
-        ),
-      );
-    }
-  }
-
-  Widget _dragHandle(BuildContext context, bool saving) => Semantics(
-    label: _t('library_editor_drag_handle'),
-    onDismiss: saving
-        ? null
-        : () {
-            if (_canDragDismiss) _close();
-          },
-    child: GestureDetector(
-      key: const ValueKey('library_editor_drag_handle'),
-      behavior: HitTestBehavior.opaque,
-      onVerticalDragUpdate: saving
-          ? null
-          : (details) {
-              if (!_canDragDismiss || !_sheet.isAttached) return;
-              _sheet.jumpTo(
-                (_sheet.size - _sheet.pixelsToSize(details.delta.dy)).clamp(
-                  _dismissExtent,
-                  _openExtent,
-                ),
-              );
-            },
-      onVerticalDragEnd: saving ? null : _finishHandleDrag,
-      onVerticalDragCancel: saving ? null : _finishHandleDrag,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: context.colors.textMuted,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: const SizedBox(width: 36, height: 4),
-          ),
-        ),
-      ),
-    ),
-  );
 
   Future<void> _checkEntry() async {
     if (!_live || _checking) return;
@@ -696,13 +640,12 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
           ],
         ),
       );
-      Widget frame(ScrollController scroll) => SafeArea(
+      Widget frame(ScrollController scroll, [Widget? handle]) => SafeArea(
         top: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (widget.mobile && MediaQuery.viewInsetsOf(context).bottom == 0)
-              _dragHandle(context, saving),
+            ?handle,
             Expanded(
               child: IgnorePointer(
                 ignoring: saving,
@@ -721,31 +664,21 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
           ],
         ),
       );
-      return widget.mobile
-          ? NotificationListener<DraggableScrollableNotification>(
-              onNotification: _onSheetExtent,
-              child: DraggableScrollableSheet(
-                controller: _sheet,
-                expand: false,
-                initialChildSize: _openExtent,
-                maxChildSize: _openExtent,
-                minChildSize: _dismissExtent,
-                shouldCloseOnMinExtent: false,
-                snap: true,
-                builder: (context, scroll) {
+      return guardEditorDismissal(
+        widget.mobile
+            ? GuardedDraggableSheet(
+                openExtent: _openExtent,
+                dismissExtent: _dismissExtent,
+                handleKey: const ValueKey('library_editor_drag_handle'),
+                canDrag: () => !_closed && !exitLocked,
+                onDismiss: requestEditorDismissal,
+                builder: (_, scroll, handle) {
                   _sheetScroll = scroll;
-                  return Material(
-                    color: colors.surface,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(24),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: frame(scroll),
-                  );
+                  return frame(scroll, handle);
                 },
-              ),
-            )
-          : frame(_dialogScroll);
+              )
+            : frame(_dialogScroll),
+      );
     },
   );
 

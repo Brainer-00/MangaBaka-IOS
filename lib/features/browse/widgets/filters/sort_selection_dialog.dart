@@ -13,8 +13,8 @@ class SortSelectionDialog {
     required ValueChanged<String?> onSortSelected,
   }) {
     showModalBottomSheet(
+      showDragHandle: true,
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (BuildContext dialogContext) {
         return Container(
@@ -30,8 +30,6 @@ class SortSelectionDialog {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 12),
-              _buildHeader(dialogContext),
-              const SizedBox(height: 24),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Text(
@@ -81,19 +79,6 @@ class SortSelectionDialog {
           ),
         );
       },
-    );
-  }
-
-  static Widget _buildHeader(BuildContext context) {
-    return Center(
-      child: Container(
-        width: 32,
-        height: 4,
-        decoration: BoxDecoration(
-          color: context.colors.border,
-          borderRadius: BorderRadius.circular(2),
-        ),
-      ),
     );
   }
 }

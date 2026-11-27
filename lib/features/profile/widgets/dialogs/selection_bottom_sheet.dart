@@ -17,8 +17,8 @@ class SelectionBottomSheet {
     bool isScrollable = false,
   }) {
     showModalBottomSheet(
+      showDragHandle: true,
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: isScrollable,
       builder: (BuildContext dialogContext) {
         return Container(
@@ -36,17 +36,6 @@ class SelectionBottomSheet {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: dialogContext.colors.surfaceRaised,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
               Text(
                 title.toUpperCase(),
                 style: AppTypography.display(

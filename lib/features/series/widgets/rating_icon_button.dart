@@ -46,6 +46,7 @@ class RatingIconButton extends StatelessWidget {
                 bottom: MediaQuery.of(ctx).viewInsets.bottom,
               ),
               child: RatingSelectionDialog(
+                mobileSheet: true,
                 initialRating: currentRating,
                 onRatingChanged: (rating) async {
                   await onRatingChanged(rating);

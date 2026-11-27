@@ -201,6 +201,8 @@ void main() {
       );
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
 
       await tester.pumpWidget(
         MaterialApp(
@@ -371,6 +373,8 @@ void main() {
     expect(find.byType(RatingSelectionDialog), findsOneWidget);
     expect(tester.widget<Slider>(find.byType(Slider)).value, 75);
     await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Discard'));
     await tester.pumpAndSettle();
     expect(calls, 0);
     await tester.tap(find.byType(IconButton));

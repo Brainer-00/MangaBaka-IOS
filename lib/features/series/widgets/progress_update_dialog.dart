@@ -1,5 +1,6 @@
 import 'package:mangabaka_app/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/widgets/guarded_draggable_sheet.dart';
 import 'package:flutter/services.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
@@ -7,6 +8,7 @@ import 'package:mangabaka_app/core/theme/theme_context.dart';
 import 'package:mangabaka_app/core/widgets/app_snack_bar.dart';
 
 class ProgressUpdateDialog extends StatefulWidget {
+  final bool mobileSheet;
   final int initialValue;
   final String title;
   final String maxValue;
@@ -18,13 +20,21 @@ class ProgressUpdateDialog extends StatefulWidget {
     required this.title,
     required this.maxValue,
     required this.onUpdate,
+    this.mobileSheet = false,
   });
 
   @override
   State<ProgressUpdateDialog> createState() => _ProgressUpdateDialogState();
 }
 
-class _ProgressUpdateDialogState extends State<ProgressUpdateDialog> {
+class _ProgressUpdateDialogState extends State<ProgressUpdateDialog>
+    with EditorDismissal<ProgressUpdateDialog> {
+  @override
+  bool get exitLocked => _isSubmitting;
+
+  @override
+  bool get hasPendingEdits =>
+      _controller.text != widget.initialValue.toString();
   int? _currentValue;
   late TextEditingController _controller;
   bool _isSubmitting = false;
@@ -53,10 +63,13 @@ class _ProgressUpdateDialogState extends State<ProgressUpdateDialog> {
   Future<void> _save() async {
     final value = _currentValue;
     if (_isSubmitting || value == null) return;
+    FocusScope.of(context).unfocus();
     setState(() => _isSubmitting = true);
     try {
       await widget.onUpdate(value);
-      if (mounted) Navigator.pop(context);
+      if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+        Navigator.pop(context);
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
@@ -73,7 +86,7 @@ class _ProgressUpdateDialogState extends State<ProgressUpdateDialog> {
     final l10n = LocalizationService();
     final colors = context.colors;
 
-    return Container(
+    Widget content([ScrollController? scroll]) => Container(
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.vertical(
@@ -87,20 +100,23 @@ class _ProgressUpdateDialogState extends State<ProgressUpdateDialog> {
         24 + MediaQuery.of(context).padding.bottom,
       ),
       child: SingleChildScrollView(
+        controller: scroll,
+        physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 32,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colors.border,
-                  borderRadius: BorderRadius.circular(2),
+            if (!widget.mobileSheet)
+              Center(
+                child: Container(
+                  width: 32,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
             const SizedBox(height: 24),
             Row(
               children: [
@@ -198,9 +214,7 @@ class _ProgressUpdateDialogState extends State<ProgressUpdateDialog> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
-                  onPressed: _isSubmitting
-                      ? null
-                      : () => Navigator.pop(context),
+                  onPressed: _isSubmitting ? null : requestEditorDismissal,
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,
@@ -260,6 +274,22 @@ class _ProgressUpdateDialogState extends State<ProgressUpdateDialog> {
           ],
         ),
       ),
+    );
+    return guardEditorDismissal(
+      widget.mobileSheet
+          ? GuardedDraggableSheet(
+              openExtent: .56,
+              dismissExtent: .28,
+              canDrag: () => !exitLocked,
+              onDismiss: requestEditorDismissal,
+              builder: (_, scroll, handle) => Column(
+                children: [
+                  ?handle,
+                  Expanded(child: content(scroll)),
+                ],
+              ),
+            )
+          : content(),
     );
   }
 }

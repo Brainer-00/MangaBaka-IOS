@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/features/library/widgets/collection_header_search.dart';
 import 'package:mangabaka_app/features/library/import/bulk_import_screen.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
@@ -61,6 +62,8 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
 
   late final LibraryService _libraryService;
   late final LibrarySession _session;
+  final _collectionSearch = CollectionHeaderSearch();
+  var _collectionsKey = GlobalKey<LibraryCollectionsPanelState>();
   final FocusNode _searchFocus = FocusNode();
   final Map<String, ScrollController> _scrollControllers = {};
 
@@ -72,11 +75,21 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
   bool _openedCollections = false;
 
   void focusSearch() {
-    if (!_showCollections) _searchFocus.requestFocus();
+    if (_showCollections) {
+      _collectionSearch.open();
+    } else {
+      _searchFocus.requestFocus();
+    }
   }
 
   @override
-  Future<void> refresh() => _session.refresh();
+  Future<void> refresh() async {
+    if (_showCollections) {
+      await _collectionsKey.currentState?.refresh();
+    } else {
+      await _session.refresh();
+    }
+  }
 
   @override
   void initState() {
@@ -84,6 +97,7 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
     _libraryService = getIt<LibraryService>();
     _session = LibrarySession(onEntries: _onEntries);
     _observedEntries = _session.entriesStream;
+    _observedLease = _session.lease;
     _session.addListener(_onSession);
   }
 
@@ -94,11 +108,13 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
     for (final c in _scrollControllers.values) {
       c.dispose();
     }
+    _collectionSearch.dispose();
     _searchFocus.dispose();
     super.dispose();
   }
 
   Stream<List<LibraryEntry>>? _observedEntries;
+  Object? _observedLease;
 
   void _onSession() {
     if (!mounted) return;
@@ -106,6 +122,12 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
       if (!identical(_observedEntries, _session.entriesStream)) {
         _observedEntries = _session.entriesStream;
         _entries = null;
+      }
+      if (!identical(_observedLease, _session.lease)) {
+        _observedLease = _session.lease;
+        _collectionsKey = GlobalKey<LibraryCollectionsPanelState>();
+        _collectionSearch.close();
+        _collectionSearch.setAvailable(true);
       }
     });
   }
@@ -236,12 +258,21 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
               excluding: !_showCollections,
               child: Column(
                 children: [
-                  DesktopPageHeader(title: l10n.translate('library')),
+                  DesktopPageHeader(
+                    title: l10n.translate('library'),
+                    actions: [
+                      SizedBox(
+                        width: 240,
+                        child: CollectionSearchSlot(search: _collectionSearch),
+                      ),
+                    ],
+                  ),
                   _sectionSelector(l10n),
                   if (_openedCollections)
                     Expanded(
                       child: LibraryCollectionsPanel(
-                        key: ObjectKey(lease),
+                        key: _collectionsKey,
+                        search: _collectionSearch,
                         lease: lease,
                         active: _showCollections,
                         loggedIn: true,

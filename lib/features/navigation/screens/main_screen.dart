@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/widgets/app_keyboard.dart';
 import 'package:mangabaka_app/core/constants/mock_series_data.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
@@ -79,6 +80,7 @@ class MainScreenState extends State<MainScreen> {
 
   /// Nested navigator for non-bottom landscape layouts, so the navbar stays
   /// visible while series detail (or any pushed route) is open.
+  final _keyboardRoutes = KeyboardRouteObserver();
   final GlobalKey<NavigatorState> _contentNavigatorKey =
       GlobalKey<NavigatorState>();
 
@@ -140,6 +142,7 @@ class MainScreenState extends State<MainScreen> {
 
   void _onItemTapped(int index) {
     if (_selectedIndex == index) return;
+    AppKeyboard.dismiss();
     _logger.info('Tab switched to: $index');
     setState(() => _selectedIndex = index);
     _selectedIndexNotifier.value = index;
@@ -257,7 +260,13 @@ class MainScreenState extends State<MainScreen> {
   Widget _flatContent() {
     return Stack(
       children: [
-        IndexedStack(index: _selectedIndex, children: _pages),
+        IndexedStack(
+          index: _selectedIndex,
+          children: [
+            for (var i = 0; i < _pages.length; i++)
+              ExcludeFocus(excluding: i != _selectedIndex, child: _pages[i]),
+          ],
+        ),
         const SyncProgressOverlay(),
       ],
     );
@@ -271,13 +280,19 @@ class MainScreenState extends State<MainScreen> {
       children: [
         Navigator(
           key: _contentNavigatorKey,
+          observers: [_keyboardRoutes],
           onGenerateInitialRoutes: (_, _) => [
             PageRouteBuilder<void>(
               opaque: true,
               pageBuilder: (_, _, _) => ValueListenableBuilder<int>(
                 valueListenable: _selectedIndexNotifier,
-                builder: (_, index, _) =>
-                    IndexedStack(index: index, children: _pages),
+                builder: (_, index, _) => IndexedStack(
+                  index: index,
+                  children: [
+                    for (var i = 0; i < _pages.length; i++)
+                      ExcludeFocus(excluding: i != index, child: _pages[i]),
+                  ],
+                ),
               ),
               // The tab root never animates in; only routes pushed on top of
               // it do.

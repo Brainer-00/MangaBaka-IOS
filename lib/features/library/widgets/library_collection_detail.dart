@@ -12,7 +12,7 @@ class _CollectionDetail extends StatefulWidget {
 
 class _CollectionDetailState extends State<_CollectionDetail> {
   _Catalog get _catalog => widget.catalog;
-  final _search = TextEditingController();
+  final _search = CollectionHeaderSearch();
   bool _selecting = false;
   bool _submitting = false;
   final _selected = <String>{};
@@ -33,7 +33,7 @@ class _CollectionDetailState extends State<_CollectionDetail> {
   }
 
   void _invalidateSelection() {
-    if (!_catalog.live) _search.clear();
+    if (!_catalog.live) _search.close();
     if (!_catalog.canWrite ||
         _catalog.find(widget.listId)?.hasCurrentMembers != true) {
       _clearSelection();
@@ -57,7 +57,7 @@ class _CollectionDetailState extends State<_CollectionDetail> {
       (collection.members ?? const <LibraryEntry>[]).where(
         (entry) =>
             _contentVisible(entry) &&
-            _matches(entry, _search.text.trim().toLowerCase()),
+            _matches(entry, _search.text.text.trim().toLowerCase()),
       );
 
   Future<void> _removeTitles(LibraryCollection collection) async {
@@ -116,24 +116,72 @@ class _CollectionDetailState extends State<_CollectionDetail> {
       _catalog,
       LocalizationService(),
       SettingsManager(),
+      _search,
+      _search.text,
     ]),
     builder: (context, _) {
       final collection = _catalog.find(widget.listId);
-      return Scaffold(
-        appBar: AppBar(title: Text(_t('collection_my_lists'))),
-        body: SafeArea(
-          top: false,
-          child: !_catalog.live
-              ? _CollectionMessage(_t('collection_session_changed'))
-              : collection == null
-              ? _CollectionMessage(
-                  _t('collection_unavailable'),
-                  onRetry: _catalog.refresh,
-                )
-              : RefreshIndicator(
-                  onRefresh: _catalog.refresh,
-                  child: _content(context, collection),
-                ),
+      final searching = _search.expanded;
+      return PopScope(
+        canPop: !searching,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && searching) {
+            _search.close();
+            _clearSelection();
+          }
+        },
+        child: Actions(
+          actions: {
+            RefreshIntent: CallbackAction<RefreshIntent>(
+              onInvoke: (_) {
+                _catalog.refresh();
+                return null;
+              },
+            ),
+          },
+          child: Focus(
+            autofocus: true,
+            child: Scaffold(
+              appBar: AppBar(
+                automaticallyImplyLeading: !searching,
+                title: searching
+                    ? CollectionSearchField(
+                        search: _search,
+                        label: _t('collection_search_titles'),
+                        onChanged: (_) => _clearSelection(),
+                      )
+                    : Text(_t('collection_my_lists')),
+                actions: [
+                  if (!searching && collection != null && _catalog.live)
+                    IconButton(
+                      tooltip: _t('collection_search_titles'),
+                      onPressed: _search.open,
+                      icon: const Icon(Icons.search),
+                    ),
+                ],
+              ),
+              body: SafeArea(
+                top: false,
+                child: !_catalog.live
+                    ? _CollectionMessage(_t('collection_session_changed'))
+                    : collection == null
+                    ? _CollectionMessage(
+                        _t('collection_unavailable'),
+                        onRetry: _catalog.refresh,
+                      )
+                    : Semantics(
+                        customSemanticsActions: {
+                          CustomSemanticsAction(label: _t('sync_now')):
+                              _catalog.refresh,
+                        },
+                        child: RefreshIndicator(
+                          onRefresh: _catalog.refresh,
+                          child: _content(context, collection),
+                        ),
+                      ),
+              ),
+            ),
+          ),
         ),
       );
     },
@@ -181,12 +229,6 @@ class _CollectionDetailState extends State<_CollectionDetail> {
                       ],
                     ),
                     Text(_count(list.seriesCount!)),
-                    const SizedBox(height: 10),
-                    _CollectionSearch(
-                      label: _t('collection_search_titles'),
-                      controller: _search,
-                      onChanged: (_) => setState(_selected.clear),
-                    ),
                     const SizedBox(height: 8),
                     if (_selecting)
                       Wrap(
@@ -260,12 +302,6 @@ class _CollectionDetailState extends State<_CollectionDetail> {
                             icon: const Icon(Icons.checklist),
                             label: Text(_t('collection_select')),
                           ),
-                          IconButton(
-                            color: context.colors.accentForeground,
-                            tooltip: _t('sync_now'),
-                            onPressed: _catalog.busy ? null : _catalog.refresh,
-                            icon: const Icon(Icons.refresh),
-                          ),
                         ],
                       ),
                     if (_catalog.busy || _submitting)
@@ -295,7 +331,7 @@ class _CollectionDetailState extends State<_CollectionDetail> {
                         ? 'collection_list_incomplete'
                         : list.seriesCount == 0
                         ? 'collection_no_titles'
-                        : _search.text.trim().isNotEmpty
+                        : _search.text.text.trim().isNotEmpty
                         ? 'no_results'
                         : 'collection_no_visible_titles',
                   ),

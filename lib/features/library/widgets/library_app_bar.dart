@@ -26,6 +26,8 @@ class LibraryAppBar extends StatelessWidget implements PreferredSizeWidget {
   final SearchFilters filters;
   final String query;
   final bool showLibraryActions;
+  final bool searchAvailable;
+  final Widget? contextualSearch;
 
   final VoidCallback onEnterSearch;
   final VoidCallback onExitSearch;
@@ -49,6 +51,8 @@ class LibraryAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.filters,
     this.query = '',
     this.showLibraryActions = true,
+    this.searchAvailable = true,
+    this.contextualSearch,
     required this.onEnterSearch,
     required this.onExitSearch,
     required this.onQueryChanged,
@@ -74,16 +78,18 @@ class LibraryAppBar extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: true,
       title: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: _maxSearchWidth),
-        child: LibrarySearchBar(
-          focusNode: searchFocusNode,
-          entriesStream: entriesStream,
-          onResultSelected: onResultSelected,
-          onChanged: onQueryChanged,
-          initialFilters: filters,
-          initialQuery: query,
-          onFilterApplied: onFiltersChanged,
-          onBackTap: onExitSearch,
-        ),
+        child:
+            contextualSearch ??
+            LibrarySearchBar(
+              focusNode: searchFocusNode,
+              entriesStream: entriesStream,
+              onResultSelected: onResultSelected,
+              onChanged: onQueryChanged,
+              initialFilters: filters,
+              initialQuery: query,
+              onFilterApplied: onFiltersChanged,
+              onBackTap: onExitSearch,
+            ),
       ),
       bottom: bottom,
     );
@@ -96,8 +102,9 @@ class LibraryAppBar extends StatelessWidget implements PreferredSizeWidget {
 
     return AppBar(
       centerTitle: true,
-      leading: showLibraryActions
+      leading: searchAvailable
           ? IconButton(
+              tooltip: MaterialLocalizations.of(context).searchFieldLabel,
               icon: Icon(Icons.search, color: context.colors.text),
               onPressed: onEnterSearch,
             )

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/widgets/app_keyboard.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
@@ -23,6 +24,7 @@ class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   static void show(BuildContext context) {
+    AppKeyboard.dismiss();
     // Desktop has settings as a page in its sidebar, not a pushed screen.
     final desktop = DesktopShell.current;
     if (desktop != null) {

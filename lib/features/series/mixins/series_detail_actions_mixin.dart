@@ -55,6 +55,7 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
                     bottom: MediaQuery.of(context).viewInsets.bottom,
                   ),
                   child: RatingSelectionDialog(
+                    mobileSheet: true,
                     initialRating: entry.rating,
                     onRatingChanged: (rating) async {
                       final result = await libraryService
@@ -94,6 +95,9 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      enableDrag: false,
+      useSafeArea: true,
+      constraints: const BoxConstraints(maxWidth: 540),
       builder: (context) => ListenableBuilder(
         listenable: auth,
         builder: (context, _) => !current()
@@ -103,6 +107,7 @@ mixin SeriesDetailActionsMixin<T extends StatefulWidget> on State<T> {
                   bottom: MediaQuery.of(context).viewInsets.bottom,
                 ),
                 child: ProgressUpdateDialog(
+                  mobileSheet: true,
                   initialValue:
                       (isChapter
                           ? entry.progressChapter

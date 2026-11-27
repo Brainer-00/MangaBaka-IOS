@@ -144,6 +144,11 @@ class AppTheme {
   static BottomSheetThemeData _bottomSheet(MbPalette palette) =>
       BottomSheetThemeData(
         backgroundColor: palette.surface,
+        dragHandleColor: MbPalette.ensureContrast(
+          palette.textMuted,
+          palette.surface,
+          minimum: 3,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(AppConstants.largeRadius),

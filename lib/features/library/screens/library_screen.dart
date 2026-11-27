@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/features/library/widgets/collection_header_search.dart';
 import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
@@ -60,6 +61,8 @@ class LibraryScreenState extends State<LibraryScreen>
   late final TabController _tabController;
   late final Map<String, ScrollController> _scrollControllers;
 
+  final collectionSearch = CollectionHeaderSearch();
+  var _collectionsKey = GlobalKey<LibraryCollectionsPanelState>();
   final FocusNode _searchFocusNode = FocusNode();
 
   String _query = '';
@@ -87,6 +90,10 @@ class LibraryScreenState extends State<LibraryScreen>
   }
 
   void enterSearchMode() {
+    if (_showCollections) {
+      collectionSearch.open();
+      return;
+    }
     setState(() => _isSearching = true);
     _searchFocusNode.requestFocus();
   }
@@ -130,6 +137,7 @@ class LibraryScreenState extends State<LibraryScreen>
 
     _session = LibrarySession(onEntries: _onEntriesUpdate);
     _observedEntries = _session.entriesStream;
+    _observedLease = _session.lease;
     _session.addListener(_onSessionChanged);
 
     // The shared top nav bar hosts this screen's search field on wide
@@ -149,6 +157,7 @@ class LibraryScreenState extends State<LibraryScreen>
     for (final controller in _scrollControllers.values) {
       controller.dispose();
     }
+    collectionSearch.dispose();
     _searchFocusNode.dispose();
     super.dispose();
   }
@@ -159,12 +168,19 @@ class LibraryScreenState extends State<LibraryScreen>
   }
 
   Stream<List<LibraryEntry>>? _observedEntries;
+  Object? _observedLease;
 
   void _onSessionChanged() {
     if (!mounted) return;
     if (!identical(_observedEntries, _session.entriesStream)) {
       _observedEntries = _session.entriesStream;
       _tabs.setEntries(const []);
+    }
+    if (!identical(_observedLease, _session.lease)) {
+      _observedLease = _session.lease;
+      _collectionsKey = GlobalKey<LibraryCollectionsPanelState>();
+      collectionSearch.close();
+      collectionSearch.setAvailable(true);
     }
     setState(() {});
   }
@@ -188,6 +204,11 @@ class LibraryScreenState extends State<LibraryScreen>
   // ─── Search ──────────────────────────────────────────────────────────────
 
   void _exitSearch() {
+    if (_showCollections) {
+      collectionSearch.close();
+      return;
+    }
+    _searchFocusNode.unfocus();
     setState(() {
       _isSearching = false;
       _query = '';
@@ -207,15 +228,21 @@ class LibraryScreenState extends State<LibraryScreen>
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([LocalizationService(), SettingsManager()]),
+      listenable: Listenable.merge([
+        LocalizationService(),
+        SettingsManager(),
+        collectionSearch,
+      ]),
       builder: (context, _) {
         final isGrid = SettingsManager().resolvedLibraryListStyle.isGrid;
 
         return PopScope(
           // Back leaves search before it leaves the tab.
-          canPop: _showCollections || !_isSearching,
+          canPop: _showCollections ? !collectionSearch.expanded : !_isSearching,
           onPopInvokedWithResult: (didPop, _) {
-            if (didPop) return;
+            if (didPop || (_showCollections && !collectionSearch.expanded)) {
+              return;
+            }
             _exitSearch();
           },
           child: StreamBuilder<List<LibraryEntry>>(
@@ -293,7 +320,8 @@ class LibraryScreenState extends State<LibraryScreen>
                               enabled: _showCollections,
                               child: _openedCollections
                                   ? LibraryCollectionsPanel(
-                                      key: ObjectKey(_session.lease),
+                                      key: _collectionsKey,
+                                      search: collectionSearch,
                                       lease: _session.lease,
                                       active: _showCollections,
                                       loggedIn: _session.isLoggedIn,
@@ -359,7 +387,14 @@ class LibraryScreenState extends State<LibraryScreen>
     if (MainScreen.showSearchBarInTopNavBar(context)) return null;
 
     return LibraryAppBar(
-      isSearching: _isSearching && !_showCollections,
+      isSearching: _showCollections ? collectionSearch.expanded : _isSearching,
+      searchAvailable: !_showCollections || collectionSearch.available,
+      contextualSearch: _showCollections
+          ? CollectionSearchField(
+              search: collectionSearch,
+              label: LocalizationService().translate('collection_search_lists'),
+            )
+          : null,
       showLibraryActions: !_showCollections,
       isLandscape: MediaQuery.orientationOf(context) == Orientation.landscape,
       searchFocusNode: _searchFocusNode,

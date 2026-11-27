@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/features/library/widgets/collection_header_search.dart';
 import 'package:mangabaka_app/features/browse/models/browse_type.dart';
 import 'package:mangabaka_app/features/browse/screens/browse_screen.dart';
 import 'package:mangabaka_app/features/browse/widgets/search/mb_search_bar.dart';
@@ -38,7 +39,10 @@ class TopNavSearchField {
 
   static Widget? _library() {
     final state = LibraryScreen.libraryScreenKey.currentState;
-    if (state == null || state.showingCollections) return null;
+    if (state == null) return null;
+    if (state.showingCollections) {
+      return CollectionSearchSlot(search: state.collectionSearch);
+    }
     return LibrarySearchBar(
       focusNode: state.searchFocusNode,
       entriesStream: state.entriesStream,

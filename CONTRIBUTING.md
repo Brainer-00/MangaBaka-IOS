@@ -36,6 +36,12 @@ When reporting a bug, include as much useful information as possible, such as:
 
 ## Code contributions
 
+### Mobile editors and keyboard focus
+
+Use `GuardedDraggableSheet` for editable mobile bottom sheets. Connect its scroll controller to the primary scroll view and route the handle, downward drag, Back, and Cancel through the editor's dismissal policy. Disable native route dragging on guarded sheets. Keep compact forms at a suitable height, account for keyboard insets, and confirm discard for pending edits. Successful writes close through the editor's own completion path, with its account and in-flight checks.
+
+Immediate-choice sheets can use Material's native drag handle. Keep date pickers, confirmation dialogs, and full-screen routes on their existing presentation paths. For Stacks and future collection editors, reuse the guarded sheet and contextual header search. Keep input accessories inside a `TextFieldTapRegion` so tapping them preserves editing behavior.
+
 Pull requests are welcome.
 
 If you want to work on an existing issue, leaving a comment first is encouraged so contributors do not accidentally duplicate work.

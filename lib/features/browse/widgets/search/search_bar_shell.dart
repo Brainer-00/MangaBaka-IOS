@@ -201,12 +201,14 @@ class _SearchBarShellState extends State<SearchBarShell> {
         child: Material(
           elevation: 8,
           color: Colors.transparent,
-          child: SearchSuggestionsPanel(
-            results: _controller.results,
-            onResultTapped: _controller.selectResult,
-            showSuggestions: true,
-            selectedIndex: _controller.selectedIndex,
-            onResultHovered: widget.onResultHovered,
+          child: TextFieldTapRegion(
+            child: SearchSuggestionsPanel(
+              results: _controller.results,
+              onResultTapped: _controller.selectResult,
+              showSuggestions: true,
+              selectedIndex: _controller.selectedIndex,
+              onResultHovered: widget.onResultHovered,
+            ),
           ),
         ),
       ),
@@ -263,8 +265,10 @@ class _SearchBarShellState extends State<SearchBarShell> {
       onSubmitted: (text) {
         // A chosen suggestion already ran its own selection path; only a plain
         // submission needs the query handed on.
-        if (_controller.resolveSubmission() != null) return;
-        (widget.onSubmitted ?? widget.onChanged)(text);
+        if (_controller.resolveSubmission() == null) {
+          (widget.onSubmitted ?? widget.onChanged)(text);
+        }
+        _focusNode.unfocus();
       },
       decoration: InputDecoration(
         hintText: l10n.translate('search_hint'),

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/widgets/app_keyboard.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -180,6 +181,9 @@ void main() {
         theme: palette == null
             ? null
             : AppTheme.build(showTooltips: true, palette: palette),
+        builder: (_, child) => AppKeyboard(child: child!),
+        scrollBehavior: const KeyboardScrollBehavior(),
+        navigatorObservers: [KeyboardRouteObserver()],
         home: const LibraryScreen(),
       ),
     );
@@ -450,6 +454,7 @@ void main() {
       final writes = <Map<String, dynamic>>[];
       var failReads = false;
       var failMembers = false;
+      var metadataReads = 0;
       Map<String, dynamic> listJson(int id) => {
         'id': id,
         'name': lists[id]!.$1,
@@ -469,6 +474,7 @@ void main() {
       final client = MockClient((request) async {
         final path = request.url.path;
         if (request.method == 'GET') {
+          if (path.endsWith('/lists')) metadataReads++;
           if (failReads) return http.Response('{"status":503}', 503);
           if (path.endsWith('/lists')) {
             if (identical(auth.libraryLease, secondLease)) {
@@ -566,6 +572,13 @@ void main() {
       await tester.tap(find.text('Collections'));
       await tester.pumpAndSettle();
       expect(find.text('Reading room'), findsOneWidget);
+      expect(find.text('My Lists'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+      expect(find.byIcon(Icons.refresh), findsNothing);
+      expect(
+        tester.getCenter(find.widgetWithText(TextButton, 'All')).dx,
+        lessThan(tester.getCenter(find.byTooltip('Create list')).dx),
+      );
       expect(find.text('2 titles'), findsOneWidget);
       expect(find.text('No titles added yet.'), findsOneWidget);
       // Verify the overview under representative tablet and compact split
@@ -580,6 +593,9 @@ void main() {
               AppConstants.semanticYellow,
             ),
           ),
+          builder: (_, child) => AppKeyboard(child: child!),
+          scrollBehavior: const KeyboardScrollBehavior(),
+          navigatorObservers: [KeyboardRouteObserver()],
           home: const LibraryScreen(),
         ),
       );
@@ -598,13 +614,23 @@ void main() {
       expect(find.text('Private shelf'), findsOneWidget);
       await tester.tap(find.widgetWithText(TextButton, 'All'));
       await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.search));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Beta');
       await tester.pumpAndSettle();
       expect(find.text('Private shelf'), findsNothing);
       expect(find.text('Showing 1 matching title'), findsOneWidget);
       expect(find.text('2 titles'), findsOneWidget);
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      expect(libraryState.collectionSearch.focus.hasFocus, isFalse);
+      expect(libraryState.collectionSearch.text.text, 'Beta');
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      expect(libraryState.collectionSearch.focus.hasFocus, isTrue);
       await tester.tap(find.text('Stacks'));
       await tester.pumpAndSettle();
+      expect(libraryState.collectionSearch.focus.hasFocus, isFalse);
       expect(
         find.text('Stacks are not available in this version yet.'),
         findsOneWidget,
@@ -628,8 +654,10 @@ void main() {
       await tester.tap(find.text('Reading room'));
       await tester.pumpAndSettle();
       expect(find.text('2 titles'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+      await tester.tap(find.byTooltip('Search this list'));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Beta');
-      FocusManager.instance.primaryFocus?.unfocus();
       await tester.pumpAndSettle();
       await tester.tap(find.text('Beta story'));
       await tester.pumpAndSettle();
@@ -641,6 +669,13 @@ void main() {
         'Beta',
       );
       expect(find.text('Alpha story'), findsNothing);
+      expect(
+        tester
+            .widget<EditableText>(find.byType(EditableText))
+            .focusNode
+            .hasFocus,
+        isFalse,
+      );
       await tester.enterText(find.byType(TextField), '');
       await tester.pumpAndSettle();
       await tester.tap(find.text('Select'));
@@ -727,9 +762,14 @@ void main() {
         'remove': [],
       });
       expect(lists[1]!.$3, {1, 3});
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing);
       await tester.pageBack();
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), '');
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing);
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Create list'));
       await tester.pumpAndSettle();
@@ -744,7 +784,9 @@ void main() {
         find.descendant(of: form, matching: find.byType(TextFormField)),
         'New shelf',
       );
-      await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+      final create = find.widgetWithText(FilledButton, 'Create');
+      await tester.ensureVisible(create);
+      await tester.tap(create);
       await tester.pumpAndSettle();
       expect(lists[3]!.$1, 'New shelf');
       // The server lists ID 3 first. It is still appended in the current overview.
@@ -769,7 +811,9 @@ void main() {
       await tester.enterText(find.byType(TextFormField), 'Edited shelf');
       await tester.tap(find.byType(SwitchListTile));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      final save = find.widgetWithText(FilledButton, 'Save');
+      await tester.ensureVisible(save);
+      await tester.tap(save);
       await tester.pumpAndSettle();
       expect((lists[3]!.$1, lists[3]!.$2), ('Edited shelf', true));
       await tester.scrollUntilVisible(
@@ -788,7 +832,9 @@ void main() {
         find.descendant(of: editedList, matching: find.byTooltip('Edit list')),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(TextButton, 'Delete list'));
+      final deleteList = find.widgetWithText(TextButton, 'Delete list');
+      await tester.ensureVisible(deleteList);
+      await tester.tap(deleteList);
       await tester.pumpAndSettle();
       expect(
         find.textContaining('progress, notes and ratings'),
@@ -808,7 +854,8 @@ void main() {
         tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
         isFalse,
       );
-      await tester.tap(find.widgetWithText(TextButton, 'Delete list'));
+      await tester.ensureVisible(deleteList);
+      await tester.tap(deleteList);
       await tester.pumpAndSettle();
       await confirmWrite(
         find.descendant(
@@ -824,7 +871,7 @@ void main() {
       Future<void> refreshOverview() async {
         position.jumpTo(0);
         await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithIcon(IconButton, Icons.refresh));
+        await tester.drag(overview, const Offset(0, 330));
         await tester.pumpAndSettle();
       }
 
@@ -850,7 +897,10 @@ void main() {
         isNull,
       );
       failMembers = false;
-      await tester.tap(find.widgetWithIcon(IconButton, Icons.refresh));
+      await tester.drag(
+        find.byKey(const PageStorageKey('collection-detail-1')),
+        const Offset(0, 330),
+      );
       await tester.pumpAndSettle();
       expect(
         find.textContaining('Showing previously verified titles'),
@@ -871,12 +921,14 @@ void main() {
       await refreshOverview();
       expect(find.text('Alpha story'), findsNothing);
       expect(find.text('No titles added yet.'), findsWidgets);
+      await tester.tap(find.byIcon(Icons.search));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'shelf');
       FocusManager.instance.primaryFocus?.unfocus();
       await tester.pumpAndSettle();
       position.jumpTo(position.maxScrollExtent);
       await tester.pumpAndSettle();
-      expect(find.byType(TextField), findsNothing);
+      expect(find.byType(TextField), findsOneWidget);
       position.jumpTo(0);
       await tester.pumpAndSettle();
       expect(
@@ -895,7 +947,7 @@ void main() {
           .first;
       tester.state<ScrollableState>(scrollable).position.jumpTo(0);
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithIcon(IconButton, Icons.refresh));
+      await tester.drag(overview, const Offset(0, 330));
       await tester.pumpAndSettle();
       expect(
         find.textContaining('Previously loaded lists may be out of date'),
@@ -906,6 +958,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Reading room'), findsNothing);
       expect(find.text('You have no lists yet.'), findsOneWidget);
+      final beforeEmptyRefresh = metadataReads;
+      await tester.drag(overview, const Offset(0, 330));
+      await tester.pumpAndSettle();
+      expect(metadataReads, greaterThan(beforeEmptyRefresh));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },

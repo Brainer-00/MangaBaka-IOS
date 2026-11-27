@@ -23,6 +23,8 @@ import 'package:mangabaka_app/features/home/screens/home_screen.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/library/models/library_sync_status.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
+import 'package:mangabaka_app/features/library/screens/library_screen.dart';
+import 'package:mangabaka_app/features/navigation/models/nav_destinations.dart';
 import 'package:mangabaka_app/features/navigation/screens/main_screen.dart';
 import 'package:mangabaka_app/features/navigation/screens/onboarding_screen.dart';
 import 'package:mangabaka_app/features/navigation/widgets/main_top_nav_bar.dart';
@@ -167,6 +169,35 @@ void main() {
     metadata = MockMetadataService();
     getIt.unregister<MetadataService>();
     getIt.registerSingleton<MetadataService>(metadata);
+  });
+
+  testWidgets('bottom tab changes release search focus and retain the query', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+    await SettingsManager().setHasCompletedOnboarding(true);
+    await tester.pumpWidget(const MangaBakaApp());
+    await tester.pump();
+    MainScreen.setTabIndex(NavTabs.library);
+    await tester.pump();
+    final library = LibraryScreen.libraryScreenKey.currentState!;
+    library.enterSearchMode();
+    await tester.pump();
+    await tester.enterText(find.byType(EditableText), 'Retained');
+    expect(library.searchFocusNode.hasFocus, isTrue);
+    MainScreen.setTabIndex(NavTabs.home);
+    await tester.pump();
+    expect(library.searchFocusNode.hasFocus, isFalse);
+    MainScreen.setTabIndex(NavTabs.library);
+    await tester.pump();
+    expect(library.searchFocusNode.hasFocus, isFalse);
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).controller.text,
+      'Retained',
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('App smoke test shows onboarding without an update check', (

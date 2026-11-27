@@ -116,28 +116,32 @@ class _LibraryNotesEditorState extends State<LibraryNotesEditor> {
             ),
           ),
           if (!_preview)
-            FocusTraversalGroup(
-              child: Wrap(
-                children: [
-                  for (final format in _Format.values.take(9))
-                    IconButton(
-                      tooltip: _t(format.label),
-                      onPressed: widget.enabled ? () => _format(format) : null,
-                      icon: Icon(format.icon, size: 20),
+            TextFieldTapRegion(
+              child: FocusTraversalGroup(
+                child: Wrap(
+                  children: [
+                    for (final format in _Format.values.take(9))
+                      IconButton(
+                        tooltip: _t(format.label),
+                        onPressed: widget.enabled
+                            ? () => _format(format)
+                            : null,
+                        icon: Icon(format.icon, size: 20),
+                      ),
+                    PopupMenuButton<_Format>(
+                      tooltip: _t('notes_more'),
+                      enabled: widget.enabled,
+                      onSelected: _format,
+                      itemBuilder: (context) => [
+                        for (final format in _Format.values.skip(9))
+                          PopupMenuItem(
+                            value: format,
+                            child: Text(_t(format.label)),
+                          ),
+                      ],
                     ),
-                  PopupMenuButton<_Format>(
-                    tooltip: _t('notes_more'),
-                    enabled: widget.enabled,
-                    onSelected: _format,
-                    itemBuilder: (context) => [
-                      for (final format in _Format.values.skip(9))
-                        PopupMenuItem(
-                          value: format,
-                          child: Text(_t(format.label)),
-                        ),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           Offstage(

@@ -79,8 +79,8 @@ class ListStyleDialogs {
     final settingsManager = SettingsManager();
 
     showModalBottomSheet(
+      showDragHandle: true,
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (BuildContext dialogContext) {
         return ListenableBuilder(
@@ -101,17 +101,6 @@ class ListStyleDialogs {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(
-                      child: Container(
-                        width: 32,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: context.colors.surfaceRaised,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Text(

@@ -1,6 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart' show CustomSemanticsAction;
+import 'package:mangabaka_app/core/widgets/guarded_draggable_sheet.dart';
+import 'package:mangabaka_app/shared/widgets/app_shortcuts.dart';
+import 'package:mangabaka_app/features/library/widgets/collection_header_search.dart';
 import 'package:mangabaka_app/core/database/database.dart'
     show LibraryCacheLease;
 import 'package:mangabaka_app/core/di/service_locator.dart';
@@ -58,16 +62,19 @@ class LibrarySectionSelector extends StatelessWidget {
     required this.labels,
     required this.selected,
     required this.onChanged,
+    this.alignment = AlignmentDirectional.center,
   });
 
   final List<String> labels;
   final int selected;
   final ValueChanged<int> onChanged;
+  final AlignmentDirectional alignment;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return Center(
+    return Align(
+      alignment: alignment,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -108,24 +115,28 @@ class LibraryCollectionsPanel extends StatefulWidget {
     required this.active,
     required this.loggedIn,
     required this.onLogin,
+    required this.search,
   });
 
   final LibraryCacheLease? lease;
   final bool active;
   final bool loggedIn;
   final VoidCallback onLogin;
+  final CollectionHeaderSearch search;
 
   @override
-  State<LibraryCollectionsPanel> createState() =>
-      _LibraryCollectionsPanelState();
+  LibraryCollectionsPanelState createState() => LibraryCollectionsPanelState();
 }
 
-class _LibraryCollectionsPanelState extends State<LibraryCollectionsPanel>
+class LibraryCollectionsPanelState extends State<LibraryCollectionsPanel>
     with WidgetsBindingObserver {
   late final _Catalog? _catalog;
   final _storage = PageStorageBucket();
   var _stacks = false;
-  final _search = TextEditingController();
+  Future<void> refresh() async {
+    if (!_stacks) await _catalog?.refresh();
+  }
+
   bool? _private;
 
   @override
@@ -155,7 +166,6 @@ class _LibraryCollectionsPanelState extends State<LibraryCollectionsPanel>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _search.dispose();
     _catalog?.dispose();
     super.dispose();
   }
@@ -173,6 +183,7 @@ class _LibraryCollectionsPanelState extends State<LibraryCollectionsPanel>
             if (_stacks == (index == 1)) return;
             FocusScope.of(context).unfocus();
             setState(() => _stacks = index == 1);
+            widget.search.setAvailable(!_stacks);
             _setActive();
           },
         ),
@@ -202,12 +213,16 @@ class _LibraryCollectionsPanelState extends State<LibraryCollectionsPanel>
   }
 
   Widget _lists(_Catalog catalog) => ListenableBuilder(
-    listenable: Listenable.merge([catalog, SettingsManager()]),
+    listenable: Listenable.merge([
+      catalog,
+      SettingsManager(),
+      widget.search.text,
+    ]),
     builder: (context, _) {
       if (!catalog.live) {
         return _CollectionMessage(_t('collection_session_changed'));
       }
-      final query = _search.text.trim().toLowerCase();
+      final query = widget.search.text.text.trim().toLowerCase();
       final all = catalog.collections;
       final shown = [
         for (final collection in all ?? const <LibraryCollection>[])
@@ -232,116 +247,101 @@ class _LibraryCollectionsPanelState extends State<LibraryCollectionsPanel>
               ),
       ].where((row) => !row.$3 || row.$2!.isNotEmpty).toList();
       final incomplete = all?.any((item) => !item.hasCurrentMembers) ?? false;
-      final controls = Column(
+      final controls = Row(
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _t('collection_my_lists'),
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-                IconButton(
-                  color: context.colors.accentForeground,
-                  tooltip: _t('collection_create_list'),
-                  onPressed: catalog.canWrite
-                      ? () => _editList(context, catalog)
-                      : null,
-                  icon: const Icon(Icons.add),
-                ),
-                IconButton(
-                  color: context.colors.accentForeground,
-                  tooltip: _t('sync_now'),
-                  onPressed: catalog.busy ? null : catalog.refresh,
-                  icon: const Icon(Icons.refresh),
-                ),
+          Expanded(
+            child: LibrarySectionSelector(
+              alignment: AlignmentDirectional.centerStart,
+              labels: [
+                _t('all'),
+                _t('collection_public'),
+                _t('collection_private'),
               ],
+              selected: _private == null
+                  ? 0
+                  : _private!
+                  ? 2
+                  : 1,
+              onChanged: (index) =>
+                  setState(() => _private = index == 0 ? null : index == 2),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-            child: _CollectionSearch(
-              label: _t('collection_search_lists'),
-              controller: _search,
-              onChanged: (_) => setState(() {}),
+            padding: const EdgeInsetsDirectional.only(end: 8),
+            child: IconButton(
+              color: context.colors.accentForeground,
+              tooltip: _t('collection_create_list'),
+              onPressed: catalog.canWrite
+                  ? () => _editList(context, catalog)
+                  : null,
+              icon: const Icon(Icons.add),
             ),
           ),
-          LibrarySectionSelector(
-            labels: [
-              _t('all'),
-              _t('collection_public'),
-              _t('collection_private'),
-            ],
-            selected: _private == null
-                ? 0
-                : _private!
-                ? 2
-                : 1,
-            onChanged: (index) =>
-                setState(() => _private = index == 0 ? null : index == 2),
-          ),
-          if (catalog.busy && all != null) const LinearProgressIndicator(),
         ],
       );
-      return RefreshIndicator(
-        onRefresh: catalog.refresh,
-        child: CustomScrollView(
-          key: const PageStorageKey('my-lists-overview'),
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(child: controls),
-            if (all == null && catalog.busy)
-              const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            if (catalog.failed || incomplete)
-              SliverToBoxAdapter(
-                child: _CollectionMessage(
-                  _t(
-                    catalog.failed
-                        ? 'collection_refresh_failed'
-                        : 'collection_members_incomplete',
-                  ),
-                  onRetry: catalog.refresh,
+      return Semantics(
+        customSemanticsActions: {
+          CustomSemanticsAction(label: _t('sync_now')): catalog.refresh,
+        },
+        child: RefreshIndicator(
+          onRefresh: catalog.refresh,
+          child: CustomScrollView(
+            key: const PageStorageKey('my-lists-overview'),
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(child: controls),
+              if (catalog.busy && all != null)
+                const SliverToBoxAdapter(child: LinearProgressIndicator()),
+              if (all == null && catalog.busy)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: CircularProgressIndicator()),
                 ),
-              ),
-            if (all != null && shown.isEmpty && !catalog.failed)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: _CollectionMessage(
-                  _t(
-                    all.isEmpty
-                        ? 'collection_no_lists'
-                        : incomplete && query.isNotEmpty
-                        ? 'collection_no_loaded_matches'
-                        : 'no_results',
+              if (catalog.failed || incomplete)
+                SliverToBoxAdapter(
+                  child: _CollectionMessage(
+                    _t(
+                      catalog.failed
+                          ? 'collection_refresh_failed'
+                          : 'collection_members_incomplete',
+                    ),
+                    onRetry: catalog.refresh,
                   ),
                 ),
+              if (all != null && shown.isEmpty && !catalog.failed)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _CollectionMessage(
+                    _t(
+                      all.isEmpty
+                          ? 'collection_no_lists'
+                          : incomplete && query.isNotEmpty
+                          ? 'collection_no_loaded_matches'
+                          : 'no_results',
+                    ),
+                  ),
+                ),
+              SliverList.builder(
+                itemCount: shown.length,
+                itemBuilder: (context, index) {
+                  final (collection, entries, filtered) = shown[index];
+                  return _listSection(
+                    context,
+                    catalog,
+                    collection,
+                    entries,
+                    filtered,
+                  );
+                },
+                findChildIndexCallback: (key) {
+                  final index = shown.indexWhere(
+                    (row) => row.$1.list.id == (key as ValueKey<int>).value,
+                  );
+                  return index == -1 ? null : index;
+                },
               ),
-            SliverList.builder(
-              itemCount: shown.length,
-              itemBuilder: (context, index) {
-                final (collection, entries, filtered) = shown[index];
-                return _listSection(
-                  context,
-                  catalog,
-                  collection,
-                  entries,
-                  filtered,
-                );
-              },
-              findChildIndexCallback: (key) {
-                final index = shown.indexWhere(
-                  (row) => row.$1.list.id == (key as ValueKey<int>).value,
-                );
-                return index == -1 ? null : index;
-              },
-            ),
-          ],
+            ],
+          ),
         ),
       );
     },

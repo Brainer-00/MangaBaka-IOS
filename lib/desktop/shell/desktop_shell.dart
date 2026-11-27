@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/widgets/app_keyboard.dart';
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/localization/localization_service.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
@@ -53,6 +54,7 @@ class DesktopShellState extends State<DesktopShell> {
 
   static const int settingsIndex = DesktopSidebar.settingsIndex;
 
+  final _keyboardRoutes = KeyboardRouteObserver();
   final GlobalKey<NavigatorState> _contentNavigatorKey =
       GlobalKey<NavigatorState>();
 
@@ -98,6 +100,7 @@ class DesktopShellState extends State<DesktopShell> {
   /// Shows destination [index] (0–4 for the tabs, [settingsIndex] for
   /// settings), unwinding anything pushed over the current one.
   void select(int index) {
+    AppKeyboard.dismiss();
     _contentNavigatorKey.currentState?.popUntil((route) => route.isFirst);
     if (_index.value == index) return;
     _logger.info('Desktop destination switched to: $index');
@@ -206,13 +209,19 @@ class DesktopShellState extends State<DesktopShell> {
       children: [
         Navigator(
           key: _contentNavigatorKey,
+          observers: [_keyboardRoutes],
           onGenerateInitialRoutes: (_, _) => [
             PageRouteBuilder<void>(
               opaque: true,
               pageBuilder: (_, _, _) => ValueListenableBuilder<int>(
                 valueListenable: _index,
-                builder: (_, index, _) =>
-                    IndexedStack(index: index, children: _pages),
+                builder: (_, index, _) => IndexedStack(
+                  index: index,
+                  children: [
+                    for (var i = 0; i < _pages.length; i++)
+                      ExcludeFocus(excluding: i != index, child: _pages[i]),
+                  ],
+                ),
               ),
               transitionsBuilder: (_, _, _, child) => child,
             ),

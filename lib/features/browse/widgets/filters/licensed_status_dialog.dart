@@ -15,8 +15,8 @@ class LicensedStatusDialog {
   }) {
     final current = (selected ?? (f) => f.isLicensed)(currentFilters);
     showModalBottomSheet(
+      showDragHandle: true,
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (BuildContext dialogContext) {
         return Container(
@@ -33,8 +33,6 @@ class LicensedStatusDialog {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildHeader(dialogContext),
-                const SizedBox(height: 24),
                 Text(
                   l10n.translate(titleKey).toUpperCase(),
                   style: AppTypography.display(
@@ -73,19 +71,6 @@ class LicensedStatusDialog {
           ),
         );
       },
-    );
-  }
-
-  static Widget _buildHeader(BuildContext context) {
-    return Center(
-      child: Container(
-        width: 32,
-        height: 4,
-        decoration: BoxDecoration(
-          color: context.colors.border,
-          borderRadius: BorderRadius.circular(2),
-        ),
-      ),
     );
   }
 }

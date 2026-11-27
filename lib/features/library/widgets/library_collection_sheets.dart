@@ -27,6 +27,7 @@ Future<void> _editList(
     isScrollControlled: true,
     isDismissible: false,
     enableDrag: false,
+    backgroundColor: Colors.transparent,
     constraints: const BoxConstraints(maxWidth: 640),
     builder: (context) => _ListEditor(catalog: catalog, list: list),
   );
@@ -50,6 +51,7 @@ Future<void> _addTitles(
     isScrollControlled: true,
     isDismissible: false,
     enableDrag: false,
+    backgroundColor: Colors.transparent,
     constraints: const BoxConstraints(maxWidth: 640),
     builder: (context) => _AddTitles(catalog: catalog, collection: collection),
   );
@@ -159,7 +161,8 @@ class _ListEditor extends StatefulWidget {
   State<_ListEditor> createState() => _ListEditorState();
 }
 
-class _ListEditorState extends State<_ListEditor> {
+class _ListEditorState extends State<_ListEditor>
+    with EditorDismissal<_ListEditor> {
   final _form = GlobalKey<FormState>();
   late var _original = widget.list;
   late final _name = TextEditingController(text: _original?.name);
@@ -167,6 +170,15 @@ class _ListEditorState extends State<_ListEditor> {
   bool _submitting = false;
   String? _error;
   _Catalog get _catalog => widget.catalog;
+
+  @override
+  bool get exitLocked => _submitting && _catalog.live;
+
+  @override
+  bool get hasPendingEdits =>
+      _catalog.live &&
+      (_name.text != (_original?.name ?? '') ||
+          _private != (_original?.isPrivate ?? false));
 
   @override
   void dispose() {
@@ -215,7 +227,12 @@ class _ListEditorState extends State<_ListEditor> {
               name: _name.text,
               isPrivate: _private,
             );
-      if (mounted && _catalog.live) Navigator.pop(context, result);
+      if (mounted &&
+          _catalog.live &&
+          ModalRoute.of(context)?.isCurrent == true) {
+        FocusScope.of(context).unfocus();
+        Navigator.pop(context, result);
+      }
     } on ApiException catch (error) {
       if (mounted && _catalog.live) {
         setState(
@@ -279,134 +296,137 @@ class _ListEditorState extends State<_ListEditor> {
       final valid = _catalog.live && (widget.list == null || list != null);
       final conflict = _error == 'collection_metadata_conflict';
       final editable = valid && !_submitting && _catalog.canWrite && !conflict;
-      return PopScope(
-        canPop: !_submitting || !_catalog.live,
-        child: TextButtonTheme(
-          data: _sheetButtonTheme(context),
-          child: SafeArea(
-            top: false,
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                20,
-                20,
-                20 + MediaQuery.viewInsetsOf(context).bottom,
-              ),
-              child: !valid
-                  ? _CollectionMessage(
-                      _t(
-                        _catalog.live
-                            ? 'collection_unavailable'
-                            : 'collection_session_changed',
-                      ),
-                      onRetry: () => Navigator.pop(context),
-                      buttonLabel: 'close',
-                    )
-                  : Form(
-                      key: _form,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _t(
-                              list == null
-                                  ? 'collection_create_list'
-                                  : 'collection_edit_list',
-                            ),
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _name,
-                            enabled: editable,
-                            validator: _validate,
-                            decoration: InputDecoration(
-                              labelText: _t('collection_name'),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(
+      return guardEditorDismissal(
+        _collectionSheet(
+          context,
+          canDrag: () => !exitLocked,
+          onDismiss: requestEditorDismissal,
+          builder: (scroll) => TextButtonTheme(
+            data: _sheetButtonTheme(context),
+            child: SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                controller: scroll,
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(20),
+                child: !valid
+                    ? _CollectionMessage(
+                        _t(
+                          _catalog.live
+                              ? 'collection_unavailable'
+                              : 'collection_session_changed',
+                        ),
+                        onRetry: requestEditorDismissal,
+                        buttonLabel: 'close',
+                      )
+                    : Form(
+                        key: _form,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
                               _t(
-                                _private
-                                    ? 'collection_private'
-                                    : 'collection_public',
+                                list == null
+                                    ? 'collection_create_list'
+                                    : 'collection_edit_list',
+                              ),
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _name,
+                              enabled: editable,
+                              validator: _validate,
+                              decoration: InputDecoration(
+                                labelText: _t('collection_name'),
                               ),
                             ),
-                            subtitle: Text(
-                              _t(
-                                _private
-                                    ? 'collection_private_help'
-                                    : 'collection_public_help',
-                              ),
-                            ),
-                            activeThumbColor: context.colors.onAccent,
-                            activeTrackColor: context.colors.accent,
-                            value: _private,
-                            onChanged: editable
-                                ? (value) => setState(() => _private = value)
-                                : null,
-                          ),
-                          if (list != null) ...[
-                            Text(_count(list.seriesCount!)),
-                            if (list.createdAt case final created?)
-                              Text(
-                                _t('collection_created').replaceAll(
-                                  '{date}',
-                                  MaterialLocalizations.of(
-                                    context,
-                                  ).formatMediumDate(created.toLocal()),
+                            const SizedBox(height: 8),
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                _t(
+                                  _private
+                                      ? 'collection_private'
+                                      : 'collection_public',
                                 ),
                               ),
-                          ],
-                          if (_error != null)
-                            _CollectionMessage(
-                              _t(_error!),
-                              onRetry: conflict && !_catalog.busy
-                                  ? _reloadMetadata
-                                  : null,
-                              buttonLabel: 'collection_reload_metadata',
-                            ),
-                          if (_submitting) const LinearProgressIndicator(),
-                          const SizedBox(height: 12),
-                          OverflowBar(
-                            alignment: MainAxisAlignment.end,
-                            children: [
-                              TextButton(
-                                onPressed: _submitting
-                                    ? null
-                                    : () => Navigator.pop(context),
-                                child: Text(_t('cancel')),
+                              subtitle: Text(
+                                _t(
+                                  _private
+                                      ? 'collection_private_help'
+                                      : 'collection_public_help',
+                                ),
                               ),
-                              FilledButton(
-                                onPressed: editable ? _submit : null,
-                                child: Text(
-                                  _t(
-                                    list == null ? 'collection_create' : 'save',
+                              activeThumbColor: context.colors.onAccent,
+                              activeTrackColor: context.colors.accent,
+                              value: _private,
+                              onChanged: editable
+                                  ? (value) => setState(() => _private = value)
+                                  : null,
+                            ),
+                            if (list != null) ...[
+                              Text(_count(list.seriesCount!)),
+                              if (list.createdAt case final created?)
+                                Text(
+                                  _t('collection_created').replaceAll(
+                                    '{date}',
+                                    MaterialLocalizations.of(
+                                      context,
+                                    ).formatMediumDate(created.toLocal()),
                                   ),
+                                ),
+                            ],
+                            if (_error != null)
+                              _CollectionMessage(
+                                _t(_error!),
+                                onRetry: conflict && !_catalog.busy
+                                    ? _reloadMetadata
+                                    : null,
+                                buttonLabel: 'collection_reload_metadata',
+                              ),
+                            if (_submitting) const LinearProgressIndicator(),
+                            const SizedBox(height: 12),
+                            OverflowBar(
+                              alignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: _submitting
+                                      ? null
+                                      : requestEditorDismissal,
+                                  child: Text(_t('cancel')),
+                                ),
+                                FilledButton(
+                                  onPressed: editable ? _submit : null,
+                                  child: Text(
+                                    _t(
+                                      list == null
+                                          ? 'collection_create'
+                                          : 'save',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (list != null) ...[
+                              const Divider(),
+                              Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: TextButton.icon(
+                                  style: _destructiveStyle(context),
+                                  onPressed: editable
+                                      ? () => _submit(delete: true)
+                                      : null,
+                                  icon: const Icon(Icons.delete_outline),
+                                  label: Text(_t('collection_delete_list')),
                                 ),
                               ),
                             ],
-                          ),
-                          if (list != null) ...[
-                            const Divider(),
-                            Align(
-                              alignment: AlignmentDirectional.centerStart,
-                              child: TextButton.icon(
-                                style: _destructiveStyle(context),
-                                onPressed: editable
-                                    ? () => _submit(delete: true)
-                                    : null,
-                                icon: const Icon(Icons.delete_outline),
-                                label: Text(_t('collection_delete_list')),
-                              ),
-                            ),
                           ],
-                        ],
+                        ),
                       ),
-                    ),
+              ),
             ),
           ),
         ),
@@ -425,7 +445,13 @@ class _AddTitles extends StatefulWidget {
   State<_AddTitles> createState() => _AddTitlesState();
 }
 
-class _AddTitlesState extends State<_AddTitles> {
+class _AddTitlesState extends State<_AddTitles>
+    with EditorDismissal<_AddTitles> {
+  @override
+  bool get exitLocked => _submitting && _catalog.live;
+
+  @override
+  bool get hasPendingEdits => _catalog.live && _selected.isNotEmpty;
   _Catalog get _catalog => widget.catalog;
   late final Stream<List<LibraryEntry>> _entries;
   final _selected = <String>{};
@@ -509,7 +535,12 @@ class _AddTitlesState extends State<_AddTitles> {
         seriesIds: ids,
         add: true,
       );
-      if (mounted && _catalog.live) Navigator.pop(context, result);
+      if (mounted &&
+          _catalog.live &&
+          ModalRoute.of(context)?.isCurrent == true) {
+        FocusScope.of(context).unfocus();
+        Navigator.pop(context, result);
+      }
     } catch (_) {
       if (mounted && _catalog.live) {
         _writeFeedback(context, CollectionWriteOutcome.rejected);
@@ -531,32 +562,29 @@ class _AddTitlesState extends State<_AddTitles> {
       final members = current?.hasCurrentMembers == true
           ? current!.members
           : null;
-      return PopScope(
-        canPop: !_submitting || !_catalog.live,
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.viewInsetsOf(context).bottom,
-            ),
-            child: FractionallySizedBox(
-              heightFactor: .9,
-              child: !_catalog.live || members == null
-                  ? _CollectionMessage(
-                      _t(
-                        _catalog.live
-                            ? 'collection_list_incomplete'
-                            : 'collection_session_changed',
-                      ),
-                      onRetry: () => Navigator.pop(context),
-                      buttonLabel: 'close',
-                    )
-                  : StreamBuilder<List<LibraryEntry>>(
-                      stream: _entries,
-                      builder: (context, snapshot) =>
-                          _buildPicker(context, snapshot, members),
+      return guardEditorDismissal(
+        _collectionSheet(
+          context,
+          long: true,
+          canDrag: () => !exitLocked,
+          onDismiss: requestEditorDismissal,
+          builder: (scroll) => SafeArea(
+            top: false,
+            child: !_catalog.live || members == null
+                ? _CollectionMessage(
+                    _t(
+                      _catalog.live
+                          ? 'collection_list_incomplete'
+                          : 'collection_session_changed',
                     ),
-            ),
+                    onRetry: requestEditorDismissal,
+                    buttonLabel: 'close',
+                  )
+                : StreamBuilder<List<LibraryEntry>>(
+                    stream: _entries,
+                    builder: (context, snapshot) =>
+                        _buildPicker(context, snapshot, members, scroll),
+                  ),
           ),
         ),
       );
@@ -567,6 +595,7 @@ class _AddTitlesState extends State<_AddTitles> {
     BuildContext context,
     AsyncSnapshot<List<LibraryEntry>> snapshot,
     List<LibraryEntry> members,
+    ScrollController scroll,
   ) {
     final memberIds = members.map((entry) => entry.series.id).toSet();
     final eligible = [
@@ -583,6 +612,8 @@ class _AddTitlesState extends State<_AddTitles> {
         .intersection(_selected);
     final enabled = _catalog.canWrite && !_submitting;
     return CustomScrollView(
+      controller: scroll,
+      physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
@@ -613,9 +644,7 @@ class _AddTitlesState extends State<_AddTitles> {
                       ),
                     ),
                     TextButton(
-                      onPressed: _submitting
-                          ? null
-                          : () => Navigator.pop(context),
+                      onPressed: _submitting ? null : requestEditorDismissal,
                       child: Text(_t('cancel')),
                     ),
                     FilledButton(
@@ -678,3 +707,25 @@ class _AddTitlesState extends State<_AddTitles> {
     );
   }
 }
+
+Widget _collectionSheet(
+  BuildContext context, {
+  bool long = false,
+  required bool Function() canDrag,
+  required Future<void> Function() onDismiss,
+  required Widget Function(ScrollController) builder,
+}) => Padding(
+  padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+  child: GuardedDraggableSheet(
+    openExtent: long ? .9 : .64,
+    dismissExtent: long ? .42 : .28,
+    canDrag: canDrag,
+    onDismiss: onDismiss,
+    builder: (context, scroll, handle) => Column(
+      children: [
+        ?handle,
+        Expanded(child: builder(scroll)),
+      ],
+    ),
+  ),
+);
