@@ -21,6 +21,8 @@ import 'package:mangabaka_app/core/theme/theme_presets.dart';
 // ─── Fake ────────────────────────────────────────────────────────────────────
 
 class _FakeLibraryService extends Fake implements LibraryService {
+  @override
+  final collectionsRevision = ValueNotifier<int>(0);
   bool throwOnDelete = false;
   int reads = 0;
   bool failRead = false;

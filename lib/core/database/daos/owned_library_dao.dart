@@ -278,6 +278,41 @@ class OwnedLibraryDao extends DatabaseAccessor<AppDatabase>
     beforeCommit: beforeCommit,
   );
 
+  /// Changes one membership on known rows without touching tracking fields.
+  /// A null cache value remains unknown until a full membership read succeeds.
+  Future<void> updateListMembership(
+    LibraryCacheLease lease,
+    int listId, {
+    required bool add,
+    Set<String>? seriesIds,
+    void Function()? beforeCommit,
+  }) => _write(lease, () async {
+    final table = ownedLibraryEntries;
+    final query = select(table)
+      ..where(
+        (t) => t.ownerId.equals(lease.owner.id) & t.listIdsJson.isNotNull(),
+      );
+    if (seriesIds != null) {
+      query.where((t) => t.seriesId.isIn(seriesIds));
+    }
+    for (final row in await query.get()) {
+      final memberships = (jsonDecode(row.listIdsJson!) as List)
+          .cast<int>()
+          .toSet();
+      if (!(add ? memberships.add(listId) : memberships.remove(listId))) {
+        continue;
+      }
+      await (update(table)..where(
+            (t) => t.ownerId.equals(lease.owner.id) & t.id.equals(row.id),
+          ))
+          .write(
+            OwnedLibraryEntriesCompanion(
+              listIdsJson: Value(jsonEncode(memberships.toList()..sort())),
+            ),
+          );
+    }
+  }, beforeCommit: beforeCommit);
+
   /// Use only for a successfully completed, unfiltered server snapshot.
   /// An explicit empty snapshot is authoritative. Failed or capped imports
   /// must never call this method.

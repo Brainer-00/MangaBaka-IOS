@@ -2,6 +2,8 @@ import 'package:mangabaka_app/features/series/widgets/entry_list_item_layouts.da
 import 'package:mangabaka_app/features/series/widgets/entry_list_item_list_layouts.dart';
 import 'package:mangabaka_app/features/series/widgets/series_quick_action_button.dart';
 import 'package:flutter/material.dart';
+import 'package:mangabaka_app/core/database/database.dart'
+    show LibraryCacheLease;
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
@@ -23,6 +25,7 @@ class EntryListItem extends StatefulWidget {
   final String? heroTagPrefix;
   final AppListStyle? listStyle;
   final LibraryEntry? previewEntry;
+  final (LibraryCacheLease, LibraryEntry)? fallbackEntry;
 
   const EntryListItem({
     super.key,
@@ -32,6 +35,7 @@ class EntryListItem extends StatefulWidget {
     this.heroTagPrefix,
     this.listStyle,
     this.previewEntry,
+    this.fallbackEntry,
   });
 
   @override
@@ -117,7 +121,16 @@ class _EntryListItemState extends State<EntryListItem> {
       key: ObjectKey(_entryStream),
       stream: _entryStream,
       builder: (context, snapshot) {
-        final entry = snapshot.data;
+        final fallback = widget.fallbackEntry;
+        // An active null is a verified cache absence. Waiting has no result yet.
+        final entry =
+            snapshot.data ??
+            (snapshot.connectionState == ConnectionState.waiting &&
+                    fallback != null &&
+                    identical(fallback.$1, _lease) &&
+                    identical(fallback.$1, _auth.libraryLease)
+                ? fallback.$2
+                : null);
 
         // Reset optimistic progress if the DB entry catches up
         if (entry != null &&

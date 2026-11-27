@@ -38,6 +38,7 @@ class LibrarySession extends ChangeNotifier {
   }
 
   LibraryCacheLease? _lease;
+  LibraryCacheLease? get lease => _lease;
 
   bool _loggedIn = false;
   bool get isLoggedIn => _loggedIn;

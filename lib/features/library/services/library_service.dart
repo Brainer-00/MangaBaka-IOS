@@ -19,6 +19,13 @@ import 'package:mangabaka_app/core/di/service_locator.dart';
 import 'package:mangabaka_app/core/network/rate_limit_coordinator.dart';
 import 'package:mangabaka_app/core/network/backend_health_service.dart';
 
+export 'mixins/library_crud_mixin.dart'
+    show
+        LibraryCollections,
+        LibraryCollection,
+        CollectionWriteOutcome,
+        CollectionMembershipResult;
+
 abstract class LibraryServiceBase {
   db.AppDatabase get database;
   http.Client get httpClient;
@@ -163,6 +170,7 @@ class LibraryService extends LibraryServiceBase
     backendHealth?.status.removeListener(_onBackendHealthChanged);
     resetSyncForAccount();
     _httpClient.close();
+    collectionsRevision.dispose();
     _syncStatus.dispose();
   }
 

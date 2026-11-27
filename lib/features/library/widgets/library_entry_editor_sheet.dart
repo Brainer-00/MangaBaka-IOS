@@ -173,6 +173,7 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
   void initState() {
     super.initState();
     widget.auth.addListener(_sessionChanged);
+    widget.library.collectionsRevision.addListener(_collectionOptionsChanged);
     if (_current) {
       unawaited(_load());
     } else {
@@ -183,6 +184,9 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
   @override
   void dispose() {
     widget.auth.removeListener(_sessionChanged);
+    widget.library.collectionsRevision.removeListener(
+      _collectionOptionsChanged,
+    );
     _dialogScroll.dispose();
     _sheet.dispose();
     for (final controller in _controllers.values) {
@@ -261,16 +265,24 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
 
   Future<void> _loadLists() async {
     if (!_editable || _loadingLists) return;
+    final revision = widget.library.collectionsRevision.value;
     setState(() => _loadingLists = true);
     try {
       final lists = await widget.library.fetchAccountLibraryLists(widget.lease);
-      if (_live) setState(() => _lists = lists);
+      if (_live && revision == widget.library.collectionsRevision.value) {
+        setState(() => _lists = lists);
+      }
     } catch (_) {
       // The rest of the draft stays editable with membership omitted.
     } finally {
       if (_live) setState(() => _loadingLists = false);
+      if (_editable && revision != widget.library.collectionsRevision.value) {
+        _collectionOptionsChanged();
+      }
     }
   }
+
+  void _collectionOptionsChanged() => unawaited(_loadLists());
 
   Object? _initial(_Field field) => switch (field) {
     _Field.priority => _original?.priority,
@@ -372,6 +384,7 @@ class _LibraryEntryEditorSheetState extends State<LibraryEntryEditorSheet>
     lists: _listsEditable && !setEquals(_originalLists, _selectedLists)
         ? EntryField.set(_selectedLists.toList())
         : const EntryField.omitted(),
+    originalListIds: _original == null ? null : _originalLists,
     rating: _numericField<int>(_Field.rating),
     note: _textField(_Field.note),
   );

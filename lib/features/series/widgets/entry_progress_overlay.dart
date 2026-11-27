@@ -238,9 +238,13 @@ class EntryProgressOverlay extends StatelessWidget {
     return Text(
       '$prefix$_progress${total > 0 ? '/$total' : ''}',
       style: AppTypography.sans(
-        color: entry?.state == 'paused'
-            ? AppConstants.pausedColor
-            : Colors.white,
+        // Completed and unknown use neutral ink on the always-dark pill.
+        color: switch (entry!.state) {
+          'completed' => Colors.white,
+          final state when AppConstants.libraryStates.contains(state) =>
+            AppConstants.getColorForState(state),
+          _ => Colors.white,
+        },
         fontWeight: FontWeight.bold,
         fontSize: 11,
       ),

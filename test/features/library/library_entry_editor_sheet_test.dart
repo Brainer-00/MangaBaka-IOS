@@ -44,6 +44,8 @@ class _Auth extends SignedInWidgetAuth {
 }
 
 class _Library extends Fake implements LibraryService {
+  @override
+  final collectionsRevision = ValueNotifier<int>(0);
   LibraryEntry? entry;
   Future<LibraryEntry?> Function()? read;
   Future<List<AccountLibraryList>> Function()? loadLists;

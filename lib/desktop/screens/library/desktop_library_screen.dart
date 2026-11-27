@@ -23,6 +23,7 @@ import 'package:mangabaka_app/features/library/helpers/library_filter_helper.dar
 import 'package:mangabaka_app/features/library/models/library_entry.dart';
 import 'package:mangabaka_app/features/library/models/library_sync_status.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
+import 'package:mangabaka_app/features/library/widgets/library_collections_panel.dart';
 import 'package:mangabaka_app/features/library/widgets/library_grid_list.dart';
 import 'package:mangabaka_app/features/library/widgets/library_search_bar.dart';
 import 'package:mangabaka_app/features/library/widgets/library_status_banners.dart';
@@ -67,8 +68,12 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
   String _status = LibraryScreenConstants.tabs.first.key;
   String _query = '';
   SearchFilters _filters = SearchFilters();
+  bool _showCollections = false;
+  bool _openedCollections = false;
 
-  void focusSearch() => _searchFocus.requestFocus();
+  void focusSearch() {
+    if (!_showCollections) _searchFocus.requestFocus();
+  }
 
   @override
   Future<void> refresh() => _session.refresh();
@@ -202,7 +207,7 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
         final counts = helper == null ? const <String, int>{} : _counts(helper);
         final total = helper?.getFilteredAndSorted().length ?? 0;
 
-        return Row(
+        final library = Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             DesktopSidePanel(
@@ -221,9 +226,49 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
             Expanded(child: _main(l10n, helper, total)),
           ],
         );
+        final lease = _session.lease;
+        return IndexedStack(
+          index: _showCollections ? 1 : 0,
+          sizing: StackFit.expand,
+          children: [
+            ExcludeFocus(excluding: _showCollections, child: library),
+            ExcludeFocus(
+              excluding: !_showCollections,
+              child: Column(
+                children: [
+                  DesktopPageHeader(title: l10n.translate('library')),
+                  _sectionSelector(l10n),
+                  if (_openedCollections)
+                    Expanded(
+                      child: LibraryCollectionsPanel(
+                        key: ObjectKey(lease),
+                        lease: lease,
+                        active: _showCollections,
+                        loggedIn: true,
+                        onLogin: _login,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        );
       },
     );
   }
+
+  Widget _sectionSelector(LocalizationService l10n) => LibrarySectionSelector(
+    labels: [l10n.translate('library'), l10n.translate('collection_section')],
+    selected: _showCollections ? 1 : 0,
+    onChanged: (index) {
+      if (_showCollections == (index == 1)) return;
+      FocusScope.of(context).unfocus();
+      setState(() {
+        _showCollections = index == 1;
+        _openedCollections = true;
+      });
+    },
+  );
 
   Widget _main(
     LocalizationService l10n,
@@ -260,6 +305,7 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
                 ),
               ],
             ),
+            _sectionSelector(l10n),
             LibraryStatusBanners(
               loggedIn: _session.isLoggedIn,
               status: status,

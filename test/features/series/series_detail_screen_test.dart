@@ -101,6 +101,8 @@ class MockSeriesService extends Fake implements SeriesService {
 }
 
 class MockLibraryService extends Fake implements LibraryService {
+  @override
+  final collectionsRevision = ValueNotifier<int>(0);
   final _controller = StreamController<LibraryEntry?>.broadcast(sync: true);
   LibraryEntry? currentEntry;
   LibraryEntry? authoritativeEntry;

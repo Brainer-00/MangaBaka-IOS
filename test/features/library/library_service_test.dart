@@ -168,6 +168,480 @@ void main() {
     )..where((row) => row.seriesId.equals('1'))).getSingle();
   }
 
+  group('My Lists', () {
+    const base = '/v2/my/library';
+    const listsPath = '$base/lists';
+
+    Map<String, Object?> list(int id, {String? name, int count = 0}) => {
+      'id': id,
+      'name': name ?? 'List $id',
+      'is_private': false,
+      'series_count': count,
+      'created_at': '2026-01-01T00:00:00Z',
+      'updated_at': null,
+    };
+
+    Map<String, Object?> member(
+      int id, {
+      int listId = 5,
+      String owner = 'account-a',
+    }) => {
+      'entry': {
+        'id': id + 100,
+        'series_id': id,
+        'user_id': owner,
+        'state': 'reading',
+        'progress_chapter': 3,
+        'progress_volume': 1,
+      },
+      'lists': [
+        {'id': listId, 'name': 'List $listId', 'is_private': false},
+      ],
+      'series': {
+        'id': id,
+        'titles': [
+          {'title': 'Title $id', 'language': 'en'},
+        ],
+        'content_rating': 'safe',
+        'type': 'manga',
+        'total_chapters': 12,
+      },
+    };
+
+    http.Response response(Object? data, {int code = 200}) =>
+        http.Response(jsonEncode({'status': code, 'data': data}), code);
+
+    http.Response page(List<Object?> data, {int? count, String? next}) =>
+        http.Response(
+          jsonEncode({
+            'status': 200,
+            'data': data,
+            'pagination': {'count': count ?? data.length, 'next': next},
+          }),
+          200,
+        );
+
+    void handler(Future<http.Response> Function(http.Request) callback) {
+      service.dispose();
+      service = LibraryService(
+        auth: mockAuth,
+        httpClient: MockClient(callback),
+      );
+      addTearDown(service.dispose);
+    }
+
+    test(
+      'validates filtered pages and refreshes external membership without timestamps',
+      () async {
+        bool changed = false;
+        final requests = <Uri>[];
+        handler((request) async {
+          requests.add(request.url);
+          if (request.url.path == listsPath) {
+            return page([list(5, count: 2), list(7)]);
+          }
+          expect(request.url.path, base);
+          expect(request.url.queryParameters['list'], '5');
+          final first = request.url.queryParameters['page'] == null;
+          return first
+              ? page(
+                  [member(changed ? 3 : 1)],
+                  count: 2,
+                  next: '?list=5&page=2',
+                )
+              : page([member(2)], count: 2);
+        });
+        final lease = mockAuth.libraryLease!;
+        final initial = await service.fetchCollections(lease);
+        expect(initial.map((item) => item.list.id), [5, 7]);
+        expect(initial.first.members!.map((entry) => entry.series.title), [
+          'Title 1',
+          'Title 2',
+        ]);
+        expect(initial.last.members, isEmpty);
+        changed = true;
+        final refreshed = await service.fetchCollections(lease);
+        expect(refreshed.first.members!.map((entry) => entry.series.id), [
+          '3',
+          '2',
+        ]);
+        expect(requests, hasLength(6));
+      },
+    );
+
+    test(
+      'isolates malformed membership and never follows untrusted links',
+      () async {
+        var wrong = 0;
+        var requests = 0;
+        handler((request) async {
+          requests++;
+          expect(request.url.host, 'api.mangabaka.org');
+          if (request.url.path == listsPath) {
+            return page([list(5, count: 2), list(7)]);
+          }
+          return switch (wrong) {
+            0 => page(
+              [member(1)],
+              count: 2,
+              next: 'https://invalid.example$base?list=5',
+            ),
+            1 => page([member(1)], count: 2, next: '?list=6&page=2'),
+            2 => page([member(1, owner: 'account-b'), member(2)]),
+            3 => page([member(1, listId: 7), member(2)]),
+            4 => page([member(1), member(1)]),
+            _ => page([member(1)], count: 2),
+          };
+        });
+        for (; wrong < 6; wrong++) {
+          final snapshot = await service.fetchCollections(
+            mockAuth.libraryLease!,
+          );
+          expect(snapshot.first.members, isNull, reason: 'invalid case $wrong');
+          expect(snapshot.last.members, isEmpty);
+        }
+        expect(requests, 12);
+      },
+    );
+
+    test(
+      'normalizes names, rejects duplicate names, and targets list CRUD only',
+      () async {
+        await seedEntry(chapter: 9, volume: 3);
+        final lease = mockAuth.libraryLease!;
+        final dao = getIt<AppDatabase>().ownedLibraryDao;
+        await dao.updateListMembership(lease, 7, add: false);
+        final db = getIt<AppDatabase>();
+        await db.customStatement(
+          "UPDATE owned_library_entries SET list_ids_json = '[5,7]' WHERE series_id = '1'",
+        );
+        final writes = <String>[];
+        handler((request) async {
+          if (request.method == 'GET') {
+            return page([list(5, name: 'My  list'), list(7)]);
+          }
+          expect(request.followRedirects, isFalse);
+          writes.add('${request.method} ${request.url.path}');
+          if (request.method == 'DELETE') {
+            return http.Response('{"status":200}', 200);
+          }
+          final payload = (jsonDecode(request.body) as Map)
+              .cast<String, Object?>();
+          return response({
+            ...list(request.method == 'POST' ? 8 : 5),
+            'name': payload['name'],
+            'is_private': payload['is_private'],
+          });
+        });
+        await expectLater(
+          service.saveCollection(lease, name: 'my \t LIST', isPrivate: false),
+          throwsA(
+            isA<ApiException>().having(
+              (e) => e.code,
+              'code',
+              'DUPLICATE_LIST_NAME',
+            ),
+          ),
+        );
+        await expectLater(
+          service.saveCollection(
+            lease,
+            name: 'bad\u200bname',
+            isPrivate: false,
+          ),
+          throwsArgumentError,
+        );
+        expect(
+          await service.saveCollection(
+            lease,
+            name: '  Example\t list  ',
+            isPrivate: false,
+          ),
+          CollectionWriteOutcome.saved,
+        );
+        expect(
+          await service.saveCollection(
+            lease,
+            original: const AccountLibraryList(
+              id: 5,
+              name: 'My  list',
+              isPrivate: false,
+            ),
+            name: 'New name',
+            isPrivate: true,
+          ),
+          CollectionWriteOutcome.saved,
+        );
+        expect(
+          await service.deleteCollection(
+            lease,
+            AccountLibraryList(
+              id: 5,
+              name: 'My  list',
+              isPrivate: false,
+              seriesCount: 0,
+              createdAt: DateTime.parse('2026-01-01T00:00:00Z'),
+            ),
+          ),
+          CollectionWriteOutcome.saved,
+        );
+        expect(writes, [
+          'POST $listsPath',
+          'PATCH $listsPath/5',
+          'DELETE $listsPath/5',
+        ]);
+        final row = await storedEntry();
+        expect(row.listIdsJson, '[7]');
+        expect(row.progressChapter, 9);
+        expect(row.progressVolume, 3);
+      },
+    );
+
+    test(
+      'metadata edits patch intent and detect external conflicts by ID',
+      () async {
+        final lease = mockAuth.libraryLease!;
+        const original = AccountLibraryList(
+          id: 5,
+          name: 'Shelf',
+          isPrivate: false,
+        );
+        var latest = {...list(5, name: 'Shelf'), 'is_private': true};
+        final writes = <Object?>[];
+        handler((request) async {
+          if (request.method == 'GET') {
+            return page([latest, list(7, name: ' shelf ')]);
+          }
+          expect(request.method, 'PATCH');
+          expect(request.url.path, '$listsPath/5');
+          final payload = jsonDecode(request.body) as Map<String, dynamic>;
+          writes.add(payload);
+          latest.addAll(payload);
+          return response(latest);
+        });
+        Future<CollectionWriteOutcome> save(String name, bool private) =>
+            service.saveCollection(
+              lease,
+              original: original,
+              name: name,
+              isPrivate: private,
+            );
+        expect(await save('Renamed', false), CollectionWriteOutcome.saved);
+        expect(latest['is_private'], true);
+        latest = list(5, name: 'External rename');
+        expect(await save('Shelf', true), CollectionWriteOutcome.saved);
+        expect(latest['name'], 'External rename');
+        final conflict = throwsA(
+          isA<ApiException>().having(
+            (e) => e.code,
+            'code',
+            'COLLECTION_METADATA_CONFLICT',
+          ),
+        );
+        await expectLater(save('Conflicting rename', false), conflict);
+        await expectLater(service.deleteCollection(lease, original), conflict);
+        latest = list(5, name: 'Shelf');
+        expect(await save('Shelf', true), CollectionWriteOutcome.saved);
+        expect(await save('Shelf', true), CollectionWriteOutcome.saved);
+        expect(await save('Shelf', false), CollectionWriteOutcome.saved);
+        expect(writes, [
+          {'name': 'Renamed'},
+          {'is_private': true},
+          {'is_private': true},
+        ]);
+      },
+    );
+
+    test(
+      'deduplicates and batches bulk changes with accurate partial results',
+      () async {
+        await seedEntry(chapter: 11);
+        final db = getIt<AppDatabase>();
+        await db.customStatement(
+          "UPDATE owned_library_entries SET list_ids_json = '[5,7]' WHERE series_id = '1'",
+        );
+        final batches = <List<Object?>>[];
+        handler((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '$base/bulk');
+          final data = jsonDecode(request.body) as Map;
+          expect(data['change'], {
+            'action': 'update_lists',
+            'add': [],
+            'remove': [5],
+          });
+          batches.add((data['target'] as Map)['series_ids'] as List);
+          return batches.length == 1
+              ? response({
+                  'updated': 99,
+                  'skipped': 1,
+                  'added': 0,
+                  'removed': 99,
+                })
+              : response(null, code: 409);
+        });
+        final result = await service.changeCollectionMembership(
+          mockAuth.libraryLease!,
+          listId: 5,
+          seriesIds: ['1', ...List.generate(102, (i) => '${102 - i}')],
+          add: false,
+        );
+        expect(result.outcome, CollectionWriteOutcome.rejected);
+        expect(result.confirmed, 100);
+        expect(result.requested, 102);
+        expect(batches[0], List.generate(100, (i) => i + 1));
+        expect(batches[1], [101, 102]);
+        final row = await storedEntry();
+        expect(row.listIdsJson, '[7]');
+        expect(row.progressChapter, 11);
+      },
+    );
+
+    test(
+      'ambiguous writes get read-only verification and preserve unknown cache values',
+      () async {
+        await seedEntry();
+        final methods = <String>[];
+        handler((request) async {
+          methods.add(request.method);
+          if (request.method == 'POST') throw http.ClientException('offline');
+          if (request.url.path == listsPath) return page([list(5, count: 1)]);
+          return page([member(1)]);
+        });
+        final lease = mockAuth.libraryLease!;
+        final addition = await service.changeCollectionMembership(
+          lease,
+          listId: 5,
+          seriesIds: ['1'],
+          add: true,
+        );
+        expect(addition.outcome, CollectionWriteOutcome.saved);
+        expect(addition.confirmed, 1);
+        final removal = await service.changeCollectionMembership(
+          lease,
+          listId: 5,
+          seriesIds: ['1'],
+          add: false,
+        );
+        expect(removal.outcome, CollectionWriteOutcome.uncertain);
+        expect(removal.confirmed, 0);
+        expect(methods, ['POST', 'GET', 'GET', 'POST', 'GET', 'GET']);
+        expect((await storedEntry()).listIdsJson, isNull);
+      },
+    );
+
+    test(
+      'offline collection requests leave the verified Library cache intact',
+      () async {
+        await seedEntry(chapter: 4);
+        handler((_) async => throw http.ClientException('offline'));
+        await expectLater(
+          service.fetchCollections(mockAuth.libraryLease!),
+          throwsA(isA<NetworkException>()),
+        );
+        expect((await storedEntry()).progressChapter, 4);
+      },
+    );
+
+    test(
+      'an open editor rebases its membership intent after a bulk edit',
+      () async {
+        await seedEntry(chapter: 11);
+        final lease = mockAuth.libraryLease!;
+        final bulkStarted = Completer<void>();
+        final allowBulk = Completer<void>();
+        final ids = <int>{5, 7};
+        final methods = <String>[];
+        handler((request) async {
+          methods.add(request.method);
+          if (request.url.path == '$base/bulk') {
+            bulkStarted.complete();
+            await allowBulk.future;
+            ids.add(9);
+            return response({
+              'updated': 1,
+              'skipped': 0,
+              'added': 1,
+              'removed': 0,
+            });
+          }
+          if (request.method == 'PATCH') {
+            final body = jsonDecode(request.body) as Map;
+            expect(body, {
+              'note': 'Updated note',
+              'lists': [7, 9],
+            });
+            ids.remove(5);
+            return response(true);
+          }
+          return response({
+            'id': 101,
+            'series_id': 1,
+            'user_id': 'account-a',
+            'state': 'reading',
+            'progress_chapter': 11,
+            'Entries': [
+              for (final id in ids)
+                {'library_entry_id': 101, 'library_list_id': id},
+            ],
+          });
+        });
+        final bulk = service.changeCollectionMembership(
+          lease,
+          listId: 9,
+          seriesIds: ['1'],
+          add: true,
+        );
+        await bulkStarted.future;
+        final patch = service.updateCompleteLibraryEntry(
+          LibraryEntryDraft(
+            lease: lease,
+            seriesId: '1',
+            originalListIds: {5, 7},
+            lists: const EntryField.set([7]),
+            note: const EntryField.set('Updated note'),
+          ),
+        );
+        expect(methods, ['POST']);
+        allowBulk.complete();
+        expect((await bulk).outcome, CollectionWriteOutcome.saved);
+        expect((await patch).entry!.listIds, [7, 9]);
+        expect(methods, ['POST', 'GET', 'PATCH', 'GET']);
+        expect((await storedEntry()).progressChapter, 11);
+      },
+    );
+
+    test(
+      'account switch invalidates readback and prevents subsequent batches',
+      () async {
+        final lease = mockAuth.libraryLease!;
+        final readStarted = Completer<void>();
+        final reply = Completer<http.Response>();
+        final methods = <String>[];
+        handler((request) async {
+          methods.add(request.method);
+          if (request.method == 'POST') throw http.ClientException('ambiguous');
+          readStarted.complete();
+          return reply.future;
+        });
+        final pending = expectLater(
+          service.changeCollectionMembership(
+            lease,
+            listId: 5,
+            add: true,
+            seriesIds: List.generate(101, (i) => '${i + 1}'),
+          ),
+          throwsA(isA<AuthException>()),
+        );
+        await readStarted.future;
+        mockAuth.useLease(null);
+        reply.complete(page([list(5, count: 101)]));
+        await pending;
+        expect(methods, ['POST', 'GET']);
+      },
+    );
+  });
+
   group('LibraryService', () {
     test('quick rating uses PATCH and reconciles a confirmed rating', () async {
       await seedEntry(state: 'reading', chapter: 21);

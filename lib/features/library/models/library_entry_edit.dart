@@ -25,7 +25,11 @@ class LibraryEntryDraft {
     this.rating = const EntryField.omitted(),
     this.note = const EntryField.omitted(),
     EntryField<List<int>> lists = const EntryField.omitted(),
-  }) : lists = lists.value == null
+    Set<int>? originalListIds,
+  }) : originalListIds = originalListIds == null
+           ? null
+           : Set.unmodifiable(originalListIds),
+       lists = lists.value == null
            ? lists
            : EntryField.set(List.unmodifiable(lists.value!));
 
@@ -39,6 +43,7 @@ class LibraryEntryDraft {
       rating;
   final EntryField<bool> isPrivate;
   final EntryField<List<int>> lists;
+  final Set<int>? originalListIds;
 
   static const states = {
     'considering',
@@ -123,10 +128,14 @@ class AccountLibraryList {
     required this.id,
     required this.name,
     required this.isPrivate,
+    this.seriesCount,
+    this.createdAt,
   });
   final int id;
   final String name;
   final bool isPrivate;
+  final int? seriesCount;
+  final DateTime? createdAt;
 }
 
 enum LibrarySaveOutcome { saved, refreshPending, uncertain }

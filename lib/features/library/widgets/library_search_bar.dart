@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:mangabaka_app/core/settings/settings_manager.dart';
+import 'package:mangabaka_app/core/widgets/search/ghost_text_editing_controller.dart';
 import 'package:mangabaka_app/features/browse/models/search_filters.dart';
 import 'package:mangabaka_app/features/browse/widgets/search/autocomplete_ranking.dart';
 import 'package:mangabaka_app/features/browse/widgets/search/search_bar_shell.dart';
@@ -29,6 +30,7 @@ class LibrarySearchBar extends StatefulWidget {
   final ValueChanged<AutocompleteSeriesResult>? onResultSelected;
   final VoidCallback? onBackTap;
   final bool showFilterButton;
+  final String initialQuery;
 
   const LibrarySearchBar({
     super.key,
@@ -40,6 +42,7 @@ class LibrarySearchBar extends StatefulWidget {
     this.onResultSelected,
     this.onBackTap,
     this.showFilterButton = true,
+    this.initialQuery = '',
   });
 
   @override
@@ -48,6 +51,7 @@ class LibrarySearchBar extends StatefulWidget {
 
 class _LibrarySearchBarState extends State<LibrarySearchBar> {
   final LibraryAutocompleteService _autocomplete = LibraryAutocompleteService();
+  late final _text = GhostTextEditingController()..text = widget.initialQuery;
 
   StreamSubscription<List<LibraryEntry>>? _entriesSubscription;
   LibraryAutocompleteIndex _autocompleteIndex =
@@ -68,6 +72,7 @@ class _LibrarySearchBarState extends State<LibrarySearchBar> {
   @override
   void dispose() {
     _entriesSubscription?.cancel();
+    _text.dispose();
     super.dispose();
   }
 
@@ -75,6 +80,7 @@ class _LibrarySearchBarState extends State<LibrarySearchBar> {
   /// or a disposed field does not leave a listener writing into dead state.
   void _subscribe() {
     _entriesSubscription?.cancel();
+    _autocompleteIndex = const LibraryAutocompleteIndex.empty();
     _entriesSubscription = widget.entriesStream?.listen((entries) {
       if (mounted) {
         _autocompleteIndex = _autocomplete.buildIndex(entries);
@@ -100,6 +106,7 @@ class _LibrarySearchBarState extends State<LibrarySearchBar> {
   @override
   Widget build(BuildContext context) {
     return SearchBarShell(
+      controller: _text,
       focusNode: widget.focusNode,
       onChanged: widget.onChanged,
       onResultSelected: widget.onResultSelected,

@@ -19,6 +19,7 @@ import 'package:mangabaka_app/features/library/models/library_sync_status.dart';
 import 'package:mangabaka_app/features/library/services/library_service.dart';
 import 'package:mangabaka_app/features/library/widgets/library_app_bar.dart';
 import 'package:mangabaka_app/features/library/widgets/library_body.dart';
+import 'package:mangabaka_app/features/library/widgets/library_collections_panel.dart';
 import 'package:mangabaka_app/features/library/widgets/library_status_banners.dart';
 import 'package:mangabaka_app/features/library/widgets/library_tab_bar.dart';
 import 'package:mangabaka_app/features/navigation/screens/main_screen.dart';
@@ -64,6 +65,8 @@ class LibraryScreenState extends State<LibraryScreen>
   String _query = '';
   SearchFilters _filters = SearchFilters();
   bool _isSearching = false;
+  bool _showCollections = false;
+  bool _openedCollections = false;
 
   // ─── Public surface, driven by MainScreen's shared top nav bar ───────────
 
@@ -71,6 +74,17 @@ class LibraryScreenState extends State<LibraryScreen>
   Stream<List<LibraryEntry>>? get entriesStream => _session.entriesStream;
   SearchFilters get filters => _filters;
   String get query => _query;
+  bool get showingCollections => _showCollections;
+
+  void _selectSection(int index) {
+    if (_showCollections == (index == 1)) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _showCollections = index == 1;
+      _openedCollections = true;
+    });
+    context.findAncestorStateOfType<MainScreenState>()?.updateTopNavBar();
+  }
 
   void enterSearchMode() {
     setState(() => _isSearching = true);
@@ -199,7 +213,7 @@ class LibraryScreenState extends State<LibraryScreen>
 
         return PopScope(
           // Back leaves search before it leaves the tab.
-          canPop: !_isSearching,
+          canPop: _showCollections || !_isSearching,
           onPopInvokedWithResult: (didPop, _) {
             if (didPop) return;
             _exitSearch();
@@ -214,29 +228,84 @@ class LibraryScreenState extends State<LibraryScreen>
                   : null;
               return Scaffold(
                 backgroundColor: context.colors.background,
-                appBar: _buildAppBar(context, result),
-                body: ValueListenableBuilder<LibrarySyncStatus>(
-                  valueListenable: _libraryService.syncStatus,
-                  builder: (context, status, _) => Actions(
-                    actions: <Type, Action<Intent>>{
-                      SearchIntent: CallbackAction<SearchIntent>(
-                        onInvoke: (_) {
-                          enterSearchMode();
-                          return null;
-                        },
+                appBar: _buildAppBar(context),
+                body: Column(
+                  children: [
+                    if (MainScreen.showSearchBarInTopNavBar(context))
+                      _sectionSelector(),
+                    Expanded(
+                      child: IndexedStack(
+                        index: _showCollections ? 1 : 0,
+                        sizing: StackFit.expand,
+                        children: [
+                          ExcludeFocus(
+                            excluding: _showCollections,
+                            child: TickerMode(
+                              enabled: !_showCollections,
+                              child: Column(
+                                children: [
+                                  _statusTabs(context, result),
+                                  Expanded(
+                                    child:
+                                        ValueListenableBuilder<
+                                          LibrarySyncStatus
+                                        >(
+                                          valueListenable:
+                                              _libraryService.syncStatus,
+                                          builder: (context, status, _) => Actions(
+                                            actions: <Type, Action<Intent>>{
+                                              SearchIntent:
+                                                  CallbackAction<SearchIntent>(
+                                                    onInvoke: (_) {
+                                                      enterSearchMode();
+                                                      return null;
+                                                    },
+                                                  ),
+                                              RefreshIntent:
+                                                  CallbackAction<RefreshIntent>(
+                                                    onInvoke: (_) {
+                                                      _session.refresh();
+                                                      return null;
+                                                    },
+                                                  ),
+                                            },
+                                            child:
+                                                WidgetUtils.responsiveConstraint(
+                                                  _buildContent(
+                                                    status,
+                                                    snapshot,
+                                                    result,
+                                                  ),
+                                                  maxWidth: isGrid
+                                                      ? double.infinity
+                                                      : _maxListWidth,
+                                                ),
+                                          ),
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          ExcludeFocus(
+                            excluding: !_showCollections,
+                            child: TickerMode(
+                              enabled: _showCollections,
+                              child: _openedCollections
+                                  ? LibraryCollectionsPanel(
+                                      key: ObjectKey(_session.lease),
+                                      lease: _session.lease,
+                                      active: _showCollections,
+                                      loggedIn: _session.isLoggedIn,
+                                      onLogin: _login,
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
+                          ),
+                        ],
                       ),
-                      RefreshIntent: CallbackAction<RefreshIntent>(
-                        onInvoke: (_) {
-                          _session.refresh();
-                          return null;
-                        },
-                      ),
-                    },
-                    child: WidgetUtils.responsiveConstraint(
-                      _buildContent(status, snapshot, result),
-                      maxWidth: isGrid ? double.infinity : _maxListWidth,
                     ),
-                  ),
+                  ],
                 ),
               );
             },
@@ -286,28 +355,46 @@ class LibraryScreenState extends State<LibraryScreen>
 
   /// Null when the shared top nav bar is hosting the search field instead —
   /// two search fields on one screen would be a confusing duplicate.
-  PreferredSizeWidget? _buildAppBar(
-    BuildContext context,
-    LibraryFilterResult? result,
-  ) {
+  PreferredSizeWidget? _buildAppBar(BuildContext context) {
     if (MainScreen.showSearchBarInTopNavBar(context)) return null;
 
     return LibraryAppBar(
-      isSearching: _isSearching,
+      isSearching: _isSearching && !_showCollections,
+      showLibraryActions: !_showCollections,
       isLandscape: MediaQuery.orientationOf(context) == Orientation.landscape,
       searchFocusNode: _searchFocusNode,
       entriesStream: _session.entriesStream,
       filters: _filters,
+      query: _query,
       onEnterSearch: enterSearchMode,
       onExitSearch: _exitSearch,
       onQueryChanged: updateQuery,
       onFiltersChanged: updateFilters,
       onResultSelected: handleResultSelected,
-      bottom: LibraryTabBar(
-        controller: _tabController,
-        counts: result?.counts ?? const {},
-        isLandscape: MediaQuery.orientationOf(context) == Orientation.landscape,
+      bottom: PreferredSize(
+        preferredSize: Size.fromHeight(
+          MediaQuery.textScalerOf(context).scale(16) + 32,
+        ),
+        child: _sectionSelector(),
       ),
     );
   }
+
+  Widget _sectionSelector() {
+    final l10n = LocalizationService();
+    return LibrarySectionSelector(
+      labels: [l10n.translate('library'), l10n.translate('collection_section')],
+      selected: _showCollections ? 1 : 0,
+      onChanged: _selectSection,
+    );
+  }
+
+  LibraryTabBar _statusTabs(
+    BuildContext context,
+    LibraryFilterResult? result,
+  ) => LibraryTabBar(
+    controller: _tabController,
+    counts: result?.counts ?? const {},
+    isLandscape: MediaQuery.orientationOf(context) == Orientation.landscape,
+  );
 }

@@ -24,6 +24,8 @@ class LibraryAppBar extends StatelessWidget implements PreferredSizeWidget {
   final FocusNode searchFocusNode;
   final Stream<List<LibraryEntry>>? entriesStream;
   final SearchFilters filters;
+  final String query;
+  final bool showLibraryActions;
 
   final VoidCallback onEnterSearch;
   final VoidCallback onExitSearch;
@@ -45,6 +47,8 @@ class LibraryAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.searchFocusNode,
     required this.entriesStream,
     required this.filters,
+    this.query = '',
+    this.showLibraryActions = true,
     required this.onEnterSearch,
     required this.onExitSearch,
     required this.onQueryChanged,
@@ -76,6 +80,7 @@ class LibraryAppBar extends StatelessWidget implements PreferredSizeWidget {
           onResultSelected: onResultSelected,
           onChanged: onQueryChanged,
           initialFilters: filters,
+          initialQuery: query,
           onFilterApplied: onFiltersChanged,
           onBackTap: onExitSearch,
         ),
@@ -91,10 +96,12 @@ class LibraryAppBar extends StatelessWidget implements PreferredSizeWidget {
 
     return AppBar(
       centerTitle: true,
-      leading: IconButton(
-        icon: Icon(Icons.search, color: context.colors.text),
-        onPressed: onEnterSearch,
-      ),
+      leading: showLibraryActions
+          ? IconButton(
+              icon: Icon(Icons.search, color: context.colors.text),
+              onPressed: onEnterSearch,
+            )
+          : null,
       title: Text(
         l10n.translate('library').toUpperCase(),
         style: AppTypography.display(color: context.colors.text, fontSize: 20),
@@ -102,7 +109,7 @@ class LibraryAppBar extends StatelessWidget implements PreferredSizeWidget {
       actions: [
         // Landscape has the width for a layout toggle; in portrait the same
         // control lives in settings rather than crowding the bar.
-        if (isLandscape) ...[
+        if (showLibraryActions && isLandscape) ...[
           WidgetUtils.tooltip(
             message: l10n.translate('toggle_layout'),
             child: IconButton(
@@ -112,13 +119,14 @@ class LibraryAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
           const SizedBox(width: 8),
         ],
-        WidgetUtils.tooltip(
-          message: l10n.translate('import_list'),
-          child: IconButton(
-            icon: const Icon(Icons.playlist_add_rounded),
-            onPressed: () => BulkImportScreen.open(context),
+        if (showLibraryActions)
+          WidgetUtils.tooltip(
+            message: l10n.translate('import_list'),
+            child: IconButton(
+              icon: const Icon(Icons.playlist_add_rounded),
+              onPressed: () => BulkImportScreen.open(context),
+            ),
           ),
-        ),
         IconButton(
           icon: const Icon(Icons.settings_outlined),
           onPressed: () => SettingsScreen.show(context),

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:http/http.dart' as http;
 import 'package:mangabaka_app/core/constants/app_constants.dart';
 import 'package:mangabaka_app/core/database/database.dart';
@@ -16,9 +17,13 @@ import 'package:mangabaka_app/features/library/models/library_entry_edit.dart';
 import 'package:mangabaka_app/features/library/services/mappers/db_to_api_mapper.dart';
 import 'package:mangabaka_app/features/series/services/series_service.dart';
 
+part 'library_collections.dart';
+
 mixin LibraryCrudMixin on LibraryServiceBase {
   static const int batchLimit = 100;
+  static const _collectionsKey = 'collections';
   final _tails = <(LibraryCacheLease, String), Future<void>>{};
+  final collectionsRevision = ValueNotifier<int>(0);
 
   // Reserve all participating series before waiting. New sessions have their
   // own queue and an old callback always retains its original lease.
@@ -59,11 +64,12 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     required Set<int> success,
     required String failureCode,
     Object? body,
+    Uri? uri,
     void Function(http.Response)? onResponse,
   }) async {
     try {
       final token = await tokenFor(lease);
-      final url = Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
+      final url = uri ?? Uri.parse('${LibraryConstants.baseUrl}/$seriesId');
       final headers = {
         'Authorization': 'Bearer $token',
         'User-Agent': LibraryConstants.userAgent,
@@ -71,16 +77,30 @@ mixin LibraryCrudMixin on LibraryServiceBase {
       };
       checkLease(lease);
       final encoded = body == null ? null : jsonEncode(body);
-      final response = await (switch (method) {
-        'PUT' => httpClient.put(url, headers: headers, body: encoded),
-        'POST' =>
-          onResponse == null
-              ? httpClient.post(url, headers: headers, body: encoded)
-              : _request('POST', url, headers, body: encoded),
-        'DELETE' => httpClient.delete(url, headers: headers),
-        'PATCH' => _request('PATCH', url, headers, body: encoded),
-        _ => throw ArgumentError('Unsupported Library method'),
-      }).timeout(const Duration(seconds: AppConstants.networkTimeoutSeconds));
+      final response =
+          await (uri != null
+                  ? _request(method, url, headers, body: encoded)
+                  : switch (method) {
+                      'PUT' => httpClient.put(
+                        url,
+                        headers: headers,
+                        body: encoded,
+                      ),
+                      'POST' =>
+                        onResponse == null
+                            ? httpClient.post(
+                                url,
+                                headers: headers,
+                                body: encoded,
+                              )
+                            : _request('POST', url, headers, body: encoded),
+                      'DELETE' => httpClient.delete(url, headers: headers),
+                      'PATCH' => _request('PATCH', url, headers, body: encoded),
+                      _ => throw ArgumentError('Unsupported Library method'),
+                    })
+              .timeout(
+                const Duration(seconds: AppConstants.networkTimeoutSeconds),
+              );
 
       onResponse?.call(response);
       checkLease(lease);
@@ -182,12 +202,15 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     return value;
   }
 
-  Map<String, dynamic> _editorEnvelope(http.Response response) {
+  Map<String, dynamic> _editorEnvelope(
+    http.Response response, {
+    bool requiresData = true,
+  }) {
     try {
       final json = jsonDecode(response.body);
       if (json is Map<String, dynamic> &&
           json['status'] == response.statusCode &&
-          json.containsKey('data')) {
+          (!requiresData || json.containsKey('data'))) {
         return json;
       }
     } on FormatException {
@@ -200,7 +223,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     String seriesId, {
     LibraryCacheLease? lease,
   }) => _enqueue(
-    [seriesId],
+    [seriesId, _collectionsKey],
     (captured) => _readEntry(captured, seriesId, reconcile: true),
     originalLease: lease,
   );
@@ -278,6 +301,9 @@ mixin LibraryCrudMixin on LibraryServiceBase {
           else
             throw const FormatException('Invalid Library membership'),
       ];
+      if (listIds.length > 30 || listIds.toSet().length != listIds.length) {
+        throw const FormatException('Invalid Library membership count');
+      }
     }
     final cached = await database.seriesDao.findSeries(seriesId);
     checkLease(lease);
@@ -342,77 +368,22 @@ mixin LibraryCrudMixin on LibraryServiceBase {
 
   Future<List<AccountLibraryList>> fetchAccountLibraryLists(
     LibraryCacheLease lease,
-  ) async {
-    checkLease(lease);
-    final base = Uri.parse(
-      LibraryConstants.baseUrl,
-    ).replace(path: '/v2/my/library/lists');
-    var uri = base;
-    final visited = <Uri>{};
-    final lists = <int, AccountLibraryList>{};
-    int? expectedCount;
-    while (visited.length < AppConstants.libraryMaxPages && visited.add(uri)) {
-      final response = await _read(lease, uri);
-      if (response.statusCode != 200) {
-        throw ApiException(
-          message: 'Library lists read failed',
-          statusCode: response.statusCode,
-        );
-      }
-      final envelope = _editorEnvelope(response);
-      final data = envelope['data'];
-      final pagination = envelope['pagination'];
-      if (data is! List ||
-          pagination is! Map ||
-          !pagination.containsKey('next')) {
-        throw const FormatException('Invalid Library lists response');
-      }
-      final count = pagination['count'];
-      if (count != null) {
-        if (count is! int ||
-            count < 0 ||
-            (expectedCount != null && count != expectedCount)) {
-          throw const FormatException('Invalid Library lists count');
-        }
-        expectedCount = count;
-      }
-      for (final item in data) {
-        if (item is! Map ||
-            !_validEditorId(item['id']) ||
-            item['name'] is! String ||
-            item['is_private'] is! bool) {
-          throw const FormatException('Invalid Library list');
-        }
-        final id = item['id'] as int;
-        if (lists.containsKey(id)) {
-          throw const FormatException('Duplicate Library list');
-        }
-        lists[id] = AccountLibraryList(
-          id: id,
-          name: item['name'] as String,
-          isPrivate: item['is_private'] as bool,
-        );
-      }
-      final next = pagination['next'];
-      if (next == null) {
-        if (expectedCount != null && lists.length != expectedCount) {
-          throw const FormatException('Incomplete Library list pagination');
-        }
-        return List.unmodifiable(lists.values);
-      }
-      if (next is! String || next.isEmpty) {
-        throw const FormatException('Invalid Library lists pagination');
-      }
-      uri = uri.resolve(next);
-      if (uri.origin != base.origin ||
-          uri.path != base.path ||
-          uri.userInfo.isNotEmpty ||
-          uri.hasFragment) {
-        throw const FormatException('Unexpected Library lists pagination URL');
-      }
-    }
-    throw const FormatException('Incomplete Library list pagination');
-  }
+  ) => _enqueue(
+    [_collectionsKey],
+    (lease) => _fetchAccountLibraryLists(lease, strict: false),
+    originalLease: lease,
+  );
+
+  Future<List<AccountLibraryList>> _fetchAccountLibraryLists(
+    LibraryCacheLease lease, {
+    required bool strict,
+  }) => _collectionPages<AccountLibraryList, int>(
+    lease,
+    _collectionUri(LibraryCollections._listsPath),
+    (item) => _parseAccountList(item, strict: strict),
+    (item) => item.id,
+    strict: strict,
+  );
 
   Future<LibrarySaveResult> createCompleteLibraryEntry(
     LibraryEntryDraft draft,
@@ -425,9 +396,35 @@ mixin LibraryCrudMixin on LibraryServiceBase {
   Future<LibrarySaveResult> _saveDraft(
     LibraryEntryDraft draft, {
     required bool create,
-  }) => _enqueue([draft.seriesId], (lease) async {
+  }) => _enqueue([draft.seriesId, _collectionsKey], (lease) async {
     _seriesNumber(draft.seriesId);
     final payload = draft.toJson();
+    final originalLists = draft.originalListIds;
+    if (!create && draft.lists.supplied && originalLists != null) {
+      final latest = await _readEntry(lease, draft.seriesId, reconcile: false);
+      if (latest == null) {
+        throw ApiException(message: 'Library entry not found', statusCode: 404);
+      }
+      final current = latest.listIds;
+      if (current == null) {
+        throw ApiException(
+          message: 'Library memberships unavailable',
+          statusCode: 409,
+        );
+      }
+      final selected = draft.lists.value!.toSet();
+      final rebased = current.toSet()
+        ..removeAll(originalLists.difference(selected))
+        ..addAll(selected.difference(originalLists));
+      if (rebased.length > 30) {
+        throw ArgumentError('Too many Library memberships');
+      }
+      if (rebased.length == current.length && rebased.containsAll(current)) {
+        payload.remove('lists');
+      } else {
+        payload['lists'] = rebased.toList()..sort();
+      }
+    }
     if (!create && payload.isEmpty) {
       final entry = await _readEntry(lease, draft.seriesId, reconcile: true);
       if (entry == null) {
@@ -491,6 +488,9 @@ mixin LibraryCrudMixin on LibraryServiceBase {
     } on AuthException {
       if (!accepted) rethrow;
       return const LibrarySaveResult(LibrarySaveOutcome.refreshPending);
+    }
+    if (identical(currentLease, lease) && draft.lists.supplied) {
+      collectionsRevision.value++;
     }
     try {
       final entry = await _readEntry(lease, draft.seriesId, reconcile: true);
@@ -658,7 +658,7 @@ mixin LibraryCrudMixin on LibraryServiceBase {
   }
 
   Future<void> deleteEntry(String seriesId) =>
-      _enqueue([seriesId], (lease) async {
+      _enqueue([seriesId, _collectionsKey], (lease) async {
         await _send(
           lease,
           seriesId,
@@ -677,5 +677,6 @@ mixin LibraryCrudMixin on LibraryServiceBase {
           resume();
         }
         checkLease(lease);
+        collectionsRevision.value++;
       });
 }

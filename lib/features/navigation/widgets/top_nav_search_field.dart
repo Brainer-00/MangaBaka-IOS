@@ -38,13 +38,14 @@ class TopNavSearchField {
 
   static Widget? _library() {
     final state = LibraryScreen.libraryScreenKey.currentState;
-    if (state == null) return null;
+    if (state == null || state.showingCollections) return null;
     return LibrarySearchBar(
       focusNode: state.searchFocusNode,
       entriesStream: state.entriesStream,
       onResultSelected: state.handleResultSelected,
       onChanged: state.updateQuery,
       initialFilters: state.filters,
+      initialQuery: state.query,
       onFilterApplied: state.updateFilters,
     );
   }
