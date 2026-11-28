@@ -23,6 +23,20 @@ mixin WidgetLibraryIdentity implements ProfileAuthService {
 
   @override
   int get sessionGeneration => isLoggedIn ? 1 : 0;
+
+  @override
+  bool get canReadStacks => false;
+
+  @override
+  bool get canWriteStacks => false;
+
+  @override
+  int get stackAuthorizationGeneration => 0;
+
+  @override
+  Future<void> upgradeStackPermissions() async {
+    throw UnimplementedError('This fixture does not grant Stack permissions');
+  }
 }
 
 class SignedInWidgetAuth extends Fake with WidgetLibraryIdentity {

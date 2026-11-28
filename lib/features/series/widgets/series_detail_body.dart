@@ -9,6 +9,7 @@ import 'package:mangabaka_app/features/series/widgets/layouts/series_detail_wide
 import 'package:mangabaka_app/features/series/widgets/series_detail_app_bar.dart';
 import 'package:mangabaka_app/features/series/widgets/series_detail_error_banner.dart';
 import 'package:mangabaka_app/features/series/widgets/series_detail_tab_content.dart';
+import 'package:mangabaka_app/features/stacks/stack_ui.dart';
 import 'package:mangabaka_app/shared/widgets/app_shortcuts.dart';
 
 /// The scrolling content of the series detail page: app bar, an error banner
@@ -121,6 +122,7 @@ class SeriesDetailBody extends StatelessWidget {
                   ),
                   if (state.fetchError)
                     SeriesDetailErrorBanner(onRetry: onRetry),
+                  SliverToBoxAdapter(child: AddToStackAction(series: series)),
                   SliverToBoxAdapter(
                     child: Center(
                       child: ConstrainedBox(

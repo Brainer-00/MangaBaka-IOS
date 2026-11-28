@@ -76,6 +76,7 @@ TokenResponse tokenResponse({
   String? refreshToken,
   String? idToken,
   DateTime? expiration,
+  List<String>? scopes = const ['openid'],
 }) {
   return TokenResponse(
     accessToken,
@@ -83,7 +84,7 @@ TokenResponse tokenResponse({
     expiration,
     idToken,
     'Bearer',
-    const ['openid'],
+    scopes,
     const {},
   );
 }
@@ -115,6 +116,279 @@ void main() {
       loginTokens: () async => response,
     );
   }
+
+  group('Stack permission upgrade', () {
+    const original = [
+      'openid',
+      'profile',
+      'library.read',
+      'library.write',
+      'offline_access',
+    ];
+
+    late AppDatabase database;
+    late bool first;
+    late Future<TokenResponse?> Function() replacement;
+    late Future<TokenResponse?> Function(String) refresh;
+    late String replacementOwner;
+
+    setUp(() async {
+      database = AppDatabase.forTesting(NativeDatabase.memory());
+      first = true;
+      replacementOwner = 'user-1';
+      refresh = (_) async => throw StateError('Unexpected token refresh');
+      auth = ProfileAuthService(
+        storage: storage,
+        library: database.ownedLibraryDao,
+        network: _ProfileNetwork(
+          (token) async => MbProfile(
+            id: token == 'legacy' ? 'user-1' : replacementOwner,
+            role: 'user',
+            scopes: original,
+          ),
+        ),
+        loginTokens: () async {
+          if (!first) return replacement();
+          first = false;
+          return tokenResponse(
+            accessToken: 'legacy',
+            refreshToken: 'legacy-refresh',
+            scopes: original,
+          );
+        },
+        refreshTokens: (token) => refresh(token),
+      );
+      await auth.login();
+      expect(auth.canReadStacks, isFalse);
+      expect(auth.canWriteStacks, isFalse);
+    });
+
+    tearDown(() async {
+      auth.dispose();
+      await database.close();
+    });
+
+    test(
+      'same account can grant read and write without losing its lease',
+      () async {
+        final lease = auth.libraryLease;
+        replacement = () async => tokenResponse(
+          refreshToken: 'upgraded-refresh',
+          scopes: [...original, 'stack.read', 'stack.write'],
+        );
+        await auth.upgradeStackPermissions();
+        expect(auth.canReadStacks, isTrue);
+        expect(auth.canWriteStacks, isTrue);
+        expect(auth.libraryLease, same(lease));
+        expect(storage.values[AuthStorage.kRefreshToken], 'upgraded-refresh');
+
+        final restarted = ProfileAuthService(
+          storage: storage,
+          network: FakeAuthNetworkClient(),
+          library: database.ownedLibraryDao,
+        );
+        await restarted.init();
+        expect(restarted.canReadStacks, isTrue);
+        expect(restarted.canWriteStacks, isTrue);
+      },
+    );
+
+    test('read-only permission stays read-only', () async {
+      replacement = () async => tokenResponse(
+        refreshToken: 'upgraded-refresh',
+        scopes: [...original, 'stack.read'],
+      );
+      await auth.upgradeStackPermissions();
+      expect(auth.canReadStacks, isTrue);
+      expect(auth.canWriteStacks, isFalse);
+    });
+
+    test(
+      'replacement retains existing Stack and previously granted permissions',
+      () async {
+        const all = [...original, 'stack.read', 'stack.write', 'badges'];
+        replacement = () async => tokenResponse(
+          accessToken: 'full-grant',
+          refreshToken: 'full-refresh',
+          scopes: all,
+        );
+        final lease = auth.libraryLease;
+        final initial = auth.stackAuthorizationGeneration;
+        await auth.upgradeStackPermissions();
+        final full = auth.stackAuthorizationGeneration;
+        expect(full, greaterThan(initial));
+        for (final omitted in ['stack.write', 'badges', 'library.write']) {
+          replacement = () async => tokenResponse(
+            accessToken: 'partial-grant',
+            refreshToken: 'partial-refresh',
+            scopes: all.where((scope) => scope != omitted).toList(),
+          );
+          await expectLater(
+            auth.upgradeStackPermissions(),
+            throwsA(
+              isA<AuthException>().having(
+                (error) => error.code,
+                'code',
+                'SCOPE_NOT_GRANTED',
+              ),
+            ),
+          );
+          expect(auth.stackAuthorizationGeneration, full);
+          expect(auth.libraryLease, same(lease));
+          expect(await auth.getValidAccessToken(), 'full-grant');
+          expect(auth.canReadStacks && auth.canWriteStacks, isTrue);
+        }
+        replacement = () async => tokenResponse(
+          accessToken: 'new-full-grant',
+          refreshToken: 'new-full-refresh',
+          scopes: all,
+        );
+        await auth.upgradeStackPermissions();
+        expect(auth.stackAuthorizationGeneration, greaterThan(full));
+        expect(auth.libraryLease, same(lease));
+      },
+    );
+
+    test(
+      'refresh tracks Stack loss and restoration without changing the Library lease',
+      () async {
+        const stackScopes = [...original, 'stack.read', 'stack.write'];
+        replacement = () async => tokenResponse(
+          accessToken: 'with-stacks',
+          refreshToken: 'with-stacks-refresh',
+          scopes: stackScopes,
+        );
+        await auth.upgradeStackPermissions();
+        final lease = auth.libraryLease;
+        final session = auth.sessionGeneration;
+        final granted = auth.stackAuthorizationGeneration;
+        refresh = (token) async {
+          expect(token, 'with-stacks-refresh');
+          return tokenResponse(
+            accessToken: 'library-only',
+            refreshToken: 'library-only-refresh',
+            scopes: original,
+          );
+        };
+        expect(
+          await auth.recoverAfterUnauthorized('with-stacks'),
+          'library-only',
+        );
+        final loss = auth.stackAuthorizationGeneration;
+        expect(loss, greaterThan(granted));
+        expect(auth.canReadStacks || auth.canWriteStacks, isFalse);
+        expect(await auth.getValidAccessToken(), 'library-only');
+        expect(auth.libraryLease, same(lease));
+        expect(auth.sessionGeneration, session);
+        refresh = (token) async {
+          expect(token, 'library-only-refresh');
+          return tokenResponse(
+            accessToken: 'stacks-restored',
+            refreshToken: 'stacks-restored-refresh',
+            scopes: stackScopes,
+          );
+        };
+        expect(
+          await auth.recoverAfterUnauthorized('library-only'),
+          'stacks-restored',
+        );
+        expect(auth.stackAuthorizationGeneration, greaterThan(loss));
+        expect(auth.canReadStacks && auth.canWriteStacks, isTrue);
+        expect(auth.libraryLease, same(lease));
+        expect(auth.sessionGeneration, session);
+      },
+    );
+
+    for (final cancelled in [true, false]) {
+      test(
+        'cancelled or denied consent preserves Library access ($cancelled)',
+        () async {
+          final lease = auth.libraryLease;
+          replacement = () async => throw (cancelled
+              ? AuthCancelledException()
+              : AuthException(message: 'Access denied', code: 'ACCESS_DENIED'));
+          await expectLater(
+            auth.upgradeStackPermissions(),
+            throwsA(isA<AppException>()),
+          );
+          expect(auth.libraryLease, same(lease));
+          expect(auth.isLoggedIn, isTrue);
+          expect(await auth.getValidAccessToken(), 'legacy');
+          expect(auth.canReadStacks, isFalse);
+        },
+      );
+    }
+
+    test(
+      'another account and unverified scopes both retain existing credentials',
+      () async {
+        final lease = auth.libraryLease;
+        replacementOwner = 'other';
+        replacement = () async => tokenResponse(
+          refreshToken: 'not-adopted',
+          scopes: [...original, 'stack.read', 'stack.write'],
+        );
+        await expectLater(
+          auth.upgradeStackPermissions(),
+          throwsA(
+            isA<AuthException>().having(
+              (error) => error.code,
+              'code',
+              'ACCOUNT_MISMATCH',
+            ),
+          ),
+        );
+        replacementOwner = 'user-1';
+        replacement = () async =>
+            tokenResponse(refreshToken: 'not-adopted', scopes: null);
+        await expectLater(
+          auth.upgradeStackPermissions(),
+          throwsA(
+            isA<AuthException>().having(
+              (error) => error.code,
+              'code',
+              'SCOPE_NOT_GRANTED',
+            ),
+          ),
+        );
+        expect(auth.libraryLease, same(lease));
+        expect(await auth.getValidAccessToken(), 'legacy');
+        expect(auth.canReadStacks, isFalse);
+      },
+    );
+
+    test('logout invalidates a pending permission callback', () async {
+      final started = Completer<void>();
+      final callback = Completer<TokenResponse?>();
+      replacement = () {
+        started.complete();
+        return callback.future;
+      };
+      final upgrade = auth.upgradeStackPermissions();
+      final failure = expectLater(
+        upgrade,
+        throwsA(
+          isA<AuthException>().having(
+            (error) => error.code,
+            'code',
+            'SESSION_CHANGED',
+          ),
+        ),
+      );
+      await started.future;
+      await auth.logout();
+      callback.complete(
+        tokenResponse(
+          refreshToken: 'not-adopted',
+          scopes: [...original, 'stack.read', 'stack.write'],
+        ),
+      );
+      await failure;
+      expect(auth.isLoggedIn, isFalse);
+      expect(auth.libraryLease, isNull);
+      expect(storage.values, isEmpty);
+    });
+  });
 
   group('verified Library identity', () {
     MbProfile identity(String id) =>

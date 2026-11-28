@@ -179,7 +179,7 @@ class LibraryScreenState extends State<LibraryScreen>
     if (!identical(_observedLease, _session.lease)) {
       _observedLease = _session.lease;
       _collectionsKey = GlobalKey<LibraryCollectionsPanelState>();
-      collectionSearch.close();
+      collectionSearch.reset();
       collectionSearch.setAvailable(true);
     }
     setState(() {});
@@ -392,7 +392,7 @@ class LibraryScreenState extends State<LibraryScreen>
       contextualSearch: _showCollections
           ? CollectionSearchField(
               search: collectionSearch,
-              label: LocalizationService().translate('collection_search_lists'),
+              label: LocalizationService().translate(collectionSearch.labelKey),
             )
           : null,
       showLibraryActions: !_showCollections,

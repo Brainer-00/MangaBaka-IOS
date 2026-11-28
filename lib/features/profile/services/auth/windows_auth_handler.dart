@@ -297,7 +297,7 @@ class WindowsAuthHandler {
           _expirationFromSeconds(data['expires_in']),
           data['id_token'],
           'Bearer',
-          scopes,
+          (data['scope'] as String?)?.split(RegExp(r'\s+')),
           data,
         );
       }
@@ -383,7 +383,6 @@ class WindowsAuthHandler {
     required String redirectUri,
     required String tokenEndpoint,
     required String refreshToken,
-    required List<String> scopes,
   }) async {
     _logger.info('Refreshing OAuth session on Windows');
 
@@ -403,7 +402,6 @@ class WindowsAuthHandler {
         'grant_type': 'refresh_token',
         'client_id': clientId,
         'refresh_token': refreshToken,
-        'scope': scopes.join(' '),
       },
     );
 
@@ -418,7 +416,7 @@ class WindowsAuthHandler {
         _expirationFromSeconds(data['expires_in']),
         data['id_token'],
         'Bearer',
-        scopes,
+        (data['scope'] as String?)?.split(RegExp(r'\s+')),
         data,
       );
     }

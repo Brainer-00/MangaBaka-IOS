@@ -32,6 +32,8 @@ import 'package:mangabaka_app/features/series/widgets/progress_update_dialog.dar
 import 'package:mangabaka_app/features/series/services/metadata_service.dart';
 import 'package:mangabaka_app/features/series/services/series_search_service.dart';
 import 'package:mangabaka_app/features/series/services/series_service.dart';
+import 'package:mangabaka_app/features/stacks/stack_controller.dart';
+import 'package:mangabaka_app/features/stacks/stack_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _Auth extends ChangeNotifier implements ProfileAuthService {
@@ -40,6 +42,15 @@ class _Auth extends ChangeNotifier implements ProfileAuthService {
 
   @override
   bool get isLoggedIn => libraryLease != null;
+
+  @override
+  bool get canReadStacks => false;
+
+  @override
+  bool get canWriteStacks => false;
+
+  @override
+  int get stackAuthorizationGeneration => 0;
 
   @override
   Future<String> getValidAccessToken() async => 'fixture-token';
@@ -156,6 +167,10 @@ void main() {
     auth = _Auth();
     getIt.registerSingleton<LibraryService>(library);
     getIt.registerSingleton<ProfileAuthService>(auth);
+    getIt.registerLazySingleton<StackController>(
+      () => StackController(StackService(auth)),
+      dispose: (controller) => controller.dispose(),
+    );
     getIt.registerSingleton<SeriesService>(_SeriesService());
     getIt.registerSingleton<MetadataService>(_Metadata());
     getIt.registerSingleton<SeriesSearchService>(
@@ -632,7 +647,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(libraryState.collectionSearch.focus.hasFocus, isFalse);
       expect(
-        find.text('Stacks are not available in this version yet.'),
+        find.text(
+          'Authorize EirenYu to read your created, saved and followed stacks.',
+        ),
         findsOneWidget,
       );
       expect(find.byTooltip('Create list'), findsNothing);

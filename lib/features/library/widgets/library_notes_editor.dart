@@ -186,7 +186,7 @@ class _LibraryNotesEditorState extends State<LibraryNotesEditor> {
                     else
                       Semantics(
                         role: SemanticsRole.tabPanel,
-                        child: _NotePreview(data: widget.controller.text),
+                        child: LibraryNotePreview(data: widget.controller.text),
                       ),
                     if (field.errorText case final error?)
                       Text(error, style: text.copyWith(color: colors.error)),
@@ -361,8 +361,8 @@ TextEditingValue _applyFormat(TextEditingValue value, _Format format) {
   return replace(formatted, from, from + selected.trim().length);
 }
 
-class _NotePreview extends StatelessWidget {
-  const _NotePreview({required this.data});
+class LibraryNotePreview extends StatelessWidget {
+  const LibraryNotePreview({super.key, required this.data});
 
   static final _extensions = md.ExtensionSet(
     const [md.FencedCodeBlockSyntax(), md.TableSyntax()],
@@ -433,7 +433,7 @@ class _SpoilerState extends State<_Spoiler> {
 
   @override
   Widget build(BuildContext context) => _revealed
-      ? _NotePreview(data: '\u200B${widget.data}')
+      ? LibraryNotePreview(data: '\u200B${widget.data}')
       : TextButton(
           onPressed: () => setState(() => _revealed = true),
           child: Text(LocalizationService().translate('notes_reveal_spoiler')),

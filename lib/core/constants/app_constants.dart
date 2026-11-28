@@ -94,6 +94,8 @@ class AppConstants {
     'profile',
     'library.read',
     'library.write',
+    'stack.read',
+    'stack.write',
     'offline_access',
   ];
 

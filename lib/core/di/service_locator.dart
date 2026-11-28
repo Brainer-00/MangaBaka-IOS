@@ -9,6 +9,8 @@ import 'package:mangabaka_app/features/profile/services/profile_auth_service.dar
 import 'package:mangabaka_app/features/profile/services/snapshot_service.dart';
 import 'package:mangabaka_app/core/logging/logging_service.dart';
 import 'package:mangabaka_app/core/network/backend_health_service.dart';
+import 'package:mangabaka_app/features/stacks/stack_controller.dart';
+import 'package:mangabaka_app/features/stacks/stack_service.dart';
 
 import 'package:mangabaka_app/features/news/services/news_service.dart';
 import 'package:mangabaka_app/features/publisher/services/publisher_search_service.dart';
@@ -44,6 +46,10 @@ void setupServiceLocator() {
   getIt.registerSingleton<LibraryService>(
     LibraryService(auth: getIt<ProfileAuthService>()),
     dispose: (service) => service.dispose(),
+  );
+  getIt.registerLazySingleton<StackController>(
+    () => StackController(StackService(getIt<ProfileAuthService>())),
+    dispose: (controller) => controller.dispose(),
   );
 
   getIt.registerLazySingleton<NewsService>(() => NewsService());

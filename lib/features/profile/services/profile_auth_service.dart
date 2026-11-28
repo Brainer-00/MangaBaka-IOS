@@ -51,10 +51,26 @@ class ProfileAuthService extends ChangeNotifier {
   int _sessionGeneration = 0;
   String? _verifiedAccountId;
   LibraryCacheLease? _libraryLease;
+  Set<String> _tokenScopes = const {};
+  int _stackAuthorizationGeneration = 0;
+  bool _loginInFlight = false;
+  Future<void>? _stackUpgrade;
   Future<void> _storageTail = Future<void>.value();
 
   int get sessionGeneration => _sessionGeneration;
   LibraryCacheLease? get libraryLease => _libraryLease;
+  bool get canReadStacks => _tokenScopes.contains('stack.read');
+  bool get canWriteStacks => _tokenScopes.contains('stack.write');
+  int get stackAuthorizationGeneration => _stackAuthorizationGeneration;
+
+  void _setTokenScopes(Set<String> scopes, {bool replaceStackGrant = false}) {
+    if (replaceStackGrant ||
+        canReadStacks != scopes.contains('stack.read') ||
+        canWriteStacks != scopes.contains('stack.write')) {
+      _stackAuthorizationGeneration++;
+    }
+    _tokenScopes = scopes;
+  }
 
   void _requireGeneration(int generation) {
     if (generation != _sessionGeneration) {
@@ -76,7 +92,11 @@ class ProfileAuthService extends ChangeNotifier {
 
   Future<void> _bindAccount(String id, String accessToken) => _storage.write(
     AuthStorage.kVerifiedAccount,
-    jsonEncode({'id': id, 'session': _fingerprint(accessToken)}),
+    jsonEncode({
+      'id': id,
+      'session': _fingerprint(accessToken),
+      'scopes': _tokenScopes.toList(),
+    }),
   );
 
   Future<void> _activateLibrary(String id, int generation) async {
@@ -152,6 +172,10 @@ class ProfileAuthService extends ChangeNotifier {
           final profile = await _storage.getCachedProfile();
           await _activateLibrary(id, generation);
           _requireGeneration(generation);
+          final scopes = binding['scopes'];
+          _setTokenScopes(
+            scopes is List ? scopes.whereType<String>().toSet() : const {},
+          );
           if (profile?.id == id) _cachedProfile = profile;
         });
 
@@ -198,54 +222,15 @@ class ProfileAuthService extends ChangeNotifier {
   }
 
   Future<void> login() async {
+    if (_loginInFlight || _stackUpgrade != null) {
+      throw AuthException(message: 'Authorization already in progress');
+    }
+    _loginInFlight = true;
     final originalGeneration = _sessionGeneration;
     _logger.info('Starting OAuth2 login flow...');
 
     try {
-      if (_clientId.isEmpty || _redirectUri.isEmpty) {
-        _logger.severe('OAuth configuration missing from .env');
-
-        throw AuthException(
-          message:
-              'Missing MANGABAKA_APP_CLIENT_ID or '
-              'MANGABAKA_APP_REDIRECT_URI in .env',
-          code: 'MISSING_CONFIG',
-        );
-      }
-
-      if (_redirectUri != AppConstants.oauthRedirectUri) {
-        throw AuthException(
-          message: 'Invalid OAuth redirect URI',
-          code: 'INVALID_OAUTH_REDIRECT_URI',
-        );
-      }
-
-      TokenResponse? response;
-
-      if (_loginTokens != null) {
-        response = await _loginTokens();
-      } else if (Platform.isWindows) {
-        response = await WindowsAuthHandler.authorizeAndExchangeCode(
-          clientId: _clientId,
-          redirectUri: _redirectUri,
-          authorizationEndpoint: _authorizationEndpoint,
-          tokenEndpoint: _tokenEndpoint,
-          scopes: AppConstants.oauthScopes,
-          onBrowserOpened: () {
-            awaitingBrowser.value = true;
-          },
-        );
-      } else {
-        response = await _appAuth.authorizeAndExchangeCode(
-          AuthorizationTokenRequest(
-            _clientId,
-            _redirectUri,
-            serviceConfiguration: _serviceConfig,
-            scopes: AppConstants.oauthScopes,
-            promptValues: const ['consent'],
-          ),
-        );
-      }
+      final response = await _authorize();
 
       if (response == null) {
         throw AuthException(
@@ -269,7 +254,7 @@ class ProfileAuthService extends ChangeNotifier {
           }
         }
         _requireGeneration(started);
-        await _persistTokens(response!, isRefresh: false);
+        await _persistTokens(response, isRefresh: false);
         _requireGeneration(started);
         _hasSessionCache = true;
         notifyListeners();
@@ -315,13 +300,159 @@ class ProfileAuthService extends ChangeNotifier {
 
       throw AuthException(message: 'Login failed', code: 'LOGIN_FAILED');
     } finally {
+      _loginInFlight = false;
       awaitingBrowser.value = false;
     }
   }
 
+  Future<TokenResponse?> _authorize([
+    List<String> scopes = AppConstants.oauthScopes,
+  ]) async {
+    if (_clientId.isEmpty || _redirectUri.isEmpty) {
+      throw AuthException(
+        message: 'Missing OAuth client configuration',
+        code: 'MISSING_CONFIG',
+      );
+    }
+    if (_redirectUri != AppConstants.oauthRedirectUri) {
+      throw AuthException(
+        message: 'Invalid OAuth redirect URI',
+        code: 'INVALID_OAUTH_REDIRECT_URI',
+      );
+    }
+    if (_loginTokens != null) return _loginTokens();
+    if (Platform.isWindows) {
+      return WindowsAuthHandler.authorizeAndExchangeCode(
+        clientId: _clientId,
+        redirectUri: _redirectUri,
+        authorizationEndpoint: _authorizationEndpoint,
+        tokenEndpoint: _tokenEndpoint,
+        scopes: scopes,
+        onBrowserOpened: () => awaitingBrowser.value = true,
+      );
+    }
+    return _appAuth.authorizeAndExchangeCode(
+      AuthorizationTokenRequest(
+        _clientId,
+        _redirectUri,
+        serviceConfiguration: _serviceConfig,
+        scopes: scopes,
+        promptValues: const ['consent'],
+      ),
+    );
+  }
+
+  Future<void> upgradeStackPermissions() async {
+    if (_loginInFlight || _stackUpgrade != null) {
+      throw AuthException(message: 'Authorization already in progress');
+    }
+    final accountId = _verifiedAccountId;
+    if (accountId == null) throw AuthException(message: 'Account unavailable');
+    final generation = _sessionGeneration;
+    final refresh = _refreshInFlight;
+    final upgrade = _upgradeStackPermissions(accountId, generation, refresh);
+    _stackUpgrade = upgrade;
+    try {
+      await upgrade;
+    } on FlutterAppAuthUserCancelledException {
+      throw AuthCancelledException();
+    } finally {
+      _stackUpgrade = null;
+      awaitingBrowser.value = false;
+    }
+  }
+
+  Future<void> _upgradeStackPermissions(
+    String accountId,
+    int generation,
+    Future<void>? refresh,
+  ) async {
+    await refresh;
+    _requireGeneration(generation);
+    var previous = _tokenScopes;
+    if (previous.isEmpty) {
+      // Older stored sessions may not have a verified scope list yet.
+      final currentToken = await _storage.read(AuthStorage.kAccessToken);
+      _requireGeneration(generation);
+      if (currentToken == null) throw SessionExpiredException();
+      final current = await _network.fetchProfile(currentToken);
+      _requireGeneration(generation);
+      if (current.id != accountId || current.scopes.isEmpty) {
+        throw AuthException(
+          message: 'The current permissions could not be verified',
+          code: 'SCOPE_NOT_GRANTED',
+        );
+      }
+      previous = current.scopes.toSet();
+    }
+    final response = await _authorize(
+      {...AppConstants.oauthScopes, ...previous}.toList(),
+    );
+    _requireGeneration(generation);
+    final token = response?.accessToken;
+    if (response == null || token == null || token.isEmpty) {
+      throw AuthException(message: 'Authorization did not return credentials');
+    }
+    final profile = await _network.fetchProfile(token);
+    _requireGeneration(generation);
+    if (profile.id != accountId) {
+      throw AuthException(
+        message: 'Authorize with the account already signed in',
+        code: 'ACCOUNT_MISMATCH',
+      );
+    }
+    final scopes = _responseScopes(response) ?? profile.scopes.toSet();
+    final previousRequired = {
+      ...AppConstants.oauthScopes.where((scope) => !scope.startsWith('stack.')),
+      ...previous,
+    };
+    if (!scopes.containsAll(previousRequired) ||
+        !scopes.contains('stack.read') ||
+        response.refreshToken?.isNotEmpty != true) {
+      throw AuthException(
+        message: 'The requested permissions could not be verified',
+        code: 'SCOPE_NOT_GRANTED',
+      );
+    }
+    await _withStorage(() async {
+      _requireGeneration(generation);
+      await _persistTokens(
+        response,
+        isRefresh: false,
+        scopes: scopes,
+        replaceStackGrant: true,
+      );
+      _requireGeneration(generation);
+      try {
+        await _storage.cacheProfile(profile);
+        await _bindAccount(accountId, token);
+      } catch (_) {
+        if (generation == _sessionGeneration) {
+          try {
+            await _endIdentity();
+          } finally {
+            await _forgetCredentials();
+          }
+        }
+        throw AuthException(
+          message: 'Failed to persist verified Stack authorization',
+          code: 'TOKEN_PERSIST_FAILED',
+        );
+      }
+      _requireGeneration(generation);
+      _cachedProfile = profile;
+      notifyListeners();
+    });
+  }
+
+  Set<String>? _responseScopes(TokenResponse response) =>
+      response.scopes?.where((scope) => scope.isNotEmpty).toSet();
+
   Future<void> _persistTokens(
     TokenResponse response, {
     required bool isRefresh,
+    Set<String>? scopes,
+    bool replaceStackGrant = false,
   }) async {
     final accessToken = response.accessToken;
 
@@ -363,6 +494,12 @@ class ProfileAuthService extends ChangeNotifier {
       } else {
         await _storage.delete(AuthStorage.kAccessTokenExp);
       }
+      _setTokenScopes(
+        scopes ??
+            _responseScopes(response) ??
+            (isRefresh ? _tokenScopes : const {}),
+        replaceStackGrant: replaceStackGrant,
+      );
       if (isRefresh && _verifiedAccountId != null) {
         await _bindAccount(_verifiedAccountId!, accessToken);
       }
@@ -393,6 +530,12 @@ class ProfileAuthService extends ChangeNotifier {
     final existing = _refreshInFlight;
     if (existing != null) {
       return existing;
+    }
+    final upgrade = _stackUpgrade;
+    if (upgrade != null) {
+      return upgrade
+          .then<void>((_) {}, onError: (Object _, StackTrace _) {})
+          .then((_) => _refresh(force: force));
     }
 
     final refresh = _runRefresh(force: force);
@@ -461,7 +604,6 @@ class ProfileAuthService extends ChangeNotifier {
           redirectUri: _redirectUri,
           tokenEndpoint: _tokenEndpoint,
           refreshToken: refreshToken,
-          scopes: AppConstants.oauthScopes,
         );
       } else {
         response = await _appAuth.token(
@@ -470,7 +612,6 @@ class ProfileAuthService extends ChangeNotifier {
             _redirectUri,
             serviceConfiguration: _serviceConfig,
             refreshToken: refreshToken,
-            scopes: AppConstants.oauthScopes,
           ),
         );
       }
@@ -509,9 +650,11 @@ class ProfileAuthService extends ChangeNotifier {
 
     await _withStorage(() async {
       _requireGeneration(generation);
+      final previousScopes = _tokenScopes;
       await _persistTokens(response!, isRefresh: true);
       _requireGeneration(generation);
       _successfulRefreshGeneration++;
+      if (!setEquals(previousScopes, _tokenScopes)) notifyListeners();
     });
   }
 
@@ -614,6 +757,7 @@ class ProfileAuthService extends ChangeNotifier {
     _libraryLease = null;
     _verifiedAccountId = null;
     _cachedProfile = null;
+    _setTokenScopes(const {});
     _hasSessionCache = false;
 
     if (notify) {
@@ -652,7 +796,7 @@ class ProfileAuthService extends ChangeNotifier {
 
       await _refreshIfNeeded();
 
-      final accessToken = await _storage.read(AuthStorage.kAccessToken);
+      var accessToken = await _storage.read(AuthStorage.kAccessToken);
       _requireGeneration(generation);
 
       if (accessToken == null || accessToken.isEmpty) {
@@ -669,6 +813,7 @@ class ProfileAuthService extends ChangeNotifier {
         _requireGeneration(generation);
         final recoveredToken = await recoverAfterUnauthorized(accessToken);
         profile = await _network.fetchProfile(recoveredToken);
+        accessToken = recoveredToken;
       }
 
       return await _withStorage(() async {
@@ -692,6 +837,14 @@ class ProfileAuthService extends ChangeNotifier {
         }
         final token = await _storage.read(AuthStorage.kAccessToken);
         if (token == null || token.isEmpty) throw SessionExpiredException();
+        if (token != accessToken) {
+          throw AuthException(
+            message: 'Credentials changed during profile read',
+          );
+        }
+        if (_tokenScopes.isEmpty && profile.scopes.isNotEmpty) {
+          _setTokenScopes(profile.scopes.toSet());
+        }
         await _storage.cacheProfile(profile);
         await _bindAccount(profile.id, token);
         await _activateLibrary(profile.id, generation);

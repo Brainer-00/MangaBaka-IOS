@@ -307,7 +307,9 @@ class _ListEditorState extends State<_ListEditor>
               top: false,
               child: SingleChildScrollView(
                 controller: scroll,
-                physics: const AlwaysScrollableScrollPhysics(),
+                physics: const ClampingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
                 padding: const EdgeInsets.all(20),
                 child: !valid
                     ? _CollectionMessage(
@@ -714,18 +716,35 @@ Widget _collectionSheet(
   required bool Function() canDrag,
   required Future<void> Function() onDismiss,
   required Widget Function(ScrollController) builder,
-}) => Padding(
-  padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-  child: GuardedDraggableSheet(
-    openExtent: long ? .9 : .64,
-    dismissExtent: long ? .42 : .28,
-    canDrag: canDrag,
-    onDismiss: onDismiss,
-    builder: (context, scroll, handle) => Column(
-      children: [
-        ?handle,
-        Expanded(child: builder(scroll)),
-      ],
-    ),
-  ),
-);
+}) {
+  Widget content(
+    BuildContext context,
+    ScrollController scroll,
+    Widget? handle,
+  ) => Column(
+    mainAxisSize: long ? MainAxisSize.max : MainAxisSize.min,
+    children: [
+      ?handle,
+      if (long)
+        Expanded(child: builder(scroll))
+      else
+        Flexible(child: builder(scroll)),
+    ],
+  );
+  return Padding(
+    padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+    child: long
+        ? GuardedDraggableSheet(
+            openExtent: .9,
+            dismissExtent: .42,
+            canDrag: canDrag,
+            onDismiss: onDismiss,
+            builder: content,
+          )
+        : GuardedDraggableSheet.compact(
+            canDrag: canDrag,
+            onDismiss: onDismiss,
+            builder: content,
+          ),
+  );
+}

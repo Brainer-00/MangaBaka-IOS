@@ -126,7 +126,7 @@ class DesktopLibraryScreenState extends State<DesktopLibraryScreen>
       if (!identical(_observedLease, _session.lease)) {
         _observedLease = _session.lease;
         _collectionsKey = GlobalKey<LibraryCollectionsPanelState>();
-        _collectionSearch.close();
+        _collectionSearch.reset();
         _collectionSearch.setAvailable(true);
       }
     });

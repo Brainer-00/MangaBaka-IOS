@@ -17,7 +17,17 @@ class GuardedDraggableSheet extends StatefulWidget {
     required this.onDismiss,
     required this.builder,
     this.handleKey = const ValueKey('editor_sheet_drag_handle'),
-  });
+  }) : fitContent = false;
+
+  const GuardedDraggableSheet.compact({
+    super.key,
+    required this.canDrag,
+    required this.onDismiss,
+    required this.builder,
+    this.handleKey = const ValueKey('editor_sheet_drag_handle'),
+  }) : fitContent = true,
+       openExtent = 1,
+       dismissExtent = 0;
 
   final double openExtent;
   final double dismissExtent;
@@ -25,6 +35,7 @@ class GuardedDraggableSheet extends StatefulWidget {
   final FutureOr<void> Function() onDismiss;
   final Widget Function(BuildContext, ScrollController, Widget?) builder;
   final Key handleKey;
+  final bool fitContent;
 
   @override
   State<GuardedDraggableSheet> createState() => _GuardedDraggableSheetState();
@@ -32,6 +43,9 @@ class GuardedDraggableSheet extends StatefulWidget {
 
 class _GuardedDraggableSheetState extends State<GuardedDraggableSheet> {
   final _sheet = DraggableScrollableController();
+  final _compactScroll = ScrollController();
+  double _handleDrag = 0;
+  double _contentDrag = 0;
   bool _keyboardAtPointerDown = false;
   bool _requesting = false;
 
@@ -46,6 +60,7 @@ class _GuardedDraggableSheetState extends State<GuardedDraggableSheet> {
   @override
   void dispose() {
     _sheet.dispose();
+    _compactScroll.dispose();
     super.dispose();
   }
 
@@ -87,6 +102,13 @@ class _GuardedDraggableSheetState extends State<GuardedDraggableSheet> {
   }
 
   void _endHandleDrag([DragEndDetails? details]) {
+    if (widget.fitContent) {
+      if (_handleDrag >= 48 || (details?.primaryVelocity ?? 0) > 700) {
+        unawaited(_request());
+      }
+      _handleDrag = 0;
+      return;
+    }
     if (!_canDrag || !_sheet.isAttached) return;
     if (_sheet.size <= (widget.openExtent + widget.dismissExtent) / 2 ||
         (details?.primaryVelocity ?? 0) > 700) {
@@ -112,7 +134,12 @@ class _GuardedDraggableSheetState extends State<GuardedDraggableSheet> {
         behavior: HitTestBehavior.opaque,
         onVerticalDragUpdate: enabled
             ? (details) {
-                if (!_canDrag || !_sheet.isAttached) return;
+                if (!_canDrag) return;
+                if (widget.fitContent) {
+                  _handleDrag += details.delta.dy;
+                  return;
+                }
+                if (!_sheet.isAttached) return;
                 _sheet.jumpTo(
                   (_sheet.size - _sheet.pixelsToSize(details.delta.dy)).clamp(
                     widget.dismissExtent,
@@ -143,34 +170,68 @@ class _GuardedDraggableSheetState extends State<GuardedDraggableSheet> {
     );
   }
 
+  Widget _material(BuildContext context, ScrollController scroll) => Material(
+    color: context.colors.surface,
+    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+    clipBehavior: Clip.antiAlias,
+    child: widget.builder(
+      context,
+      scroll,
+      _keyboardVisible ? null : _handle(context),
+    ),
+  );
+
+  bool _onCompactScroll(ScrollNotification notification) {
+    if (notification.depth != 0 || !_canDrag) return false;
+    if (notification is OverscrollNotification &&
+        notification.dragDetails != null) {
+      _contentDrag = (_contentDrag - notification.overscroll).clamp(0, 96);
+    }
+    if (notification is ScrollUpdateNotification &&
+        notification.dragDetails != null) {
+      final metrics = notification.metrics;
+      if (metrics.pixels < metrics.minScrollExtent) {
+        _contentDrag = metrics.minScrollExtent - metrics.pixels;
+      } else {
+        _contentDrag = 0;
+      }
+    }
+    if (notification is ScrollEndNotification && _contentDrag >= 48) {
+      _contentDrag = 0;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_request());
+      });
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) => Listener(
-    onPointerDown: (_) => _keyboardAtPointerDown = _keyboardVisible,
+    onPointerDown: (_) {
+      _keyboardAtPointerDown = _keyboardVisible;
+      _contentDrag = 0;
+    },
     onPointerUp: (_) {
       if (_keyboardAtPointerDown || !widget.canDrag()) _reopen();
     },
-    child: NotificationListener<DraggableScrollableNotification>(
-      onNotification: _onExtent,
-      child: DraggableScrollableSheet(
-        controller: _sheet,
-        expand: false,
-        initialChildSize: widget.openExtent,
-        maxChildSize: widget.openExtent,
-        minChildSize: widget.dismissExtent,
-        shouldCloseOnMinExtent: false,
-        snap: true,
-        builder: (context, scroll) => Material(
-          color: context.colors.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          clipBehavior: Clip.antiAlias,
-          child: widget.builder(
-            context,
-            scroll,
-            _keyboardVisible ? null : _handle(context),
+    child: widget.fitContent
+        ? NotificationListener<ScrollNotification>(
+            onNotification: _onCompactScroll,
+            child: _material(context, _compactScroll),
+          )
+        : NotificationListener<DraggableScrollableNotification>(
+            onNotification: _onExtent,
+            child: DraggableScrollableSheet(
+              controller: _sheet,
+              expand: false,
+              initialChildSize: widget.openExtent,
+              maxChildSize: widget.openExtent,
+              minChildSize: widget.dismissExtent,
+              shouldCloseOnMinExtent: false,
+              snap: true,
+              builder: _material,
+            ),
           ),
-        ),
-      ),
-    ),
   );
 }
 

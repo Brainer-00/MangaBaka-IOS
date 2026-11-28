@@ -7,9 +7,23 @@ class CollectionHeaderSearch extends ChangeNotifier {
   final focus = FocusNode();
   bool _available = true;
   bool _expanded = false;
+  String _labelKey = 'collection_search_lists';
+  final _queries = <String, ({String text, bool expanded})>{};
 
   bool get available => _available;
   bool get expanded => _available && _expanded;
+  String get labelKey => _labelKey;
+
+  void switchContext(String labelKey) {
+    if (_labelKey == labelKey) return;
+    focus.unfocus();
+    _queries[_labelKey] = (text: text.text, expanded: _expanded);
+    _labelKey = labelKey;
+    final previous = _queries[labelKey];
+    text.text = previous?.text ?? '';
+    _expanded = previous?.expanded ?? false;
+    notifyListeners();
+  }
 
   void setAvailable(bool value) {
     if (_available == value) return;
@@ -30,6 +44,12 @@ class CollectionHeaderSearch extends ChangeNotifier {
     text.clear();
     _expanded = false;
     notifyListeners();
+  }
+
+  void reset() {
+    _queries.clear();
+    _labelKey = 'collection_search_lists';
+    close();
   }
 
   @override
@@ -84,7 +104,7 @@ class CollectionSearchSlot extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: search,
     builder: (context, _) {
-      final label = LocalizationService().translate('collection_search_lists');
+      final label = LocalizationService().translate(search.labelKey);
       if (search.expanded) {
         return CollectionSearchField(search: search, label: label);
       }

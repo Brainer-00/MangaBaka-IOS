@@ -22,6 +22,8 @@ import 'package:mangabaka_app/features/profile/widgets/login/mb_login_prompt.dar
 import 'package:mangabaka_app/features/series/models/series.dart';
 import 'package:mangabaka_app/features/series/screens/series_detail_screen.dart';
 import 'package:mangabaka_app/features/series/widgets/entry_list_item.dart';
+import 'package:mangabaka_app/features/stacks/stack_controller.dart';
+import 'package:mangabaka_app/features/stacks/stack_ui.dart';
 import 'package:mangabaka_app/shared/transitions/app_transitions.dart';
 
 part 'library_collection_detail.dart';
@@ -132,9 +134,14 @@ class LibraryCollectionsPanelState extends State<LibraryCollectionsPanel>
     with WidgetsBindingObserver {
   late final _Catalog? _catalog;
   final _storage = PageStorageBucket();
+  final _stacksKey = GlobalKey<StackOverviewState>();
   var _stacks = false;
   Future<void> refresh() async {
-    if (!_stacks) await _catalog?.refresh();
+    if (_stacks) {
+      await _stacksKey.currentState?.refresh();
+    } else {
+      await _catalog?.refresh();
+    }
   }
 
   bool? _private;
@@ -183,7 +190,9 @@ class LibraryCollectionsPanelState extends State<LibraryCollectionsPanel>
             if (_stacks == (index == 1)) return;
             FocusScope.of(context).unfocus();
             setState(() => _stacks = index == 1);
-            widget.search.setAvailable(!_stacks);
+            widget.search.switchContext(
+              _stacks ? 'stack_search' : 'collection_search_lists',
+            );
             _setActive();
           },
         ),
@@ -204,7 +213,28 @@ class LibraryCollectionsPanelState extends State<LibraryCollectionsPanel>
                   onLogin: widget.onLogin,
                   message: _t('login_prompt_library'),
                 ),
-              _CollectionMessage(_t('collection_stacks_unavailable')),
+              if (!widget.loggedIn)
+                MBLoginPrompt(
+                  onLogin: widget.onLogin,
+                  message: _t('login_prompt_library'),
+                )
+              else if (widget.lease == null)
+                const Center(child: CircularProgressIndicator())
+              else if (_stacks || _stacksKey.currentState != null)
+                PageStorage(
+                  bucket: _storage,
+                  child: ExcludeFocus(
+                    excluding: !_stacks,
+                    child: StackOverview(
+                      key: _stacksKey,
+                      controller: getIt<StackController>(),
+                      search: widget.search,
+                      active: widget.active && _stacks,
+                    ),
+                  ),
+                )
+              else
+                const SizedBox.shrink(),
             ],
           ),
         ),
